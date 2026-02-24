@@ -1,5 +1,7 @@
 import { useState, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useData } from '@/context/DataContext';
+import { fetchRecibos, fetchTimbrados, hasApi } from '@/api/recibos';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -7,17 +9,22 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 
 const Recibos = () => {
+  const useApi = hasApi();
   const {
-    recibos,
+    recibos: contextRecibos,
     addRecibo,
     updateRecibo,
-    timbrados,
+    timbrados: contextTimbrados,
     contratos,
     allowedZonaIds,
     mensajeGlobalRecibos,
     setMensajeGlobalRecibos,
     pagosParcialidad,
   } = useData();
+  const { data: apiRecibos = [] } = useQuery({ queryKey: ['recibos'], queryFn: fetchRecibos, enabled: useApi });
+  const { data: apiTimbrados = [] } = useQuery({ queryKey: ['timbrados'], queryFn: fetchTimbrados, enabled: useApi });
+  const recibos = useApi ? apiRecibos : contextRecibos;
+  const timbrados = useApi ? apiTimbrados : contextTimbrados;
   const [showMensajeIndividual, setShowMensajeIndividual] = useState(false);
   const [selectedReciboIds, setSelectedReciboIds] = useState<Set<string>>(new Set());
   const [mensajeIndividualTexto, setMensajeIndividualTexto] = useState('');
@@ -39,6 +46,7 @@ const Recibos = () => {
   );
 
   const generarRecibo = (t: typeof timbrados[0]) => {
+    if (useApi) return;
     addRecibo({
       timbradoId: t.id,
       contratoId: t.contratoId,
@@ -76,6 +84,7 @@ const Recibos = () => {
   };
 
   const aplicarMensajeIndividual = () => {
+    if (useApi) return;
     selectedReciboIds.forEach(id => updateRecibo(id, { mensajeIndividual: mensajeIndividualTexto }));
     setSelectedReciboIds(new Set());
     setMensajeIndividualTexto('');
@@ -109,7 +118,7 @@ const Recibos = () => {
           <h3 className="section-title">Generar recibos</h3>
           <div className="flex gap-2 flex-wrap">
             {timbradosOK.map(t => (
-              <Button key={t.id} variant="outline" size="sm" onClick={() => generarRecibo(t)}>
+              <Button key={t.id} variant="outline" size="sm" onClick={() => generarRecibo(t)} disabled={useApi}>
                 Recibo {t.contratoId}
               </Button>
             ))}
@@ -146,7 +155,7 @@ const Recibos = () => {
                   <td>{r.impreso ? <span className="status-badge status-success">Sí</span> : <span className="status-badge status-warning">No</span>}</td>
                   <td className="flex gap-1">
                     <Button size="sm" variant="outline" onClick={() => setPreviewReciboId(r.id)}>Vista previa</Button>
-                    {!r.impreso && <Button size="sm" onClick={() => updateRecibo(r.id, { impreso: true })}>Imprimir</Button>}
+                    {!r.impreso && <Button size="sm" onClick={() => updateRecibo(r.id, { impreso: true })} disabled={useApi}>Imprimir</Button>}
                   </td>
                 </tr>
               );
@@ -260,7 +269,7 @@ const Recibos = () => {
             onChange={e => setMensajeIndividualTexto(e.target.value)}
             className="min-h-[60px]"
           />
-          <Button onClick={aplicarMensajeIndividual} disabled={selectedReciboIds.size === 0 || !mensajeIndividualTexto.trim()}>
+          <Button onClick={aplicarMensajeIndividual} disabled={useApi || selectedReciboIds.size === 0 || !mensajeIndividualTexto.trim()}>
             Aplicar a {selectedReciboIds.size} recibo(s)
           </Button>
         </DialogContent>

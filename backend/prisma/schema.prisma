@@ -1,0 +1,201 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---- Territorial ----
+model Administracion {
+  id        String   @id @default(cuid())
+  nombre    String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  zonas     Zona[]
+
+  @@map("administraciones")
+}
+
+model Zona {
+  id                 String   @id @default(cuid())
+  administracionId   String   @map("administracion_id")
+  nombre             String
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+  administracion     Administracion @relation(fields: [administracionId], references: [id], onDelete: Restrict)
+  distritos          Distrito[]
+  contratos          Contrato[]
+  rutas              Ruta[]
+  medidoresBodega    MedidorBodega[] @relation("MedidorBodegaZona")
+
+  @@index([administracionId])
+  @@map("zonas")
+}
+
+model Distrito {
+  id        String   @id @default(cuid())
+  zonaId    String   @map("zona_id")
+  nombre    String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  zona      Zona     @relation(fields: [zonaId], references: [id], onDelete: Restrict)
+  rutas     Ruta[]
+
+  @@index([zonaId])
+  @@map("distritos")
+}
+
+// ---- Ciclo de obra ----
+model Factibilidad {
+  id           String   @id @default(cuid())
+  predio       String
+  solicitante  String
+  direccion    String
+  estado       String
+  fecha        String
+  notas        String  @default("")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  construcciones Construccion[]
+
+  @@map("factibilidades")
+}
+
+model Construccion {
+  id             String   @id @default(cuid())
+  factibilidadId String   @map("factibilidad_id")
+  nombre         String
+  ubicacion       String
+  estado         String
+  fecha          String
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+  factibilidad   Factibilidad @relation(fields: [factibilidadId], references: [id], onDelete: Restrict)
+  tomas          Toma[]
+
+  @@index([factibilidadId])
+  @@map("construcciones")
+}
+
+model Toma {
+  id             String   @id @default(cuid())
+  construccionId String   @map("construccion_id")
+  ubicacion      String
+  tipo           String   // Agua | Saneamiento | Alcantarillado
+  estado         String   // Disponible | Asignada
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+  construccion   Construccion @relation(fields: [construccionId], references: [id], onDelete: Restrict)
+  contratos      Contrato[]
+
+  @@index([construccionId])
+  @@map("tomas")
+}
+
+// ---- Contratos y medidores ----
+model Contrato {
+  id                     String   @id @default(cuid())
+  tomaId                 String?  @map("toma_id")
+  tipoContrato           String   @map("tipo_contrato")
+  tipoServicio           String   @map("tipo_servicio")
+  nombre                 String
+  rfc                    String
+  direccion              String
+  contacto               String
+  estado                 String
+  fecha                  String
+  medidorId              String?  @map("medidor_id")
+  rutaId                 String?  @map("ruta_id")
+  zonaId                 String?  @map("zona_id")
+  domiciliado            Boolean  @default(false)
+  fechaReconexionPrevista String?  @map("fecha_reconexion_prevista")
+  createdAt              DateTime @default(now()) @map("created_at")
+  updatedAt              DateTime @updatedAt @map("updated_at")
+  toma                   Toma?    @relation(fields: [tomaId], references: [id], onDelete: SetNull)
+  zona                   Zona?    @relation(fields: [zonaId], references: [id], onDelete: SetNull)
+  ruta                   Ruta?    @relation(fields: [rutaId], references: [id], onDelete: SetNull)
+  medidor                Medidor?
+  costosContrato         CostoContrato[]
+
+  @@index([tomaId])
+  @@index([rutaId])
+  @@index([zonaId])
+  @@index([medidorId])
+  @@map("contratos")
+}
+
+model CostoContrato {
+  id          String   @id @default(cuid())
+  contratoId  String   @map("contrato_id")
+  concepto    String
+  monto       Decimal  @db.Decimal(10, 2)
+  periodo     String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  contrato    Contrato @relation(fields: [contratoId], references: [id], onDelete: Cascade)
+
+  @@index([contratoId])
+  @@map("costos_contrato")
+}
+
+model Medidor {
+  id              String   @id @default(cuid())
+  contratoId      String   @unique @map("contrato_id")
+  serie           String
+  estado          String
+  cobroDiferido   Boolean  @default(false) @map("cobro_diferido")
+  lecturaInicial  Int      @map("lectura_inicial")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  contrato        Contrato @relation(fields: [contratoId], references: [id], onDelete: Cascade)
+
+  @@index([contratoId])
+  @@map("medidores")
+}
+
+model MedidorBodega {
+  id        String   @id @default(cuid())
+  serie     String
+  zonaId    String?  @map("zona_id")
+  estado    String   // Disponible | En reparación
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  zona      Zona?    @relation("MedidorBodegaZona", fields: [zonaId], references: [id], onDelete: SetNull)
+
+  @@index([zonaId])
+  @@map("medidores_bodega")
+}
+
+model Ruta {
+  id          String   @id @default(cuid())
+  zonaId      String   @map("zona_id")
+  distritoId  String?  @map("distrito_id")
+  sector      String
+  libreta     String
+  lecturista  String
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  zona        Zona     @relation(fields: [zonaId], references: [id], onDelete: Restrict)
+  distrito    Distrito? @relation(fields: [distritoId], references: [id], onDelete: SetNull)
+  contratos   Contrato[]
+
+  @@index([zonaId])
+  @@index([distritoId])
+  @@map("rutas")
+}
+
+// ---- Auth ----
+model User {
+  id                  String   @id @default(cuid())
+  email               String   @unique
+  passwordHash        String   @map("password_hash")
+  name                String
+  administracionIds   String[] @map("administracion_ids")
+  zonaIds             String[] @map("zona_ids")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  @@map("users")
+}

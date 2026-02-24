@@ -1,5 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useData } from '@/context/DataContext';
+import { fetchContratos, createContrato, hasApi, type CreateContratoDto } from '@/api/contratos';
 import StatusBadge from '@/components/StatusBadge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,9 +11,23 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useSearchParams } from 'react-router-dom';
 
 const Contratos = () => {
-  const { contratos, tomas, addContrato, allowedZonaIds, timbrados, recibos, preFacturas, pagos } = useData();
+  const queryClient = useQueryClient();
+  const useApi = hasApi();
+  const { contratos: contextContratos, tomas, addContrato, allowedZonaIds, timbrados, recibos, preFacturas, pagos } = useData();
+
+  const { data: apiContratos = [], isLoading } = useQuery({
+    queryKey: ['contratos'],
+    queryFn: fetchContratos,
+    enabled: useApi,
+  });
+  const createMutation = useMutation({
+    mutationFn: (dto: CreateContratoDto) => createContrato(dto),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['contratos'] }),
+  });
+
+  const contratos = useApi ? apiContratos : contextContratos;
   const contratosVisibles = useMemo(() =>
-    !allowedZonaIds ? contratos : contratos.filter(c => c.zonaId && allowedZonaIds.includes(c.zonaId)),
+    !allowedZonaIds ? contratos : contratos.filter((c: { zonaId?: string }) => c.zonaId && allowedZonaIds.includes(c.zonaId)),
     [contratos, allowedZonaIds]
   );
   const [showWizard, setShowWizard] = useState(false);
@@ -32,10 +48,21 @@ const Contratos = () => {
   const contratoIdsVisibles = useMemo(() => new Set(contratosVisibles.map(c => c.id)), [contratosVisibles]);
 
   const handleCreate = () => {
-    addContrato({ ...form, estado: 'Pendiente de alta', fecha: new Date().toISOString().split('T')[0] });
-    setForm({ tomaId: '', tipoContrato: '', tipoServicio: '', nombre: '', rfc: '', direccion: '', contacto: '' });
-    setStep(1);
-    setShowWizard(false);
+    const payload = { ...form, estado: 'Pendiente de alta', fecha: new Date().toISOString().split('T')[0] };
+    if (useApi) {
+      createMutation.mutate(payload as CreateContratoDto, {
+        onSuccess: () => {
+          setForm({ tomaId: '', tipoContrato: '', tipoServicio: '', nombre: '', rfc: '', direccion: '', contacto: '' });
+          setStep(1);
+          setShowWizard(false);
+        },
+      });
+    } else {
+      addContrato(payload);
+      setForm({ tomaId: '', tipoContrato: '', tipoServicio: '', nombre: '', rfc: '', direccion: '', contacto: '' });
+      setStep(1);
+      setShowWizard(false);
+    }
   };
 
   const selected = contratosVisibles.find(c => c.id === detail);
@@ -88,10 +115,13 @@ const Contratos = () => {
       </div>
 
       <div className="rounded-lg border overflow-hidden">
+        {isLoading && useApi && (
+          <div className="p-4 text-center text-muted-foreground">Cargando contratos…</div>
+        )}
         <table className="data-table">
           <thead><tr><th>ID</th><th>Titular</th><th>Tipo</th><th>Servicio</th><th>Estado</th><th>Fecha</th><th></th></tr></thead>
           <tbody>
-            {contratosVisibles.map(c => (
+            {contratosVisibles.map((c: { id: string; nombre: string; tipoContrato: string; tipoServicio: string; estado: string; fecha: string }) => (
               <tr key={c.id}>
                 <td className="font-mono text-xs">{c.id}</td>
                 <td>{c.nombre}</td>
@@ -178,8 +208,13 @@ const Contratos = () => {
               </div>
               <div className="flex gap-2">
                 <Button variant="outline" onClick={() => setStep(2)} className="flex-1">Atrás</Button>
-                <Button onClick={handleCreate} className="flex-1">Crear contrato</Button>
+                <Button onClick={handleCreate} className="flex-1" disabled={useApi && createMutation.isPending}>
+                  {useApi && createMutation.isPending ? 'Creando…' : 'Crear contrato'}
+                </Button>
               </div>
+              {useApi && createMutation.isError && (
+                <p className="text-sm text-destructive">{createMutation.error?.message ?? 'Error al crear contrato'}</p>
+              )}
             </div>
           )}
         </DialogContent>

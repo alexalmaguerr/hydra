@@ -1,6 +1,9 @@
 import { useState, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useData } from '@/context/DataContext';
 import type { TipoPago } from '@/context/DataContext';
+import { fetchPagos, fetchPagosExternos, hasApi } from '@/api/pagos';
+import { fetchRecibos } from '@/api/recibos';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -13,15 +16,22 @@ const TIPOS_PAGO: TipoPago[] = [
 ];
 
 const Pagos = () => {
+  const useApi = hasApi();
   const {
-    pagos,
+    pagos: contextPagos,
     addPago,
     contratos,
-    recibos,
+    recibos: contextRecibos,
     allowedZonaIds,
-    pagosExternos,
+    pagosExternos: contextPagosExternos,
     conciliarPagoExterno,
   } = useData();
+  const { data: apiPagos = [] } = useQuery({ queryKey: ['pagos'], queryFn: fetchPagos, enabled: useApi });
+  const { data: apiPagosExternos = [] } = useQuery({ queryKey: ['pagos-externos'], queryFn: fetchPagosExternos, enabled: useApi });
+  const { data: apiRecibos = [] } = useQuery({ queryKey: ['recibos'], queryFn: fetchRecibos, enabled: useApi });
+  const pagos = useApi ? apiPagos : contextPagos;
+  const pagosExternos = useApi ? apiPagosExternos : contextPagosExternos;
+  const recibos = useApi ? apiRecibos : contextRecibos;
   const [form, setForm] = useState({ contratoId: '', monto: '', tipo: '' as TipoPago | '', concepto: '' });
   const [conciliarExternoId, setConciliarExternoId] = useState<string | null>(null);
   const [conciliarContratoId, setConciliarContratoId] = useState('');
@@ -43,6 +53,7 @@ const Pagos = () => {
   );
 
   const handlePago = () => {
+    if (useApi) return;
     addPago({
       contratoId: form.contratoId,
       monto: Number(form.monto),
@@ -54,6 +65,7 @@ const Pagos = () => {
   };
 
   const handleConciliar = () => {
+    if (useApi) return;
     if (conciliarExternoId && conciliarContratoId) {
       conciliarPagoExterno(conciliarExternoId, conciliarContratoId);
       setConciliarExternoId(null);
@@ -101,7 +113,7 @@ const Pagos = () => {
                   </SelectContent>
                 </Select>
                 <Input placeholder="Concepto" value={form.concepto} onChange={e => setForm({ ...form, concepto: e.target.value })} />
-                <Button onClick={handlePago} disabled={!form.contratoId || !form.monto || !form.tipo} className="w-full">Registrar pago</Button>
+                <Button onClick={handlePago} disabled={useApi || !form.contratoId || !form.monto || !form.tipo} className="w-full">Registrar pago</Button>
               </div>
             </div>
             <div>
@@ -212,7 +224,7 @@ const Pagos = () => {
                   {activos.map(c => <SelectItem key={c.id} value={c.id}>{c.id} - {c.nombre}</SelectItem>)}
                 </SelectContent>
               </Select>
-              <Button onClick={handleConciliar} disabled={!conciliarContratoId}>Confirmar conciliación</Button>
+              <Button onClick={handleConciliar} disabled={useApi || !conciliarContratoId}>Confirmar conciliación</Button>
             </div>
           )}
         </DialogContent>

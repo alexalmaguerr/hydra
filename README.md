@@ -64,6 +64,33 @@ This project is built with:
 
 Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
 
+### Deploy with Easypanel (self-hosted)
+
+This repo is a monorepo with `frontend/` and `backend/`. Create **three** App Services in Easypanel (or use the same repo with different build contexts):
+
+| Service          | Build context | Dockerfile              | Port | Domain example        |
+|------------------|---------------|-------------------------|------|------------------------|
+| **PostgreSQL**   | —             | Use Easypanel PostgreSQL service | 5432 | —                      |
+| **ctcf-api**     | `backend/`    | `backend/Dockerfile`    | 3001 | `api.ctcf.example.com` |
+| **ctcf-frontend**| `frontend/`   | `frontend/Dockerfile`   | 80   | `app.ctcf.example.com` |
+
+**ctcf-api** — Environment variables:
+
+- `DATABASE_URL` — PostgreSQL connection string (Easypanel DB or external).
+- `JWT_SECRET` — Secret for JWT signing.
+- `CORS_ORIGIN` — Allowed origin (e.g. `https://app.ctcf.example.com`).
+
+After first deploy, run migrations and seed from the api container (or a one-off):
+
+- `npx prisma migrate deploy`
+- `npx prisma db seed`
+
+**ctcf-frontend** — Build argument (at build time):
+
+- `VITE_API_BASE_URL` — Backend API URL (e.g. `https://api.ctcf.example.com`).
+
+Frontend build: `docker build --build-arg VITE_API_BASE_URL=https://api.ctcf.example.com -f frontend/Dockerfile frontend/`
+
 ## Can I connect a custom domain to my Lovable project?
 
 Yes, you can!

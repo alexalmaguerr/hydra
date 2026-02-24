@@ -1,5 +1,7 @@
 import { useState, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useData } from '@/context/DataContext';
+import { fetchLecturas, hasApi } from '@/api/lecturas';
 import StatusBadge from '@/components/StatusBadge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,7 +22,14 @@ const RANGO_MIN = 0;
 const RANGO_MAX = 200;
 
 const Lecturas = () => {
-  const { lecturas, addLectura, rutas, contratos, medidores, zonas, allowedZonaIds } = useData();
+  const useApi = hasApi();
+  const { lecturas: contextLecturas, addLectura, rutas, contratos, medidores, zonas, allowedZonaIds } = useData();
+  const { data: apiLecturas = [] } = useQuery({
+    queryKey: ['lecturas'],
+    queryFn: fetchLecturas,
+    enabled: useApi,
+  });
+  const lecturas = useApi ? apiLecturas : contextLecturas;
   const getZonaNombre = (zonaId: string) => zonas.find(z => z.id === zonaId)?.nombre ?? zonaId;
 
   const rutasVisibles = useMemo(() =>
@@ -62,6 +71,7 @@ const Lecturas = () => {
   }, [captureContratoId, medidores, lecturasVisibles]);
 
   const handleCapture = () => {
+    if (useApi) return;
     const medidor = medidores.find(m => m.contratoId === captureContratoId);
     const lastLectura = lecturasVisibles.filter(l => l.contratoId === captureContratoId).sort((a, b) => b.fecha.localeCompare(a.fecha))[0];
     const anterior = lastLectura ? lastLectura.lecturaActual : (medidor?.lecturaInicial || 0);
@@ -179,7 +189,7 @@ const Lecturas = () => {
                     <Input type="number" placeholder="Lectura actual" value={lecturaActual} onChange={e => setLecturaActual(e.target.value)} />
                     <Input placeholder="Incidencia (opcional)" value={incidencia} onChange={e => setIncidencia(e.target.value)} />
                     <p className="text-xs text-muted-foreground">Rango válido: {RANGO_MIN} - {RANGO_MAX} m³.</p>
-                    <Button onClick={handleCapture} disabled={!captureContratoId || !lecturaActual} className="w-full">Registrar lectura</Button>
+                    <Button onClick={handleCapture} disabled={useApi || !captureContratoId || !lecturaActual} className="w-full">Registrar lectura</Button>
                   </>
                 )}
               </div>

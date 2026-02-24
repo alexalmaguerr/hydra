@@ -1,5 +1,9 @@
 import { useState, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useData } from '@/context/DataContext';
+import { fetchPreFacturas, hasApi } from '@/api/prefacturacion';
+import { fetchConsumos } from '@/api/consumos';
+import { fetchTimbrados } from '@/api/recibos';
 import StatusBadge from '@/components/StatusBadge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -19,7 +23,14 @@ type EtapaEstado = 'Pendiente' | 'Validada' | 'Aceptada';
 type PreFacturaItem = ReturnType<typeof useData>['preFacturas'][0];
 
 const PreFacturacion = () => {
-  const { preFacturas, addPreFactura, updatePreFactura, consumos, contratos, calcularTarifa, zonas, allowedZonaIds, timbrados } = useData();
+  const useApi = hasApi();
+  const { preFacturas: contextPreFacturas, addPreFactura, updatePreFactura, consumos: contextConsumos, contratos, calcularTarifa, zonas, allowedZonaIds, timbrados: contextTimbrados } = useData();
+  const { data: apiPreFacturas = [] } = useQuery({ queryKey: ['prefacturas'], queryFn: fetchPreFacturas, enabled: useApi });
+  const { data: apiConsumos = [] } = useQuery({ queryKey: ['consumos'], queryFn: fetchConsumos, enabled: useApi });
+  const { data: apiTimbrados = [] } = useQuery({ queryKey: ['timbrados'], queryFn: fetchTimbrados, enabled: useApi });
+  const preFacturas = useApi ? apiPreFacturas : contextPreFacturas;
+  const consumos = useApi ? apiConsumos : contextConsumos;
+  const timbrados = useApi ? apiTimbrados : contextTimbrados;
   const [zonaId, setZonaId] = useState<string>('all');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [editingPf, setEditingPf] = useState<PreFacturaItem | null>(null);
@@ -77,16 +88,19 @@ const PreFacturacion = () => {
   };
 
   const validarSeleccionadas = () => {
+    if (useApi) return;
     selectedIds.forEach(id => updatePreFactura(id, { estado: 'Validada' }));
     setSelectedIds(new Set());
   };
 
   const aceptarSeleccionadas = () => {
+    if (useApi) return;
     selectedIds.forEach(id => updatePreFactura(id, { estado: 'Aceptada' }));
     setSelectedIds(new Set());
   };
 
   const generarPreFactura = (consumo: typeof consumos[0]) => {
+    if (useApi) return;
     const contrato = contratosConAcceso.find(c => c.id === consumo.contratoId);
     if (!contrato) return;
     const { subtotal, cargoFijo, total } = calcularTarifa(contrato.tipoServicio, consumo.m3);
@@ -108,7 +122,7 @@ const PreFacturacion = () => {
   };
 
   const guardarEdicion = () => {
-    if (!editingPf) return;
+    if (!editingPf || useApi) return;
     const contrato = contratosConAcceso.find(c => c.id === editingPf.contratoId);
     if (!contrato) return;
     const m3 = Number(editM3);
@@ -126,6 +140,7 @@ const PreFacturacion = () => {
   };
 
   const revertirEstado = (pf: PreFacturaItem) => {
+    if (useApi) return;
     if (pf.estado === 'Aceptada') updatePreFactura(pf.id, { estado: 'Validada' });
     else if (pf.estado === 'Validada') updatePreFactura(pf.id, { estado: 'Pendiente' });
   };
@@ -147,16 +162,16 @@ const PreFacturacion = () => {
             {isTimbrada ? (
               <Button size="sm" variant="outline" disabled title="Pre-factura ya timbrada; no editable">Editar</Button>
             ) : (
-              <Button size="sm" variant="outline" onClick={() => abrirEdicion(pf)}>Editar</Button>
+              <Button size="sm" variant="outline" onClick={() => abrirEdicion(pf)} disabled={useApi}>Editar</Button>
             )}
-            {etapa === 'Pendiente' && <Button size="sm" variant="outline" onClick={() => updatePreFactura(pf.id, { estado: 'Validada' })}>Validar</Button>}
+            {etapa === 'Pendiente' && <Button size="sm" variant="outline" onClick={() => updatePreFactura(pf.id, { estado: 'Validada' })} disabled={useApi}>Validar</Button>}
             {etapa === 'Validada' && (
               <>
-                <Button size="sm" onClick={() => updatePreFactura(pf.id, { estado: 'Aceptada' })}>Aceptar</Button>
-                {!isTimbrada && <Button size="sm" variant="ghost" onClick={() => revertirEstado(pf)}>Revertir</Button>}
+                <Button size="sm" onClick={() => updatePreFactura(pf.id, { estado: 'Aceptada' })} disabled={useApi}>Aceptar</Button>
+                {!isTimbrada && <Button size="sm" variant="ghost" onClick={() => revertirEstado(pf)} disabled={useApi}>Revertir</Button>}
               </>
             )}
-            {etapa === 'Aceptada' && !isTimbrada && <Button size="sm" variant="ghost" onClick={() => revertirEstado(pf)}>Revertir</Button>}
+            {etapa === 'Aceptada' && !isTimbrada && <Button size="sm" variant="ghost" onClick={() => revertirEstado(pf)} disabled={useApi}>Revertir</Button>}
           </div>
         </div>
       </div>
@@ -187,13 +202,14 @@ const PreFacturacion = () => {
           <Button
             onClick={() => consumosConfirmados.forEach(c => generarPreFactura(c))}
             className="mb-4"
+            disabled={useApi}
           >
             Generar todas las prefacturas ({consumosConfirmados.length})
           </Button>
           <h4 className="section-subtitle">Consumos listos para facturar (individual)</h4>
           <div className="flex gap-2 flex-wrap">
             {consumosConfirmados.map(c => (
-              <Button key={c.id} variant="outline" size="sm" onClick={() => generarPreFactura(c)}>
+              <Button key={c.id} variant="outline" size="sm" onClick={() => generarPreFactura(c)} disabled={useApi}>
                 Generar {c.contratoId} / {c.periodo}
               </Button>
             ))}
@@ -214,7 +230,7 @@ const PreFacturacion = () => {
             </Button>
           )}
           {selectedIds.size > 0 && porEtapa.pendiente.some(pf => selectedIds.has(pf.id)) && (
-            <Button size="sm" className="mb-2 w-full" onClick={validarSeleccionadas}>
+            <Button size="sm" className="mb-2 w-full" onClick={validarSeleccionadas} disabled={useApi}>
               Validar seleccionadas ({Array.from(selectedIds).filter(id => porEtapa.pendiente.some(p => p.id === id)).length})
             </Button>
           )}
@@ -235,7 +251,7 @@ const PreFacturacion = () => {
             </Button>
           )}
           {selectedIds.size > 0 && porEtapa.validada.some(pf => selectedIds.has(pf.id)) && (
-            <Button size="sm" className="mb-2 w-full" onClick={aceptarSeleccionadas}>
+            <Button size="sm" className="mb-2 w-full" onClick={aceptarSeleccionadas} disabled={useApi}>
               Aceptar seleccionadas ({Array.from(selectedIds).filter(id => porEtapa.validada.some(p => p.id === id)).length})
             </Button>
           )}
@@ -307,7 +323,7 @@ const PreFacturacion = () => {
           })()}
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditingPf(null)}>Cancelar</Button>
-            <Button onClick={guardarEdicion} disabled={!editingPf || editM3 === ''}>Guardar</Button>
+            <Button onClick={guardarEdicion} disabled={useApi || !editingPf || editM3 === ''}>Guardar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
