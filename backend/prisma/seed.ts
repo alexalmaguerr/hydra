@@ -167,18 +167,73 @@ async function main() {
 
 async function seedUser() {
   const hash = await bcrypt.hash('demo123', 10);
+
   await prisma.user.upsert({
     where: { email: 'demo@ctcf.local' },
-    update: {},
+    update: { role: 'SUPER_ADMIN' },
     create: {
       email: 'demo@ctcf.local',
       passwordHash: hash,
       name: 'Usuario Demo',
+      role: 'SUPER_ADMIN',
       administracionIds: ['ADM01'],
       zonaIds: ['Z001', 'Z002'],
     },
   });
-  console.log('Usuario demo creado: demo@ctcf.local / demo123');
+
+  await prisma.user.upsert({
+    where: { email: 'operador@ctcf.local' },
+    update: {},
+    create: {
+      email: 'operador@ctcf.local',
+      passwordHash: hash,
+      name: 'Usuario Operador',
+      role: 'OPERADOR',
+      administracionIds: ['ADM01'],
+      zonaIds: ['Z001'],
+    },
+  });
+
+  await prisma.user.upsert({
+    where: { email: 'lecturista@ctcf.local' },
+    update: {},
+    create: {
+      email: 'lecturista@ctcf.local',
+      passwordHash: hash,
+      name: 'Usuario Lecturista',
+      role: 'LECTURISTA',
+      administracionIds: ['ADM01'],
+      zonaIds: ['Z001'],
+    },
+  });
+
+  await prisma.user.upsert({
+    where: { email: 'atencion@ctcf.local' },
+    update: {},
+    create: {
+      email: 'atencion@ctcf.local',
+      passwordHash: hash,
+      name: 'Atención Clientes',
+      role: 'ATENCION_CLIENTES',
+      administracionIds: ['ADM01'],
+      zonaIds: ['Z001', 'Z002'],
+    },
+  });
+
+  await prisma.user.upsert({
+    where: { email: 'cliente@ctcf.local' },
+    update: {},
+    create: {
+      email: 'cliente@ctcf.local',
+      passwordHash: hash,
+      name: 'Cliente Demo',
+      role: 'CLIENTE',
+      administracionIds: [],
+      zonaIds: [],
+    },
+  });
+
+  console.log('Usuarios creados: demo (SUPER_ADMIN), operador (OPERADOR), lecturista (LECTURISTA), atencion (ATENCION_CLIENTES), cliente (CLIENTE) — todos con contraseña demo123');
 }
 
 main()

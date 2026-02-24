@@ -68,10 +68,10 @@ const Dashboard = () => {
       <div>
         <h2 className="section-title">Accesos rápidos</h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <QuickAction label="Nueva factibilidad" icon={Plus} to="/factibilidades?new=1" />
-          <QuickAction label="Nuevo contrato" icon={FileText} to="/contratos?new=1" />
-          <QuickAction label="Simulador" icon={Calculator} to="/simulador" />
-          <QuickAction label="Monitor de timbrado" icon={Stamp} to="/timbrado" />
+          <QuickAction label="Nueva factibilidad" icon={Plus} to="/app/factibilidades?new=1" />
+          <QuickAction label="Nuevo contrato" icon={FileText} to="/app/contratos?new=1" />
+          <QuickAction label="Simulador" icon={Calculator} to="/app/simulador" />
+          <QuickAction label="Monitor de timbrado" icon={Stamp} to="/app/timbrado" />
         </div>
       </div>
 

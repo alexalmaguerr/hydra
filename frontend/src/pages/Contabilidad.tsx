@@ -48,17 +48,17 @@ const Contabilidad = () => {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-8">
-        <Link to="/prefacturacion" className="widget-card text-center hover:shadow-md transition-shadow">
+        <Link to="/app/prefacturacion" className="widget-card text-center hover:shadow-md transition-shadow">
           <PieChart className="h-8 w-8 mx-auto mb-2 text-primary" aria-hidden />
           <p className="text-2xl font-bold tabular-nums">{formatCurrency(totalFacturado)}</p>
           <p className="text-sm text-muted-foreground">Total facturado</p>
         </Link>
-        <Link to="/pagos" className="widget-card text-center hover:shadow-md transition-shadow">
+        <Link to="/app/pagos" className="widget-card text-center hover:shadow-md transition-shadow">
           <FileText className="h-8 w-8 mx-auto mb-2 text-success" aria-hidden />
           <p className="text-2xl font-bold tabular-nums">{formatCurrency(totalCobrado)}</p>
           <p className="text-sm text-muted-foreground">Total cobrado</p>
         </Link>
-        <Link to="/timbrado" className="widget-card text-center hover:shadow-md transition-shadow">
+        <Link to="/app/timbrado" className="widget-card text-center hover:shadow-md transition-shadow">
           <Send className="h-8 w-8 mx-auto mb-2 text-accent" aria-hidden />
           <p className="text-2xl font-bold tabular-nums">{totalTimbrado}</p>
           <p className="text-sm text-muted-foreground">CFDIs timbrados</p>
@@ -77,7 +77,7 @@ const Contabilidad = () => {
 
       {erroresTimbrado > 0 && (
         <Link
-          to="/timbrado"
+          to="/app/timbrado"
           className="mb-6 flex items-center gap-2 rounded-lg border border-destructive/50 bg-destructive/5 px-4 py-3 text-sm text-destructive hover:bg-destructive/10 transition-colors"
         >
           <AlertCircle className="h-4 w-4 shrink-0" />

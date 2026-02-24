@@ -902,7 +902,7 @@ const AtencionClientes = () => {
                       Alta o renovación de descuentos (ej. jubilado/pensionado). Requiere documentos; una vez aprobado se aplica el descuento con vigencia aproximada de 1 año.
                     </p>
                     <Button variant="outline" size="sm" asChild>
-                      <Link to="/contratos">Gestionar descuentos en Contratos</Link>
+                      <Link to="/app/contratos">Gestionar descuentos en Contratos</Link>
                     </Button>
                   </AccordionContent>
                 </AccordionItem>
