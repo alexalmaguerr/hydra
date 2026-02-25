@@ -306,6 +306,21 @@ export interface Convenio {
 
 /** Queja o aclaración registrada contra un contrato (historial) */
 export type QuejaAclaracionTipo = 'Queja' | 'Aclaración';
+export type QuejaCategoria = 'Facturación' | 'Servicio' | 'Medidor' | 'Lectura' | 'Corte/Reconexión' | 'Cobro' | 'Otro';
+export type QuejaPrioridad = 'Baja' | 'Media' | 'Alta' | 'Urgente';
+export type QuejaCanal = 'Ventanilla' | 'Teléfono' | 'Portal web' | 'Correo' | 'Redes sociales';
+export type QuejaAreaAsignada = 'Atención a clientes' | 'Operación' | 'Facturación' | 'Jurídico' | 'Cartera';
+export type SeguimientoTipo = 'nota' | 'cambio_estado' | 'reasignacion' | 'contacto_cliente';
+
+export interface SeguimientoQueja {
+  id: string;
+  quejaId: string;
+  fecha: string;
+  nota: string;
+  usuario: string;
+  tipo: SeguimientoTipo;
+}
+
 export interface QuejaAclaracion {
   id: string;
   contratoId: string;
@@ -314,6 +329,13 @@ export interface QuejaAclaracion {
   descripcion: string;
   estado: 'Registrada' | 'En atención' | 'Resuelta' | 'Cerrada';
   atendidoPor?: string;
+  categoria?: QuejaCategoria;
+  prioridad?: QuejaPrioridad;
+  canal?: QuejaCanal;
+  areaAsignada?: QuejaAreaAsignada;
+  enlaceExterno?: string;
+  motivoCierre?: string;
+  seguimientos?: SeguimientoQueja[];
 }
 
 // Initial mock data
@@ -378,8 +400,99 @@ const initialConvenios: Convenio[] = [
 ];
 
 const initialQuejasAclaraciones: QuejaAclaracion[] = [
-  { id: 'QA001', contratoId: 'CT001', fecha: '2025-01-20', tipo: 'Aclaración', descripcion: 'Consulta sobre importe del recibo diciembre 2024.', estado: 'Resuelta', atendidoPor: 'jgodinez' },
-  { id: 'QA002', contratoId: 'CT001', fecha: '2025-02-01', tipo: 'Queja', descripcion: 'Demora en toma de lectura.', estado: 'En atención' },
+  {
+    id: 'QA001',
+    contratoId: 'CT001',
+    fecha: '2025-01-20',
+    tipo: 'Aclaración',
+    descripcion: 'Consulta sobre importe del recibo diciembre 2024. El cliente menciona que el cobro fue mayor al esperado.',
+    estado: 'Resuelta',
+    atendidoPor: 'jgodinez',
+    categoria: 'Facturación',
+    prioridad: 'Media',
+    canal: 'Ventanilla',
+    areaAsignada: 'Atención a clientes',
+    motivoCierre: 'Se explicó el desglose del recibo. Consumo real validado con lectura.',
+    seguimientos: [
+      {
+        id: 'SQ001',
+        quejaId: 'QA001',
+        fecha: '2025-01-20T09:15:00',
+        nota: 'Cliente se presentó en ventanilla consultando diferencia en recibo de diciembre.',
+        usuario: 'jgodinez',
+        tipo: 'nota',
+      },
+      {
+        id: 'SQ002',
+        quejaId: 'QA001',
+        fecha: '2025-01-20T09:30:00',
+        nota: 'Se revisó lectura y consumo. Consumo fue de 28m³ vs promedio de 18m³. Se explicó al cliente.',
+        usuario: 'jgodinez',
+        tipo: 'cambio_estado',
+      },
+      {
+        id: 'SQ003',
+        quejaId: 'QA001',
+        fecha: '2025-01-20T09:45:00',
+        nota: 'Cliente aceptó explicación. Se cierra la aclaración como resuelta.',
+        usuario: 'jgodinez',
+        tipo: 'contacto_cliente',
+      },
+    ],
+  },
+  {
+    id: 'QA002',
+    contratoId: 'CT001',
+    fecha: '2025-02-01',
+    tipo: 'Queja',
+    descripcion: 'Demora en toma de lectura. El lecturista no se presentó en la fecha programada.',
+    estado: 'En atención',
+    atendidoPor: 'mlopez',
+    categoria: 'Lectura',
+    prioridad: 'Alta',
+    canal: 'Teléfono',
+    areaAsignada: 'Operación',
+    seguimientos: [
+      {
+        id: 'SQ004',
+        quejaId: 'QA002',
+        fecha: '2025-02-01T11:00:00',
+        nota: 'Cliente llama por teléfono reportando que el lecturista no se presentó en los últimos 2 meses.',
+        usuario: 'mlopez',
+        tipo: 'nota',
+      },
+      {
+        id: 'SQ005',
+        quejaId: 'QA002',
+        fecha: '2025-02-01T11:30:00',
+        nota: 'Se reasigna a área de Operación para verificar ruta R001 y programar visita urgente.',
+        usuario: 'mlopez',
+        tipo: 'reasignacion',
+      },
+    ],
+  },
+  {
+    id: 'QA003',
+    contratoId: 'CT002',
+    fecha: '2025-01-15',
+    tipo: 'Queja',
+    descripcion: 'Baja presión de agua durante horas pico (7-9am y 7-9pm).',
+    estado: 'Registrada',
+    categoria: 'Servicio',
+    prioridad: 'Media',
+    canal: 'Portal web',
+    areaAsignada: 'Operación',
+    seguimientos: [
+      {
+        id: 'SQ006',
+        quejaId: 'QA003',
+        fecha: '2025-01-15T14:00:00',
+        nota: 'Queja recibida vía portal web. Se registra y se notifica a operación.',
+        usuario: 'sistema',
+        tipo: 'nota',
+      },
+    ],
+  },
 ];
 
 const initialMedidoresBodega: MedidorBodega[] = [
@@ -615,6 +728,8 @@ interface DataContextType {
   updateConvenio: (id: string, updates: Partial<Convenio>) => void;
   quejasAclaraciones: QuejaAclaracion[];
   addQuejaAclaracion: (q: Omit<QuejaAclaracion, 'id'>) => void;
+  updateQuejaAclaracion: (id: string, updates: Partial<QuejaAclaracion>) => void;
+  addSeguimientoQueja: (quejaId: string, s: Omit<SeguimientoQueja, 'id' | 'quejaId'>) => void;
   administraciones: Administracion[];
   zonas: Zona[];
   distritos: Distrito[];
@@ -708,7 +823,16 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   const addConvenio = (c: Omit<Convenio, 'id'>) => setConvenios(prev => [...prev, { ...c, id: genId('CONV') }]);
   const updateConvenio = (id: string, updates: Partial<Convenio>) => setConvenios(prev => prev.map(c => c.id === id ? { ...c, ...updates } : c));
   const [quejasAclaraciones, setQuejasAclaraciones] = useState(initialQuejasAclaraciones);
-  const addQuejaAclaracion = (q: Omit<QuejaAclaracion, 'id'>) => setQuejasAclaraciones(prev => [...prev, { ...q, id: genId('QA') }]);
+  const addQuejaAclaracion = (q: Omit<QuejaAclaracion, 'id'>) =>
+    setQuejasAclaraciones(prev => [...prev, { ...q, id: genId('QA'), seguimientos: q.seguimientos ?? [] }]);
+  const updateQuejaAclaracion = (id: string, updates: Partial<QuejaAclaracion>) =>
+    setQuejasAclaraciones(prev => prev.map(q => q.id === id ? { ...q, ...updates } : q));
+  const addSeguimientoQueja = (quejaId: string, s: Omit<SeguimientoQueja, 'id' | 'quejaId'>) =>
+    setQuejasAclaraciones(prev => prev.map(q =>
+      q.id === quejaId
+        ? { ...q, seguimientos: [...(q.seguimientos ?? []), { ...s, id: genId('SQ'), quejaId }] }
+        : q
+    ));
 
   const addFactibilidad = (f: Omit<Factibilidad, 'id'>) => setFactibilidades(prev => [...prev, { ...f, id: genId('F') }]);
   const updateFactibilidad = (id: string, updates: Partial<Factibilidad>) => setFactibilidades(prev => prev.map(f => f.id === id ? { ...f, ...updates } : f));
@@ -859,7 +983,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     <DataContext.Provider value={{
       factibilidades, construcciones, tomas, contratos, medidores, rutas, lecturas, consumos, tarifas, descuentos, preFacturas, timbrados, recibos, pagos,
       tramitesAsignados, clausulasContrato, costosContrato, convenios, addConvenio, updateConvenio,
-      quejasAclaraciones, addQuejaAclaracion,
+      quejasAclaraciones, addQuejaAclaracion, updateQuejaAclaracion, addSeguimientoQueja,
       administraciones, zonas, distritos,
       currentUser, setCurrentUser, allowedZonaIds, mensajeGlobalRecibos, setMensajeGlobalRecibos,
       pagosParcialidad, addPagoParcialidad, updatePagoParcialidad,

@@ -11,7 +11,7 @@ export interface ConsumoDto {
 }
 
 export async function fetchConsumos(): Promise<ConsumoDto[]> {
-  return apiRequest<ConsumoDto[]>('/api/consumos');
+  return apiRequest<ConsumoDto[]>('/consumos');
 }
 
 export { hasApi };

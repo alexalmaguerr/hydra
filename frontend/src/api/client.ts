@@ -1,9 +1,18 @@
 /**
  * Base URL for the backend API. When not set, the app uses DataContext (mock) only.
+ * Normalizes so the base always ends with /api (NestJS global prefix).
  */
-const getBaseUrl = (): string | undefined => {
-  return import.meta.env.VITE_API_BASE_URL as string | undefined;
-};
+function getBaseUrl(): string | undefined {
+  const raw = import.meta.env.VITE_API_BASE_URL as string | undefined;
+  if (!raw) return undefined;
+  return normalizeApiBase(raw);
+}
+
+/** Ensures base URL ends with /api so routes like /auth/login resolve correctly. */
+export function normalizeApiBase(base: string): string {
+  const b = base.replace(/\/$/, '');
+  return b.endsWith('/api') ? b : `${b}/api`;
+}
 
 export const hasApi = (): boolean => !!getBaseUrl();
 

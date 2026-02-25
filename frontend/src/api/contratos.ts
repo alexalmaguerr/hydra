@@ -38,15 +38,15 @@ export interface CreateContratoDto {
 }
 
 export async function fetchContratos(): Promise<ContratoDto[]> {
-  return apiRequest<ContratoDto[]>('/api/contratos');
+  return apiRequest<ContratoDto[]>('/contratos');
 }
 
 export async function fetchContrato(id: string): Promise<ContratoDto> {
-  return apiRequest<ContratoDto>(`/api/contratos/${id}`);
+  return apiRequest<ContratoDto>(`/contratos/${id}`);
 }
 
 export async function createContrato(dto: CreateContratoDto): Promise<ContratoDto> {
-  return apiRequest<ContratoDto>('/api/contratos', {
+  return apiRequest<ContratoDto>('/contratos', {
     method: 'POST',
     body: JSON.stringify(dto),
   });

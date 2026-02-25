@@ -23,11 +23,11 @@ export interface TimbradoDto {
 }
 
 export async function fetchRecibos(): Promise<ReciboDto[]> {
-  return apiRequest<ReciboDto[]>('/api/recibos');
+  return apiRequest<ReciboDto[]>('/recibos');
 }
 
 export async function fetchTimbrados(): Promise<TimbradoDto[]> {
-  return apiRequest<TimbradoDto[]>('/api/timbrados');
+  return apiRequest<TimbradoDto[]>('/timbrados');
 }
 
 export { hasApi };

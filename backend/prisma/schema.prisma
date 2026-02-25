@@ -186,6 +186,45 @@ model Ruta {
   @@map("rutas")
 }
 
+// ---- Quejas y Aclaraciones ----
+model QuejaAclaracion {
+  id             String   @id @default(cuid())
+  contratoId     String   @map("contrato_id")
+  fecha          DateTime @default(now())
+  tipo           String   // 'Queja' | 'Aclaración'
+  descripcion    String
+  estado         String   @default("Registrada")
+  atendidoPor    String?  @map("atendido_por")
+  categoria      String?
+  prioridad      String   @default("Media")
+  canal          String   @default("Ventanilla")
+  areaAsignada   String   @default("Atención a clientes") @map("area_asignada")
+  enlaceExterno  String?  @map("enlace_externo")
+  motivoCierre   String?  @map("motivo_cierre")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  seguimientos   SeguimientoQueja[]
+
+  @@index([contratoId])
+  @@map("quejas_aclaraciones")
+}
+
+model SeguimientoQueja {
+  id        String   @id @default(cuid())
+  quejaId   String   @map("queja_id")
+  fecha     DateTime @default(now())
+  nota      String
+  usuario   String
+  tipo      String   // 'nota' | 'cambio_estado' | 'reasignacion' | 'contacto_cliente'
+  createdAt DateTime @default(now()) @map("created_at")
+
+  queja     QuejaAclaracion @relation(fields: [quejaId], references: [id], onDelete: Cascade)
+
+  @@index([quejaId])
+  @@map("seguimientos_queja")
+}
+
 // ---- Auth ----
 enum UserRole {
   SUPER_ADMIN
