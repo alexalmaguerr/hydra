@@ -38,6 +38,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
+import BusquedaContrato from './atencion/BusquedaContrato';
+import ContextoRapido from './atencion/ContextoRapido';
+import TabQuejas from './atencion/TabQuejas';
+import QuejaDialog from './atencion/QuejaDialog';
+import QuejaDetalle from './atencion/QuejaDetalle';
+import type { QuejaAclaracion, QuejaAreaAsignada, SeguimientoTipo } from '@/context/DataContext';
 
 // --- Types for Atención a Clientes (view / mock) ---
 export interface OrdenRow {
@@ -171,6 +177,8 @@ const AtencionClientes = () => {
     addConvenio,
     quejasAclaraciones,
     addQuejaAclaracion,
+    updateQuejaAclaracion,
+    addSeguimientoQueja,
     updateContrato,
     updateMedidor,
     tarifas,
@@ -209,8 +217,8 @@ const AtencionClientes = () => {
   const [bajaDefinitivaDialogOpen, setBajaDefinitivaDialogOpen] = useState(false);
   const [fechaReconexionPrevista, setFechaReconexionPrevista] = useState('');
   const [quejaDialogOpen, setQuejaDialogOpen] = useState(false);
-  const [nuevaQuejaTipo, setNuevaQuejaTipo] = useState<'Queja' | 'Aclaración'>('Aclaración');
-  const [nuevaQuejaDescripcion, setNuevaQuejaDescripcion] = useState('');
+  const [quejaDetalleOpen, setQuejaDetalleOpen] = useState(false);
+  const [quejaSeleccionada, setQuejaSeleccionada] = useState<QuejaAclaracion | null>(null);
 
   useEffect(() => {
     if (contratos.length && !contratoId) {
@@ -421,30 +429,16 @@ const AtencionClientes = () => {
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-3 touch-manipulation">
-        <label htmlFor="contrato-search" className="text-sm font-medium">
-          Contrato:
-        </label>
-        <Input
-          id="contrato-search"
-          name="contrato"
-          className="w-32"
-          placeholder="Ej. CT001…"
-          autoComplete="off"
-          spellCheck={false}
-          value={contratoInput}
-          onChange={(e) => setContratoInput(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handleBuscar()}
-          aria-label="Número de contrato"
+      <div className="flex flex-wrap items-center gap-3">
+        <BusquedaContrato
+          contratos={contratos}
+          contratoSeleccionado={contrato}
+          onSelect={(c) => {
+            setContratoId(c.id);
+            setContratoInput(c.id);
+          }}
         />
-        <Button onClick={handleBuscar} aria-label="Buscar contrato">
-          <Search className="h-4 w-4 mr-1" aria-hidden />
-          Buscar
-        </Button>
-        <Button variant="outline" size="icon" aria-label="Nuevo trámite">
-          <Plus className="h-4 w-4" aria-hidden />
-        </Button>
-        <Button variant="outline" aria-label="Consulta Sige">
+        <Button variant="outline" aria-label="Consulta Sige" className="shrink-0">
           Consulta Sige
         </Button>
       </div>
@@ -505,6 +499,14 @@ const AtencionClientes = () => {
               </AlertDescription>
             </Alert>
           )}
+          <ContextoRapido
+            contrato={contrato}
+            quejas={quejasDelContrato}
+            pagos={pagos.filter(p => p.contratoId === contrato.id)}
+            recibos={recibos.filter(r => r.contratoId === contrato.id)}
+            pagosParcialidad={pagosParcialidad}
+            onVerQuejas={() => setActiveTab('quejas')}
+          />
         </>
       )}
 
@@ -1298,99 +1300,65 @@ const AtencionClientes = () => {
 
             <TabsContent value="quejas" className="space-y-4">
               <div className="widget-card">
-                <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
-                  <h3 className="section-title mb-0">Historial de quejas y aclaraciones</h3>
-                  <Button size="sm" onClick={() => { setQuejaDialogOpen(true); setNuevaQuejaDescripcion(''); }} aria-label="Registrar queja o aclaración">
-                    Registrar queja / aclaración
-                  </Button>
-                </div>
-                <div className="overflow-x-auto min-w-0">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Fecha</TableHead>
-                        <TableHead>Tipo</TableHead>
-                        <TableHead>Descripción</TableHead>
-                        <TableHead>Estado</TableHead>
-                        <TableHead>Atendido por</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {quejasDelContrato.length === 0 ? (
-                        <TableRow>
-                          <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                            No hay quejas ni aclaraciones registradas para este contrato.
-                          </TableCell>
-                        </TableRow>
-                      ) : (
-                        quejasDelContrato.map((q) => (
-                          <TableRow key={q.id}>
-                            <TableCell className="tabular-nums">{q.fecha}</TableCell>
-                            <TableCell>{q.tipo}</TableCell>
-                            <TableCell className="max-w-[300px]">{q.descripcion}</TableCell>
-                            <TableCell><StatusBadge status={q.estado} /></TableCell>
-                            <TableCell>{q.atendidoPor ?? '—'}</TableCell>
-                          </TableRow>
-                        ))
-                      )}
-                    </TableBody>
-                  </Table>
-                </div>
+                <TabQuejas
+                  quejas={quejasDelContrato}
+                  onNuevaQueja={() => setQuejaDialogOpen(true)}
+                  onVerDetalle={(q) => { setQuejaSeleccionada(q); setQuejaDetalleOpen(true); }}
+                />
               </div>
             </TabsContent>
           </Tabs>
 
-          <Dialog open={quejaDialogOpen} onOpenChange={setQuejaDialogOpen}>
-            <DialogContent className="sm:max-w-md">
-              <DialogHeader>
-                <DialogTitle>Registrar queja o aclaración</DialogTitle>
-                <DialogDescription>Se registrará en el historial del contrato {contratoId}.</DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div>
-                  <Label>Tipo</Label>
-                  <Select value={nuevaQuejaTipo} onValueChange={(v) => setNuevaQuejaTipo(v as 'Queja' | 'Aclaración')}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Aclaración">Aclaración</SelectItem>
-                      <SelectItem value="Queja">Queja</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label htmlFor="queja-desc">Descripción</Label>
-                  <Input
-                    id="queja-desc"
-                    value={nuevaQuejaDescripcion}
-                    onChange={(e) => setNuevaQuejaDescripcion(e.target.value)}
-                    placeholder="Describa la queja o aclaración"
-                  />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setQuejaDialogOpen(false)}>Cancelar</Button>
-                <Button
-                  onClick={() => {
-                    if (contratoId && nuevaQuejaDescripcion.trim()) {
-                      addQuejaAclaracion({
-                        contratoId,
-                        fecha: new Date().toISOString().slice(0, 10),
-                        tipo: nuevaQuejaTipo,
-                        descripcion: nuevaQuejaDescripcion.trim(),
-                        estado: 'Registrada',
-                        atendidoPor: 'jgodinez',
-                      });
-                      setNuevaQuejaDescripcion('');
-                      setQuejaDialogOpen(false);
-                    }
-                  }}
-                  disabled={!nuevaQuejaDescripcion.trim()}
-                >
-                  Registrar
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+          <QuejaDialog
+            open={quejaDialogOpen}
+            onOpenChange={setQuejaDialogOpen}
+            contratoId={contratoId ?? ''}
+            usuarioActual="jgodinez"
+            onSubmit={addQuejaAclaracion}
+          />
+
+          <QuejaDetalle
+            queja={quejaSeleccionada}
+            open={quejaDetalleOpen}
+            onOpenChange={setQuejaDetalleOpen}
+            usuarioActual="jgodinez"
+            onCambiarEstado={(quejaId, nuevoEstado, motivo) => {
+              updateQuejaAclaracion(quejaId, {
+                estado: nuevoEstado,
+                ...(motivo ? { motivoCierre: motivo } : {}),
+              });
+              if (quejaSeleccionada?.id === quejaId) {
+                setQuejaSeleccionada(prev => prev ? { ...prev, estado: nuevoEstado, ...(motivo ? { motivoCierre: motivo } : {}) } : null);
+              }
+            }}
+            onReasignar={(quejaId, area) => {
+              updateQuejaAclaracion(quejaId, { areaAsignada: area });
+              if (quejaSeleccionada?.id === quejaId) {
+                setQuejaSeleccionada(prev => prev ? { ...prev, areaAsignada: area } : null);
+              }
+            }}
+            onAgregarNota={(quejaId, nota, tipo) => {
+              addSeguimientoQueja(quejaId, {
+                fecha: new Date().toISOString(),
+                nota,
+                usuario: 'jgodinez',
+                tipo,
+              });
+              if (quejaSeleccionada?.id === quejaId) {
+                setQuejaSeleccionada(prev =>
+                  prev
+                    ? {
+                        ...prev,
+                        seguimientos: [
+                          ...(prev.seguimientos ?? []),
+                          { id: `tmp-${Date.now()}`, quejaId, fecha: new Date().toISOString(), nota, usuario: 'jgodinez', tipo },
+                        ],
+                      }
+                    : null
+                );
+              }
+            }}
+          />
 
           <Dialog open={convenioDialogOpen} onOpenChange={setConvenioDialogOpen}>
             <DialogContent className="sm:max-w-md" aria-describedby="nuevo-convenio-desc">

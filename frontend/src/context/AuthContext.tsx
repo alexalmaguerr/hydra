@@ -6,6 +6,7 @@ import React, {
   useCallback,
   ReactNode,
 } from 'react';
+import { getBaseUrl, normalizeApiBase } from '@/api/client';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -44,7 +45,10 @@ interface AuthContextType {
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const TOKEN_KEY = 'ctcf_access_token';
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
+// Base URL for auth (must include /api). Normalized so login hits /api/auth/login.
+const API_BASE = normalizeApiBase(
+  getBaseUrl() ?? 'http://localhost:3001',
+);
 
 // ─── JWT helpers ─────────────────────────────────────────────────────────────
 

@@ -1,9 +1,18 @@
 /**
  * Base URL for the backend API. When not set, the app uses DataContext (mock) only.
+ * Normalizes so the base always ends with /api (NestJS global prefix).
  */
-const getBaseUrl = (): string => {
-  return (import.meta.env.VITE_API_BASE_URL as string) || 'http://localhost:3001/api';
-};
+function getBaseUrl(): string | undefined {
+  const raw = import.meta.env.VITE_API_BASE_URL as string | undefined;
+  if (!raw) return undefined;
+  return normalizeApiBase(raw);
+}
+
+/** Ensures base URL ends with /api so routes like /auth/login resolve correctly. */
+export function normalizeApiBase(base: string): string {
+  const b = base.replace(/\/$/, '');
+  return b.endsWith('/api') ? b : `${b}/api`;
+}
 
 export const hasApi = (): boolean => true;
 
@@ -22,7 +31,7 @@ export async function apiRequest<T>(
   path: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const base = getBaseUrl();
+  const base = getBaseUrl() ?? normalizeApiBase('http://localhost:3001');
   const url = path.startsWith('http') ? path : `${base.replace(/\/$/, '')}${path.startsWith('/') ? path : `/${path}`}`;
   const res = await fetch(url, {
     ...options,
