@@ -1,6 +1,17 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { useData } from '@/context/DataContext';
+import {
+  getPortalContratos,
+  getPortalConsumos,
+  getPortalTimbrados,
+  getPortalPagos,
+  getPortalSaldos,
+  type PortalContrato,
+  type PortalConsumo,
+  type PortalTimbrado,
+  type PortalPago,
+  type PortalSaldos,
+} from '@/api/portal';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -31,21 +42,21 @@ import {
   Receipt,
   Upload,
   CreditCard,
-  LayoutDashboard,
   Building2,
   UserPlus,
   PowerOff,
   UserMinus,
   Plug,
-  MessageSquare,
   ClipboardList,
+  FilePlus,
+  BadgePercent,
 } from 'lucide-react';
 
 function formatCurrency(n: number) {
   return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(n);
 }
 
-const TAB_VALUES = ['dashboard', 'consumos', 'facturas', 'recibos', 'metodos-pago', 'tramites-digitales'] as const;
+const TAB_VALUES = ['consumos', 'facturas', 'recibos', 'metodos-pago', 'tramites-digitales'] as const;
 type TabValue = (typeof TAB_VALUES)[number];
 
 function isTabValue(s: string | null): s is TabValue {
@@ -54,24 +65,20 @@ function isTabValue(s: string | null): s is TabValue {
 
 const PortalCliente = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const {
-    contratos,
-    recibos,
-    timbrados,
-    preFacturas,
-    consumos,
-    pagos,
-  } = useData();
 
-  const contratoFromUrl = searchParams.get('contrato');
-  const [contratoId, setContratoId] = useState<string | null>(() => {
-    if (contratoFromUrl && contratos.some((c) => c.id === contratoFromUrl))
-      return contratoFromUrl;
-    return contratos[0]?.id ?? null;
-  });
+  const [contratos, setContratos] = useState<PortalContrato[]>([]);
+  const [consumos, setConsumos] = useState<PortalConsumo[]>([]);
+  const [timbrados, setTimbrados] = useState<PortalTimbrado[]>([]);
+  const [pagos, setPagos] = useState<PortalPago[]>([]);
+  const [saldos, setSaldos] = useState<PortalSaldos>({ vencido: 0, vigente: 0, total: 0, intereses: 0 });
+  const [loading, setLoading] = useState(true);
+
+  const [contratoId, setContratoId] = useState<string | null>(
+    searchParams.get('contrato') ?? null
+  );
 
   const tabFromUrl = searchParams.get('tab');
-  const activeTab = isTabValue(tabFromUrl) ? tabFromUrl : 'dashboard';
+  const activeTab = isTabValue(tabFromUrl) ? tabFromUrl : 'consumos';
   const setActiveTab = useCallback(
     (value: string) => {
       if (!isTabValue(value)) return;
@@ -87,18 +94,49 @@ const PortalCliente = () => {
     [setSearchParams]
   );
 
+  // Fetch contratos on mount
   useEffect(() => {
-    if (contratos.length && !contratoId) {
-      setContratoId(contratos[0].id);
-    }
-  }, [contratos, contratoId]);
+    setLoading(true);
+    getPortalContratos()
+      .then((data) => {
+        setContratos(data);
+        setContratoId((prev) => {
+          if (prev && data.some((c) => c.id === prev)) return prev;
+          return data[0]?.id ?? null;
+        });
+      })
+      .catch(() => setContratos([]))
+      .finally(() => setLoading(false));
+  }, []);
 
+  // Fetch contract data when contratoId changes
   useEffect(() => {
-    const c = searchParams.get('contrato');
-    if (c && contratos.some((x) => x.id === c) && c !== contratoId) {
-      setContratoId(c);
-    }
-  }, [searchParams, contratos, contratoId]);
+    if (!contratoId) return;
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.set('contrato', contratoId);
+        return next;
+      },
+      { replace: true }
+    );
+    Promise.all([
+      getPortalConsumos(contratoId),
+      getPortalTimbrados(contratoId),
+      getPortalPagos(contratoId),
+      getPortalSaldos(contratoId),
+    ]).then(([c, t, p, s]) => {
+      setConsumos(c);
+      setTimbrados(t);
+      setPagos(p);
+      setSaldos(s);
+    }).catch(() => {
+      setConsumos([]);
+      setTimbrados([]);
+      setPagos([]);
+      setSaldos({ vencido: 0, vigente: 0, total: 0, intereses: 0 });
+    });
+  }, [contratoId, setSearchParams]);
 
   const contrato = useMemo(
     () => (contratoId ? contratos.find((c) => c.id === contratoId) ?? null : null),
@@ -107,60 +145,36 @@ const PortalCliente = () => {
 
   const handleContratoChange = (id: string) => {
     setContratoId(id);
-    setSearchParams(
-      (prev) => {
-        const next = new URLSearchParams(prev);
-        next.set('contrato', id);
-        return next;
-      },
-      { replace: true }
-    );
   };
 
-  const saldos = useMemo(() => {
-    if (!contratoId) return { vencido: 0, vigente: 0, total: 0 };
-    const recs = recibos.filter((r) => r.contratoId === contratoId);
-    const vencido = recs.reduce((s, r) => s + r.saldoVencido, 0);
-    const vigente = recs.reduce((s, r) => s + r.saldoVigente, 0);
-    return { vencido, vigente, total: vencido + vigente };
-  }, [contratoId, recibos]);
-
   const facturasRows = useMemo(() => {
-    if (!contratoId) return [];
     const hoy = new Date().toISOString().split('T')[0];
-    return timbrados
-      .filter((t) => t.contratoId === contratoId)
-      .map((t) => {
-        const recibo = recibos.find((r) => r.timbradoId === t.id);
-        const pf = preFacturas.find((p) => p.id === t.preFacturaId);
-        const total = recibo ? recibo.saldoVigente + recibo.saldoVencido : pf?.total ?? 0;
-        const saldoVigente = recibo?.saldoVigente ?? 0;
-        const saldoVencido = recibo?.saldoVencido ?? 0;
-        const saldo = saldoVigente + saldoVencido;
-        const periodo = pf?.periodo ?? '';
-        const periodoDisplay = periodo ? periodo.replace(/-(\d{2})$/, '/$1') : '—';
-        const vencimiento = recibo?.fechaVencimiento ?? '';
-        const estado =
-          saldo <= 0
-            ? 'Pagada'
-            : vencimiento && vencimiento < hoy
-              ? 'Vencida'
-              : 'Pendiente';
-        return {
-          idFactura: t.id,
-          periodo,
-          periodoDisplay,
-          fechaFac: t.fecha,
-          vencimiento: vencimiento || '—',
-          noFactura: `W12024A101119952`,
-          importe: total,
-          saldo,
-          estado,
-          uuid: t.uuid,
-        };
-      })
-      .sort((a, b) => (b.periodo ?? '').localeCompare(a.periodo ?? ''));
-  }, [contratoId, timbrados, recibos, preFacturas]);
+    return timbrados.map((t) => {
+      const recibo = t.recibos?.[0];
+      const saldoVigente = recibo ? Number(recibo.saldoVigente) : 0;
+      const saldoVencido = recibo ? Number(recibo.saldoVencido) : 0;
+      const saldo = saldoVigente + saldoVencido;
+      const vencimiento = recibo?.fechaVencimiento ?? t.fechaVencimiento;
+      const estado =
+        saldo <= 0
+          ? 'Pagada'
+          : vencimiento && vencimiento < hoy
+            ? 'Vencida'
+            : 'Pendiente';
+      const periodoDisplay = t.periodo ? t.periodo.replace(/-(\d{2})$/, '/$1') : '—';
+      return {
+        id: t.id,
+        periodo: t.periodo,
+        periodoDisplay,
+        fechaFac: t.fechaEmision,
+        vencimiento: vencimiento || '—',
+        importe: Number(t.total),
+        saldo,
+        estado,
+        uuid: t.uuid,
+      };
+    });
+  }, [timbrados]);
 
   const facturasFiltroNoPagadas = useMemo(
     () => facturasRows.filter((f) => f.saldo > 0),
@@ -172,27 +186,16 @@ const PortalCliente = () => {
     filtroFacturas === 'no-pagadas' ? facturasFiltroNoPagadas : facturasRows;
 
   const consumosRows = useMemo(() => {
-    if (!contratoId) return [];
-    return consumos
-      .filter((c) => c.contratoId === contratoId)
-      .map((c) => ({
-        id: c.id,
-        periodo: c.periodo,
-        periodoDisplay: c.periodo ? c.periodo.replace(/-(\d{2})$/, '/$1') : '—',
-        m3: c.m3,
-        tipo: c.tipo,
-      }))
-      .sort((a, b) => (b.periodo ?? '').localeCompare(a.periodo ?? ''));
-  }, [contratoId, consumos]);
+    return consumos.map((c) => ({
+      id: c.id,
+      periodo: c.periodo,
+      periodoDisplay: c.periodo ? c.periodo.replace(/-(\d{2})$/, '/$1') : '—',
+      m3: Number(c.m3),
+      tipo: c.tipo,
+    }));
+  }, [consumos]);
 
-  const pagosRows = useMemo(() => {
-    if (!contratoId) return [];
-    return pagos
-      .filter((p) => p.contratoId === contratoId)
-      .sort((a, b) => b.fecha.localeCompare(a.fecha));
-  }, [contratoId, pagos]);
-
-  const showContent = contrato != null;
+  const showContent = !loading && contrato != null;
 
   return (
     <div className="space-y-6 p-6 max-w-6xl mx-auto">
@@ -221,7 +224,7 @@ const PortalCliente = () => {
             <SelectContent>
               {contratos.map((c) => (
                 <SelectItem key={c.id} value={c.id}>
-                  {c.id} — {c.nombre}
+                  {c.id} — {c.tipoServicio}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -238,6 +241,12 @@ const PortalCliente = () => {
           </TooltipProvider>
         </div>
       </div>
+
+      {loading && (
+        <div className="rounded-lg border bg-muted/30 text-center py-12 text-muted-foreground">
+          Cargando información del contrato…
+        </div>
+      )}
 
       {showContent && (
         <>
@@ -292,7 +301,7 @@ const PortalCliente = () => {
                   Intereses
                 </p>
                 <p className="text-lg font-semibold tabular-nums text-muted-foreground">
-                  {formatCurrency(0)} MXN
+                  {formatCurrency(saldos.intereses)} MXN
                 </p>
               </div>
             </div>
@@ -300,11 +309,23 @@ const PortalCliente = () => {
 
           <TooltipProvider>
             <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-              <TabsList className="flex flex-wrap h-auto gap-1">
-                <TabsTrigger value="dashboard" className="gap-1.5">
-                  <LayoutDashboard className="h-4 w-4" aria-hidden />
-                  Dashboard
-                </TabsTrigger>
+              {/* Mobile: select */}
+              <div className="sm:hidden">
+                <Select value={activeTab} onValueChange={setActiveTab}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="consumos">Consumos</SelectItem>
+                    <SelectItem value="facturas">Facturas</SelectItem>
+                    <SelectItem value="recibos">Recibos</SelectItem>
+                    <SelectItem value="metodos-pago">Gestión de Métodos de Pago</SelectItem>
+                    <SelectItem value="tramites-digitales">Trámites Digitales</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {/* Desktop: tab bar */}
+              <TabsList className="hidden sm:flex flex-wrap h-auto gap-1">
                 <TabsTrigger value="consumos" className="gap-1.5">
                   <BarChart3 className="h-4 w-4" aria-hidden />
                   Consumos
@@ -327,55 +348,35 @@ const PortalCliente = () => {
                 </TabsTrigger>
               </TabsList>
 
-              <TabsContent value="dashboard" className="space-y-4">
-                <section className="rounded-lg border bg-card p-4" aria-label="Accesos rápidos">
-                  <h3 className="text-sm font-semibold text-foreground mb-3">Accesos rápidos</h3>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Desde aquí puede consultar consumos, facturas, recibos, gestionar sus métodos de pago y realizar trámites.
-                  </p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                    <Button
-                      variant="outline"
-                      className="justify-start gap-2"
-                      onClick={() => setActiveTab('consumos')}
-                    >
-                      <BarChart3 className="h-4 w-4" aria-hidden />
-                      Consumos
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="justify-start gap-2"
-                      onClick={() => setActiveTab('facturas')}
-                    >
-                      <FileText className="h-4 w-4" aria-hidden />
-                      Facturas
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="justify-start gap-2"
-                      onClick={() => setActiveTab('recibos')}
-                    >
-                      <Receipt className="h-4 w-4" aria-hidden />
-                      Recibos
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="justify-start gap-2"
-                      onClick={() => setActiveTab('metodos-pago')}
-                    >
-                      <CreditCard className="h-4 w-4" aria-hidden />
-                      Métodos de pago
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="justify-start gap-2"
-                      onClick={() => setActiveTab('tramites-digitales')}
-                    >
-                      <ClipboardList className="h-4 w-4" aria-hidden />
-                      Trámites Digitales
-                    </Button>
-                  </div>
-                </section>
+              <TabsContent value="consumos" className="space-y-4">
+                <div className="rounded-md border overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Periodo</TableHead>
+                        <TableHead className="text-right">Consumo (m³)</TableHead>
+                        <TableHead>Tipo</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {consumosRows.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={3} className="text-center text-muted-foreground py-8">
+                            No hay consumos para este contrato.
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        consumosRows.map((r) => (
+                          <TableRow key={r.id}>
+                            <TableCell>{r.periodoDisplay}</TableCell>
+                            <TableCell className="text-right tabular-nums">{r.m3}</TableCell>
+                            <TableCell>{r.tipo}</TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
               </TabsContent>
 
               <TabsContent value="facturas" className="space-y-4">
@@ -429,7 +430,7 @@ const PortalCliente = () => {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Folio</TableHead>
-                        <TableHead>Concepto / Periodo</TableHead>
+                        <TableHead>Periodo</TableHead>
                         <TableHead>Emisión</TableHead>
                         <TableHead>Vencimiento</TableHead>
                         <TableHead>Estado</TableHead>
@@ -446,8 +447,8 @@ const PortalCliente = () => {
                         </TableRow>
                       ) : (
                         facturasMostradas.map((f) => (
-                          <TableRow key={f.idFactura}>
-                            <TableCell className="font-mono text-primary">{f.idFactura}</TableCell>
+                          <TableRow key={f.id}>
+                            <TableCell className="font-mono text-primary">{f.id}</TableCell>
                             <TableCell>{f.periodoDisplay}</TableCell>
                             <TableCell>{f.fechaFac}</TableCell>
                             <TableCell>{f.vencimiento}</TableCell>
@@ -468,37 +469,6 @@ const PortalCliente = () => {
                 </div>
               </TabsContent>
 
-              <TabsContent value="consumos" className="space-y-4">
-                <div className="rounded-md border overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Periodo</TableHead>
-                        <TableHead className="text-right">Consumo (m³)</TableHead>
-                        <TableHead>Tipo</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {consumosRows.length === 0 ? (
-                        <TableRow>
-                          <TableCell colSpan={3} className="text-center text-muted-foreground py-8">
-                            No hay consumos para este contrato.
-                          </TableCell>
-                        </TableRow>
-                      ) : (
-                        consumosRows.map((r) => (
-                          <TableRow key={r.id}>
-                            <TableCell>{r.periodoDisplay}</TableCell>
-                            <TableCell className="text-right tabular-nums">{r.m3}</TableCell>
-                            <TableCell>{r.tipo}</TableCell>
-                          </TableRow>
-                        ))
-                      )}
-                    </TableBody>
-                  </Table>
-                </div>
-              </TabsContent>
-
               <TabsContent value="recibos" className="space-y-4">
                 <div className="rounded-md border overflow-x-auto">
                   <Table>
@@ -511,20 +481,20 @@ const PortalCliente = () => {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {pagosRows.length === 0 ? (
+                      {pagos.length === 0 ? (
                         <TableRow>
                           <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
                             No hay pagos registrados para este contrato.
                           </TableCell>
                         </TableRow>
                       ) : (
-                        pagosRows.map((p) => (
+                        pagos.map((p) => (
                           <TableRow key={p.id}>
                             <TableCell className="tabular-nums">{p.fecha}</TableCell>
                             <TableCell>{p.concepto}</TableCell>
                             <TableCell>{p.tipo}</TableCell>
                             <TableCell className="text-right tabular-nums">
-                              {formatCurrency(p.monto)}
+                              {formatCurrency(Number(p.monto))}
                             </TableCell>
                           </TableRow>
                         ))
@@ -582,59 +552,86 @@ const PortalCliente = () => {
               </TabsContent>
 
               <TabsContent value="tramites-digitales" className="space-y-4">
-                <section className="rounded-lg border bg-card p-4" aria-labelledby="tramites-portal-title">
-                  <h3 id="tramites-portal-title" className="text-sm font-semibold text-foreground mb-3">
-                    Trámites Digitales para Clientes Activos
-                  </h3>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Solicite cambio de propietario, bajas, reconexión o presente quejas y aclaraciones.
-                  </p>
-                  <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button variant="outline" className="justify-start gap-2 h-auto py-3" disabled>
-                          <UserPlus className="h-4 w-4" aria-hidden />
-                          Cambio de Propietario
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Próximamente</TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button variant="outline" className="justify-start gap-2 h-auto py-3" disabled>
-                          <PowerOff className="h-4 w-4" aria-hidden />
-                          Baja Temporal
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Próximamente</TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button variant="outline" className="justify-start gap-2 h-auto py-3" disabled>
-                          <UserMinus className="h-4 w-4" aria-hidden />
-                          Baja Permanente
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Próximamente</TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button variant="outline" className="justify-start gap-2 h-auto py-3" disabled>
-                          <Plug className="h-4 w-4" aria-hidden />
-                          Solicitud de Reconexión
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Próximamente</TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button variant="outline" className="justify-start gap-2 h-auto py-3" disabled>
-                          <MessageSquare className="h-4 w-4" aria-hidden />
-                          Quejas y Aclaraciones
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Próximamente</TooltipContent>
-                    </Tooltip>
+                <section className="rounded-lg border bg-card p-4 space-y-6" aria-labelledby="tramites-portal-title">
+                  <div>
+                    <h3 id="tramites-portal-title" className="text-sm font-semibold text-foreground mb-1">
+                      Trámites Digitales
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      Solicite altas, cambios, bajas, descuentos y reconexiones desde aquí.
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Contratos</p>
+                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button variant="outline" className="justify-start gap-2 h-auto py-3" disabled>
+                            <FilePlus className="h-4 w-4" aria-hidden />
+                            Alta
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Próximamente</TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button variant="outline" className="justify-start gap-2 h-auto py-3" disabled>
+                            <UserPlus className="h-4 w-4" aria-hidden />
+                            Cambio de Propietario
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Próximamente</TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button variant="outline" className="justify-start gap-2 h-auto py-3" disabled>
+                            <PowerOff className="h-4 w-4" aria-hidden />
+                            Baja Temporal
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Próximamente</TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button variant="outline" className="justify-start gap-2 h-auto py-3" disabled>
+                            <UserMinus className="h-4 w-4" aria-hidden />
+                            Baja Permanente
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Próximamente</TooltipContent>
+                      </Tooltip>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Descuentos</p>
+                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button variant="outline" className="justify-start gap-2 h-auto py-3" disabled>
+                            <BadgePercent className="h-4 w-4" aria-hidden />
+                            Jubilado / Pensionado
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Próximamente</TooltipContent>
+                      </Tooltip>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Solicitudes</p>
+                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button variant="outline" className="justify-start gap-2 h-auto py-3" disabled>
+                            <Plug className="h-4 w-4" aria-hidden />
+                            Reconexión
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Próximamente</TooltipContent>
+                      </Tooltip>
+                    </div>
                   </div>
                 </section>
               </TabsContent>
@@ -643,7 +640,7 @@ const PortalCliente = () => {
         </>
       )}
 
-      {!showContent && (
+      {!loading && !showContent && (
         <div className="rounded-lg border bg-muted/30 text-center py-12 text-muted-foreground">
           Seleccione un contrato para ver su información.
         </div>

@@ -11,6 +11,7 @@ import { RecibosModule } from './modules/recibos/recibos.module';
 import { TimbradosModule } from './modules/timbrados/timbrados.module';
 import { PagosModule } from './modules/pagos/pagos.module';
 import { QuejasModule } from './modules/quejas/quejas.module';
+import { PortalModule } from './modules/portal/portal.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { QuejasModule } from './modules/quejas/quejas.module';
     TimbradosModule,
     PagosModule,
     QuejasModule,
+    PortalModule,
   ],
   controllers: [AppController],
   providers: [AppService],

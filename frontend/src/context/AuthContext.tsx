@@ -45,7 +45,6 @@ interface AuthContextType {
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const TOKEN_KEY = 'ctcf_access_token';
-
 // Base URL for auth (must include /api). Normalized so login hits /api/auth/login.
 const API_BASE = normalizeApiBase(
   getBaseUrl() ?? 'http://localhost:3001',

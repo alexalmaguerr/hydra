@@ -14,7 +14,7 @@ export function normalizeApiBase(base: string): string {
   return b.endsWith('/api') ? b : `${b}/api`;
 }
 
-export const hasApi = (): boolean => !!getBaseUrl();
+export const hasApi = (): boolean => true;
 
 function getHeaders(): HeadersInit {
   const headers: Record<string, string> = {
@@ -31,10 +31,7 @@ export async function apiRequest<T>(
   path: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const base = getBaseUrl();
-  if (!base) {
-    throw new Error('VITE_API_BASE_URL is not set');
-  }
+  const base = getBaseUrl() ?? normalizeApiBase('http://localhost:3001');
   const url = path.startsWith('http') ? path : `${base.replace(/\/$/, '')}${path.startsWith('/') ? path : `/${path}`}`;
   const res = await fetch(url, {
     ...options,

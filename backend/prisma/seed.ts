@@ -122,7 +122,7 @@ async function main() {
     },
   });
 
-  // Contratos (sin medidor asignado para seed mínimo; se pueden añadir medidores después)
+  // Contratos
   await prisma.contrato.upsert({
     where: { id: 'CT001' },
     update: {},
@@ -162,7 +162,132 @@ async function main() {
     },
   });
 
-  console.log('Seed completado: administraciones, zonas, distritos, factibilidades, construcciones, tomas, rutas, contratos.');
+  // ---- Datos de portal para CT001 ----
+
+  // Consumos (últimos 3 meses)
+  await prisma.consumo.upsert({
+    where: { id: 'CON001' },
+    update: {},
+    create: {
+      id: 'CON001',
+      contratoId: 'CT001',
+      periodo: '2024-12',
+      m3: 18,
+      tipo: 'Real',
+      confirmado: true,
+    },
+  });
+  await prisma.consumo.upsert({
+    where: { id: 'CON002' },
+    update: {},
+    create: {
+      id: 'CON002',
+      contratoId: 'CT001',
+      periodo: '2025-01',
+      m3: 21,
+      tipo: 'Real',
+      confirmado: true,
+    },
+  });
+  await prisma.consumo.upsert({
+    where: { id: 'CON003' },
+    update: {},
+    create: {
+      id: 'CON003',
+      contratoId: 'CT001',
+      periodo: '2025-02',
+      m3: 19,
+      tipo: 'Real',
+      confirmado: false,
+    },
+  });
+
+  // Timbrado 1 — pagado (dic 2024)
+  await prisma.timbrado.upsert({
+    where: { id: 'TIM001' },
+    update: {},
+    create: {
+      id: 'TIM001',
+      contratoId: 'CT001',
+      consumoId: 'CON001',
+      uuid: 'a1b2c3d4-0001-0001-0001-000000000001',
+      estado: 'Timbrada OK',
+      periodo: '2024-12',
+      subtotal: 360.00,
+      iva: 57.60,
+      total: 417.60,
+      fechaEmision: '2025-01-05',
+      fechaVencimiento: '2025-01-20',
+    },
+  });
+
+  // Timbrado 2 — pendiente (ene 2025)
+  await prisma.timbrado.upsert({
+    where: { id: 'TIM002' },
+    update: {},
+    create: {
+      id: 'TIM002',
+      contratoId: 'CT001',
+      consumoId: 'CON002',
+      uuid: 'a1b2c3d4-0002-0002-0002-000000000002',
+      estado: 'Timbrada OK',
+      periodo: '2025-01',
+      subtotal: 420.00,
+      iva: 67.20,
+      total: 487.20,
+      fechaEmision: '2025-02-05',
+      fechaVencimiento: '2025-02-20',
+    },
+  });
+
+  // Recibo 1 — pagado (saldo 0)
+  await prisma.recibo.upsert({
+    where: { id: 'REC001' },
+    update: {},
+    create: {
+      id: 'REC001',
+      contratoId: 'CT001',
+      timbradoId: 'TIM001',
+      saldoVigente: 0,
+      saldoVencido: 0,
+      fechaVencimiento: '2025-01-20',
+      impreso: true,
+    },
+  });
+
+  // Recibo 2 — pendiente
+  await prisma.recibo.upsert({
+    where: { id: 'REC002' },
+    update: {},
+    create: {
+      id: 'REC002',
+      contratoId: 'CT001',
+      timbradoId: 'TIM002',
+      saldoVigente: 487.20,
+      saldoVencido: 0,
+      fechaVencimiento: '2025-02-20',
+      impreso: false,
+    },
+  });
+
+  // Pago histórico para dic 2024
+  await prisma.pago.upsert({
+    where: { id: 'PAG001' },
+    update: {},
+    create: {
+      id: 'PAG001',
+      contratoId: 'CT001',
+      reciboId: 'REC001',
+      timbradoId: 'TIM001',
+      monto: 417.60,
+      fecha: '2025-01-18',
+      tipo: 'Transferencia',
+      concepto: 'Pago factura dic 2024',
+      origen: 'nativo',
+    },
+  });
+
+  console.log('Seed completado: administraciones, zonas, distritos, factibilidades, construcciones, tomas, rutas, contratos, consumos, timbrados, recibos, pagos.');
 }
 
 async function seedUser() {
@@ -178,6 +303,7 @@ async function seedUser() {
       role: 'SUPER_ADMIN',
       administracionIds: ['ADM01'],
       zonaIds: ['Z001', 'Z002'],
+      contratoIds: [],
     },
   });
 
@@ -191,6 +317,7 @@ async function seedUser() {
       role: 'OPERADOR',
       administracionIds: ['ADM01'],
       zonaIds: ['Z001'],
+      contratoIds: [],
     },
   });
 
@@ -204,6 +331,7 @@ async function seedUser() {
       role: 'LECTURISTA',
       administracionIds: ['ADM01'],
       zonaIds: ['Z001'],
+      contratoIds: [],
     },
   });
 
@@ -217,12 +345,13 @@ async function seedUser() {
       role: 'ATENCION_CLIENTES',
       administracionIds: ['ADM01'],
       zonaIds: ['Z001', 'Z002'],
+      contratoIds: [],
     },
   });
 
   await prisma.user.upsert({
     where: { email: 'cliente@ctcf.local' },
-    update: {},
+    update: { contratoIds: ['CT001', 'CT002'] },
     create: {
       email: 'cliente@ctcf.local',
       passwordHash: hash,
@@ -230,6 +359,7 @@ async function seedUser() {
       role: 'CLIENTE',
       administracionIds: [],
       zonaIds: [],
+      contratoIds: ['CT001', 'CT002'],
     },
   });
 
