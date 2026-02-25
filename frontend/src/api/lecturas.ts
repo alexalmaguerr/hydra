@@ -18,7 +18,7 @@ export interface LecturaDto {
 }
 
 export async function fetchLecturas(): Promise<LecturaDto[]> {
-  return apiRequest<LecturaDto[]>('/api/lecturas');
+  return apiRequest<LecturaDto[]>('/lecturas');
 }
 
 export { hasApi };

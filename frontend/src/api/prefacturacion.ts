@@ -12,7 +12,7 @@ export interface PreFacturaDto {
 }
 
 export async function fetchPreFacturas(): Promise<PreFacturaDto[]> {
-  return apiRequest<PreFacturaDto[]>('/api/prefacturas');
+  return apiRequest<PreFacturaDto[]>('/prefacturas');
 }
 
 export { hasApi };

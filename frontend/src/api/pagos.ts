@@ -23,11 +23,11 @@ export interface PagoExternoDto {
 }
 
 export async function fetchPagos(): Promise<PagoDto[]> {
-  return apiRequest<PagoDto[]>('/api/pagos');
+  return apiRequest<PagoDto[]>('/pagos');
 }
 
 export async function fetchPagosExternos(): Promise<PagoExternoDto[]> {
-  return apiRequest<PagoExternoDto[]>('/api/pagos-externos');
+  return apiRequest<PagoExternoDto[]>('/pagos-externos');
 }
 
 export { hasApi };

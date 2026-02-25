@@ -1,13 +1,15 @@
-import { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useData } from '@/context/DataContext';
 import { fetchContratos, createContrato, hasApi, type CreateContratoDto } from '@/api/contratos';
 import StatusBadge from '@/components/StatusBadge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Plus, Eye, ChevronRight } from 'lucide-react';
+import { Plus, Eye, ChevronRight, Hash, User, Droplets, FileText } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
 import { useSearchParams } from 'react-router-dom';
 
 const Contratos = () => {
@@ -222,83 +224,292 @@ const Contratos = () => {
 
       {/* Detail */}
       <Dialog open={!!detail} onOpenChange={() => setDetail(null)}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>Contrato {selected?.id}</DialogTitle></DialogHeader>
-          {selected && (
-            <div className="space-y-4 text-sm">
-              <div className="grid grid-cols-2 gap-2">
-                <div><span className="text-muted-foreground">Titular:</span> {selected.nombre}</div>
-                <div><span className="text-muted-foreground">RFC:</span> {selected.rfc}</div>
-                <div><span className="text-muted-foreground">Toma:</span> {selected.tomaId}</div>
-                <div><span className="text-muted-foreground">Tipo:</span> {selected.tipoContrato} / {selected.tipoServicio}</div>
-                <div><span className="text-muted-foreground">Medidor:</span> {selected.medidorId || 'Sin asignar'}</div>
-                <div><span className="text-muted-foreground">Ruta:</span> {selected.rutaId || 'Sin asignar'}</div>
-              </div>
-              <StatusBadge status={selected.estado} />
+        <DialogContent className="max-w-6xl w-[95vw] h-[90vh] flex flex-col gap-0 p-0 overflow-hidden">
+          {selected && (() => {
+            // Mock data para validación con cliente (campos aún no en BD)
+            const mock = {
+              tipoCliente: 'Particular',
+              consumoPromedio: 8,
+              email1: 'titular@ejemplo.com',
+              email2: '',
+              telFijo: '',
+              movil: selected.contacto || '',
+              jubilado: false,
+              juridica: false,
+              administracion: 'CEA Querétaro',
+              envioFactura: 'Correo electrónico',
+              observaciones: [
+                { fecha: selected.fecha, observacion: 'Alta de contrato', usuario: 'SISTEMA' },
+              ],
+            };
 
-              <h4 className="font-semibold pt-2">Desglose de facturas</h4>
-              <div className="space-y-3">
-                {facturasDesglose.pagadas.length > 0 && (
-                  <div>
-                    <p className="text-xs font-medium text-muted-foreground mb-1">Pagadas</p>
-                    <table className="w-full text-xs border rounded overflow-hidden">
-                      <thead><tr className="bg-muted/50"><th className="text-left p-2">Periodo</th><th className="text-left p-2">UUID</th><th className="text-right p-2">Monto</th><th className="p-2">Estado</th></tr></thead>
-                      <tbody>
-                        {facturasDesglose.pagadas.map(f => (
-                          <tr key={f.timbrado.id} className="border-t">
-                            <td className="p-2">{f.preFactura?.periodo ?? '—'}</td>
-                            <td className="p-2 font-mono">{f.timbrado.uuid || '—'}</td>
-                            <td className="p-2 text-right">${f.total.toFixed(2)}</td>
-                            <td className="p-2"><span className="status-badge status-success">Pagada</span></td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-                {facturasDesglose.porCobrar.length > 0 && (
-                  <div>
-                    <p className="text-xs font-medium text-muted-foreground mb-1">Por cobrar</p>
-                    <table className="w-full text-xs border rounded overflow-hidden">
-                      <thead><tr className="bg-muted/50"><th className="text-left p-2">Periodo</th><th className="text-left p-2">UUID</th><th className="text-right p-2">Monto</th><th className="p-2">Estado</th></tr></thead>
-                      <tbody>
-                        {facturasDesglose.porCobrar.map(f => (
-                          <tr key={f.timbrado.id} className="border-t">
-                            <td className="p-2">{f.preFactura?.periodo ?? '—'}</td>
-                            <td className="p-2 font-mono">{f.timbrado.uuid || '—'}</td>
-                            <td className="p-2 text-right">${f.total.toFixed(2)}</td>
-                            <td className="p-2"><span className="status-badge status-warning">Por cobrar</span></td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-                {facturasDesglose.vencidas.length > 0 && (
-                  <div>
-                    <p className="text-xs font-medium text-muted-foreground mb-1">Vencidas</p>
-                    <table className="w-full text-xs border rounded overflow-hidden">
-                      <thead><tr className="bg-muted/50"><th className="text-left p-2">Periodo</th><th className="text-left p-2">UUID</th><th className="text-right p-2">Monto</th><th className="p-2">Vencimiento</th><th className="p-2">Estado</th></tr></thead>
-                      <tbody>
-                        {facturasDesglose.vencidas.map(f => (
-                          <tr key={f.timbrado.id} className="border-t">
-                            <td className="p-2">{f.preFactura?.periodo ?? '—'}</td>
-                            <td className="p-2 font-mono">{f.timbrado.uuid || '—'}</td>
-                            <td className="p-2 text-right">${f.total.toFixed(2)}</td>
-                            <td className="p-2 text-destructive">{f.fechaVencimiento}</td>
-                            <td className="p-2"><span className="status-badge status-error">Vencida</span></td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-                {facturasDesglose.pagadas.length === 0 && facturasDesglose.porCobrar.length === 0 && facturasDesglose.vencidas.length === 0 && (
-                  <p className="text-muted-foreground text-xs">Sin facturas para este contrato.</p>
-                )}
+            const todasFacturas = [
+              ...facturasDesglose.vencidas,
+              ...facturasDesglose.porCobrar,
+              ...facturasDesglose.pagadas,
+            ];
+            const saldoTotal = todasFacturas.reduce((s, f) => {
+              const esPagada = facturasDesglose.pagadas.includes(f);
+              return s + (esPagada ? 0 : f.total);
+            }, 0);
+
+            const Row = ({ label, value }: { label: string; value: React.ReactNode }) => (
+              <div className="flex items-center justify-between gap-4 px-3.5 py-2.5 text-sm">
+                <span className="text-muted-foreground shrink-0">{label}</span>
+                <span className="font-medium text-right">{value}</span>
               </div>
-            </div>
-          )}
+            );
+
+            return (
+              <div className="flex h-full overflow-hidden">
+
+                {/* ── Sidebar izquierdo ── */}
+                <aside className="w-56 shrink-0 border-r flex flex-col overflow-y-auto bg-muted/10">
+
+                  {/* Identidad */}
+                  <div className="p-5 border-b space-y-2.5">
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="font-mono text-xl font-bold tracking-tight leading-none">{selected.id}</span>
+                      <StatusBadge status={selected.estado} />
+                    </div>
+                    <p className="font-semibold text-sm leading-snug">{selected.nombre}</p>
+                    {selected.rfc && (
+                      <p className="text-xs text-muted-foreground font-mono">{selected.rfc}</p>
+                    )}
+                    {selected.contacto && (
+                      <p className="text-xs text-muted-foreground">{selected.contacto}</p>
+                    )}
+                  </div>
+
+                  {/* Clasificación y fechas */}
+                  <div className="p-4 border-b space-y-3">
+                    <div className="flex flex-wrap gap-1.5">
+                      <Badge variant="outline" className="text-xs">{selected.tipoContrato}</Badge>
+                      <Badge variant="secondary" className="text-xs">{selected.tipoServicio}</Badge>
+                    </div>
+                    <dl className="space-y-1.5 text-xs">
+                      <div className="flex justify-between gap-2">
+                        <dt className="text-muted-foreground">Alta</dt>
+                        <dd className="font-medium tabular-nums">{selected.fecha}</dd>
+                      </div>
+                      <div className="flex justify-between gap-2">
+                        <dt className="text-muted-foreground">Zona</dt>
+                        <dd className="font-medium">{selected.zonaId || '—'}</dd>
+                      </div>
+                      <div className="flex justify-between gap-2">
+                        <dt className="text-muted-foreground">Toma</dt>
+                        <dd className="font-mono font-medium">{selected.tomaId || '—'}</dd>
+                      </div>
+                    </dl>
+                  </div>
+
+                  {/* Estado de cuenta */}
+                  <div className="p-4 space-y-1 flex-1">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Estado de cuenta</p>
+                    <dl className="space-y-2 text-xs">
+                      <div className="flex justify-between gap-2">
+                        <dt className="text-muted-foreground">Total pendiente</dt>
+                        <dd className={`font-medium tabular-nums ${saldoTotal > 0 ? 'text-red-400' : 'text-emerald-500'}`}>${saldoTotal.toFixed(2)}</dd>
+                      </div>
+                      <div className="flex justify-between gap-2">
+                        <dt className="text-muted-foreground">Vencidas</dt>
+                        <dd className={`font-medium tabular-nums ${facturasDesglose.vencidas.length > 0 ? 'text-red-400' : 'text-muted-foreground'}`}>{facturasDesglose.vencidas.length}</dd>
+                      </div>
+                      <div className="flex justify-between gap-2">
+                        <dt className="text-muted-foreground">Por cobrar</dt>
+                        <dd className="font-medium tabular-nums text-amber-400">{facturasDesglose.porCobrar.length}</dd>
+                      </div>
+                      <div className="flex justify-between gap-2">
+                        <dt className="text-muted-foreground">Pagadas</dt>
+                        <dd className="font-medium tabular-nums text-emerald-500">{facturasDesglose.pagadas.length}</dd>
+                      </div>
+                    </dl>
+                  </div>
+                </aside>
+
+                {/* ── Panel derecho con tabs ── */}
+                <Tabs defaultValue="general" className="flex flex-col flex-1 min-w-0 overflow-hidden">
+
+                  {/* Tab bar estilo underline */}
+                  <div className="shrink-0 border-b px-4 pt-1">
+                    <TabsList className="h-auto bg-transparent p-0 gap-0 border-0 flex">
+                      {([
+                        { value: 'general',     icon: Hash,        label: 'General' },
+                        { value: 'titular',     icon: User,        label: 'Titular' },
+                        { value: 'servicio',    icon: Droplets,    label: 'Servicio' },
+                        { value: 'facturacion', icon: FileText,    label: 'Facturación' },
+                        { value: 'historico',   icon: ChevronRight,label: 'Histórico' },
+                      ] as const).map(({ value, icon: Icon, label }) => (
+                        <TabsTrigger
+                          key={value}
+                          value={value}
+                          className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 py-3 text-sm gap-1.5 -mb-px font-normal data-[state=active]:font-medium"
+                        >
+                          <Icon className="h-3.5 w-3.5" />{label}
+                        </TabsTrigger>
+                      ))}
+                    </TabsList>
+                  </div>
+
+                  {/* Contenido scrollable */}
+                  <div className="flex-1 overflow-y-auto p-6">
+
+                    {/* ── General ── */}
+                    <TabsContent value="general" className="mt-0 space-y-5">
+                      <div className="grid grid-cols-2 gap-5">
+                        <section className="space-y-2">
+                          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground px-0.5">Contrato</h3>
+                          <div className="rounded-lg border divide-y">
+                            <Row label="Estado" value={<StatusBadge status={selected.estado} />} />
+                            <Row label="Fecha de alta" value={selected.fecha} />
+                            <Row label="Tipo" value={selected.tipoContrato} />
+                            <Row label="Servicio" value={selected.tipoServicio} />
+                            <Row label="Domiciliado" value={selected.domiciliado ? 'Sí' : 'No'} />
+                            {selected.fechaReconexionPrevista && (
+                              <Row label="Reconexión prevista" value={selected.fechaReconexionPrevista} />
+                            )}
+                          </div>
+                        </section>
+                        <section className="space-y-2">
+                          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground px-0.5">Configuración</h3>
+                          <div className="rounded-lg border divide-y">
+                            <Row label="Administración" value={mock.administracion} />
+                            <Row label="Zona" value={selected.zonaId || '—'} />
+                            <Row label="Consumo promedio" value={`${mock.consumoPromedio} m³`} />
+                            <Row label="Envío de factura" value={mock.envioFactura} />
+                            <Row label="Tipo de cliente" value={mock.tipoCliente} />
+                            <Row label="Jubilado / Pensionado" value={mock.jubilado ? 'Sí' : 'No'} />
+                          </div>
+                        </section>
+                      </div>
+                    </TabsContent>
+
+                    {/* ── Titular ── */}
+                    <TabsContent value="titular" className="mt-0 space-y-5">
+                      <div className="grid grid-cols-2 gap-5">
+                        <section className="space-y-2">
+                          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground px-0.5">Datos personales</h3>
+                          <div className="rounded-lg border divide-y">
+                            <Row label="Nombre completo" value={selected.nombre} />
+                            <Row label="RFC" value={<span className="font-mono">{selected.rfc || '—'}</span>} />
+                            <Row label="Persona" value={mock.juridica ? 'Jurídica' : 'Física'} />
+                            <Row label="Dirección" value={selected.direccion || '—'} />
+                          </div>
+                        </section>
+                        <section className="space-y-2">
+                          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground px-0.5">Contacto</h3>
+                          <div className="rounded-lg border divide-y">
+                            <Row label="Teléfono fijo" value={mock.telFijo || '—'} />
+                            <Row label="Móvil" value={mock.movil || '—'} />
+                            <Row label="Email principal" value={mock.email1 || '—'} />
+                            <Row label="Email secundario" value={mock.email2 || '—'} />
+                          </div>
+                        </section>
+                      </div>
+                    </TabsContent>
+
+                    {/* ── Servicio ── */}
+                    <TabsContent value="servicio" className="mt-0 space-y-5">
+                      <div className="grid grid-cols-2 gap-5">
+                        <section className="space-y-2">
+                          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground px-0.5">Punto de servicio</h3>
+                          <div className="rounded-lg border divide-y">
+                            <Row label="Toma" value={<span className="font-mono">{selected.tomaId || '—'}</span>} />
+                            <Row label="Dirección" value={selected.direccion || '—'} />
+                            <Row label="Zona" value={selected.zonaId || '—'} />
+                            <Row label="Ruta" value={selected.rutaId || 'Sin asignar'} />
+                          </div>
+                        </section>
+                        <section className="space-y-2">
+                          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground px-0.5">Medidor</h3>
+                          <div className="rounded-lg border divide-y">
+                            <Row label="ID Medidor" value={<span className="font-mono">{selected.medidorId || 'Sin asignar'}</span>} />
+                            <Row label="Serie" value="—" />
+                            <Row label="Estado" value="—" />
+                            <Row label="Lectura inicial" value="—" />
+                          </div>
+                        </section>
+                      </div>
+                    </TabsContent>
+
+                    {/* ── Facturación ── */}
+                    <TabsContent value="facturacion" className="mt-0">
+                      {todasFacturas.length === 0 ? (
+                        <p className="text-sm text-muted-foreground text-center py-12">Sin facturas para este contrato.</p>
+                      ) : (
+                        <div className="rounded-lg border overflow-hidden">
+                          <table className="w-full text-xs">
+                            <thead>
+                              <tr className="bg-muted/50 border-b">
+                                <th className="px-3 py-2.5 text-left font-medium text-muted-foreground">Periodo</th>
+                                <th className="px-3 py-2.5 text-left font-medium text-muted-foreground">Periodicidad</th>
+                                <th className="px-3 py-2.5 text-left font-medium text-muted-foreground">F. Factura</th>
+                                <th className="px-3 py-2.5 text-left font-medium text-muted-foreground">Estado</th>
+                                <th className="px-3 py-2.5 text-right font-medium text-muted-foreground">Importe</th>
+                                <th className="px-3 py-2.5 text-right font-medium text-muted-foreground">Recargo</th>
+                                <th className="px-3 py-2.5 text-left font-medium text-muted-foreground">Motivo</th>
+                                <th className="px-3 py-2.5 text-left font-medium text-muted-foreground">Nº Factura</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {todasFacturas.map(f => {
+                                const esPagada = facturasDesglose.pagadas.includes(f);
+                                const esVencida = facturasDesglose.vencidas.includes(f);
+                                const estadoLabel = esPagada ? 'COBRADA' : esVencida ? 'VENCIDA' : 'PENDIENTE';
+                                const impagada = !esPagada && esVencida;
+                                return (
+                                  <tr key={f.timbrado.id} className="border-t hover:bg-muted/30 transition-colors">
+                                    <td className="px-3 py-2 font-medium">{f.preFactura?.periodo ?? '—'}</td>
+                                    <td className="px-3 py-2 text-muted-foreground">MENSUAL</td>
+                                    <td className="px-3 py-2 tabular-nums text-muted-foreground">
+                                      {f.timbrado.fecha ?? f.fechaVencimiento ?? '—'}
+                                    </td>
+                                    <td className="px-3 py-2 font-medium">
+                                      <span className={impagada ? 'text-red-400/90 dark:text-red-400/80' : 'text-muted-foreground'}>
+                                        {estadoLabel}
+                                      </span>
+                                    </td>
+                                    <td className="px-3 py-2 text-right tabular-nums font-medium">${f.total.toFixed(2)}</td>
+                                    <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">$0.00</td>
+                                    <td className="px-3 py-2 text-muted-foreground">Periódica</td>
+                                    <td className="px-3 py-2 font-mono text-muted-foreground">{f.timbrado.uuid || f.timbrado.id}</td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </TabsContent>
+
+                    {/* ── Histórico ── */}
+                    <TabsContent value="historico" className="mt-0">
+                      <table className="w-full text-sm border rounded-lg overflow-hidden">
+                        <thead>
+                          <tr className="bg-muted/50 text-left text-xs">
+                            <th className="px-4 py-3 font-medium text-muted-foreground">Fecha</th>
+                            <th className="px-4 py-3 font-medium text-muted-foreground">Observación</th>
+                            <th className="px-4 py-3 font-medium text-muted-foreground">Usuario</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {mock.observaciones.map((o, i) => (
+                            <tr key={i} className="border-t">
+                              <td className="px-4 py-3 tabular-nums whitespace-nowrap text-muted-foreground">{o.fecha}</td>
+                              <td className="px-4 py-3">{o.observacion}</td>
+                              <td className="px-4 py-3 text-muted-foreground text-xs font-mono">{o.usuario}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </TabsContent>
+
+                  </div>
+                </Tabs>
+
+              </div>
+            );
+          })()}
         </DialogContent>
       </Dialog>
     </div>
