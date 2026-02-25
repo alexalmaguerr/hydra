@@ -1,11 +1,11 @@
 /**
  * Base URL for the backend API. When not set, the app uses DataContext (mock) only.
  */
-const getBaseUrl = (): string | undefined => {
-  return import.meta.env.VITE_API_BASE_URL as string | undefined;
+const getBaseUrl = (): string => {
+  return (import.meta.env.VITE_API_BASE_URL as string) || 'http://localhost:3001/api';
 };
 
-export const hasApi = (): boolean => !!getBaseUrl();
+export const hasApi = (): boolean => true;
 
 function getHeaders(): HeadersInit {
   const headers: Record<string, string> = {
@@ -23,9 +23,6 @@ export async function apiRequest<T>(
   options: RequestInit = {}
 ): Promise<T> {
   const base = getBaseUrl();
-  if (!base) {
-    throw new Error('VITE_API_BASE_URL is not set');
-  }
   const url = path.startsWith('http') ? path : `${base.replace(/\/$/, '')}${path.startsWith('/') ? path : `/${path}`}`;
   const res = await fetch(url, {
     ...options,

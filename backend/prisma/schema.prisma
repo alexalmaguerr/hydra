@@ -96,28 +96,32 @@ model Toma {
 
 // ---- Contratos y medidores ----
 model Contrato {
-  id                     String   @id @default(cuid())
-  tomaId                 String?  @map("toma_id")
-  tipoContrato           String   @map("tipo_contrato")
-  tipoServicio           String   @map("tipo_servicio")
-  nombre                 String
-  rfc                    String
-  direccion              String
-  contacto               String
-  estado                 String
-  fecha                  String
-  medidorId              String?  @map("medidor_id")
-  rutaId                 String?  @map("ruta_id")
-  zonaId                 String?  @map("zona_id")
-  domiciliado            Boolean  @default(false)
+  id                      String   @id @default(cuid())
+  tomaId                  String?  @map("toma_id")
+  tipoContrato            String   @map("tipo_contrato")
+  tipoServicio            String   @map("tipo_servicio")
+  nombre                  String
+  rfc                     String
+  direccion               String
+  contacto                String
+  estado                  String
+  fecha                   String
+  medidorId               String?  @map("medidor_id")
+  rutaId                  String?  @map("ruta_id")
+  zonaId                  String?  @map("zona_id")
+  domiciliado             Boolean  @default(false)
   fechaReconexionPrevista String?  @map("fecha_reconexion_prevista")
-  createdAt              DateTime @default(now()) @map("created_at")
-  updatedAt              DateTime @updatedAt @map("updated_at")
-  toma                   Toma?    @relation(fields: [tomaId], references: [id], onDelete: SetNull)
-  zona                   Zona?    @relation(fields: [zonaId], references: [id], onDelete: SetNull)
-  ruta                   Ruta?    @relation(fields: [rutaId], references: [id], onDelete: SetNull)
-  medidor                Medidor?
-  costosContrato         CostoContrato[]
+  createdAt               DateTime @default(now()) @map("created_at")
+  updatedAt               DateTime @updatedAt @map("updated_at")
+  toma                    Toma?    @relation(fields: [tomaId], references: [id], onDelete: SetNull)
+  zona                    Zona?    @relation(fields: [zonaId], references: [id], onDelete: SetNull)
+  ruta                    Ruta?    @relation(fields: [rutaId], references: [id], onDelete: SetNull)
+  medidor                 Medidor?
+  costosContrato          CostoContrato[]
+  consumos                Consumo[]
+  timbrados               Timbrado[]
+  recibos                 Recibo[]
+  pagos                   Pago[]
 
   @@index([tomaId])
   @@index([rutaId])
@@ -186,6 +190,88 @@ model Ruta {
   @@map("rutas")
 }
 
+// ---- Portal de clientes ----
+model Consumo {
+  id         String   @id @default(cuid())
+  contratoId String   @map("contrato_id")
+  periodo    String
+  m3         Decimal  @db.Decimal(10, 2)
+  tipo       String   // Real | Promedio histórico | Mixto | Consumo fijo
+  confirmado Boolean  @default(false)
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+  contrato   Contrato @relation(fields: [contratoId], references: [id], onDelete: Cascade)
+  timbrado   Timbrado?
+
+  @@index([contratoId])
+  @@map("consumos")
+}
+
+model Timbrado {
+  id               String   @id @default(cuid())
+  contratoId       String   @map("contrato_id")
+  consumoId        String?  @unique @map("consumo_id")
+  uuid             String   @default("")
+  estado           String   // Timbrada OK | Error PAC | Pendiente
+  periodo          String
+  subtotal         Decimal  @db.Decimal(10, 2)
+  iva              Decimal  @db.Decimal(10, 2)
+  total            Decimal  @db.Decimal(10, 2)
+  fechaEmision     String   @map("fecha_emision")
+  fechaVencimiento String   @map("fecha_vencimiento")
+  error            String?
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+  contrato         Contrato @relation(fields: [contratoId], references: [id], onDelete: Cascade)
+  consumo          Consumo? @relation(fields: [consumoId], references: [id], onDelete: SetNull)
+  recibos          Recibo[]
+  pagos            Pago[]
+
+  @@index([contratoId])
+  @@map("timbrados")
+}
+
+model Recibo {
+  id               String   @id @default(cuid())
+  contratoId       String   @map("contrato_id")
+  timbradoId       String   @map("timbrado_id")
+  saldoVigente     Decimal  @db.Decimal(10, 2) @map("saldo_vigente")
+  saldoVencido     Decimal  @db.Decimal(10, 2) @map("saldo_vencido")
+  fechaVencimiento String   @map("fecha_vencimiento")
+  parcialidades    Int      @default(1)
+  impreso          Boolean  @default(false)
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+  contrato         Contrato @relation(fields: [contratoId], references: [id], onDelete: Cascade)
+  timbrado         Timbrado @relation(fields: [timbradoId], references: [id], onDelete: Cascade)
+  pagos            Pago[]
+
+  @@index([contratoId])
+  @@index([timbradoId])
+  @@map("recibos")
+}
+
+model Pago {
+  id         String   @id @default(cuid())
+  contratoId String   @map("contrato_id")
+  reciboId   String?  @map("recibo_id")
+  timbradoId String?  @map("timbrado_id")
+  monto      Decimal  @db.Decimal(10, 2)
+  fecha      String
+  tipo       String   // Efectivo | Transferencia | Tarjeta | SPEI | OXXO | CoDi | WEB
+  concepto   String
+  origen     String   @default("nativo") // nativo | externo
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+  contrato   Contrato @relation(fields: [contratoId], references: [id], onDelete: Cascade)
+  recibo     Recibo?  @relation(fields: [reciboId], references: [id], onDelete: SetNull)
+  timbrado   Timbrado? @relation(fields: [timbradoId], references: [id], onDelete: SetNull)
+
+  @@index([contratoId])
+  @@index([reciboId])
+  @@map("pagos")
+}
+
 // ---- Auth ----
 enum UserRole {
   SUPER_ADMIN
@@ -204,6 +290,7 @@ model User {
   role                UserRole @default(OPERADOR)
   administracionIds   String[] @map("administracion_ids")
   zonaIds             String[] @map("zona_ids")
+  contratoIds         String[] @map("contrato_ids")
   createdAt           DateTime @default(now()) @map("created_at")
   updatedAt           DateTime @updatedAt @map("updated_at")
 

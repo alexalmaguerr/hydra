@@ -10,6 +10,7 @@ import { PrefacturasModule } from './modules/prefacturas/prefacturas.module';
 import { RecibosModule } from './modules/recibos/recibos.module';
 import { TimbradosModule } from './modules/timbrados/timbrados.module';
 import { PagosModule } from './modules/pagos/pagos.module';
+import { PortalModule } from './modules/portal/portal.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { PagosModule } from './modules/pagos/pagos.module';
     RecibosModule,
     TimbradosModule,
     PagosModule,
+    PortalModule,
   ],
   controllers: [AppController],
   providers: [AppService],
