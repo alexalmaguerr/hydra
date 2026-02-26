@@ -16,6 +16,19 @@ export class ContratosService {
     return c;
   }
 
+  async update(id: string, dto: { ceaNumContrato?: string | null; estado?: string; domiciliado?: boolean; fechaReconexionPrevista?: string | null }) {
+    await this.findOne(id);
+    return this.prisma.contrato.update({
+      where: { id },
+      data: {
+        ...(dto.ceaNumContrato !== undefined && { ceaNumContrato: dto.ceaNumContrato }),
+        ...(dto.estado !== undefined && { estado: dto.estado }),
+        ...(dto.domiciliado !== undefined && { domiciliado: dto.domiciliado }),
+        ...(dto.fechaReconexionPrevista !== undefined && { fechaReconexionPrevista: dto.fechaReconexionPrevista }),
+      },
+    });
+  }
+
   async create(dto: CreateContratoDto) {
     return this.prisma.contrato.create({
       data: {
@@ -33,6 +46,7 @@ export class ContratosService {
         zonaId: dto.zonaId ?? null,
         domiciliado: dto.domiciliado ?? false,
         fechaReconexionPrevista: dto.fechaReconexionPrevista ?? null,
+        ceaNumContrato: dto.ceaNumContrato ?? null,
       },
     });
   }

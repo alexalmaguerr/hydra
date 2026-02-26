@@ -17,11 +17,13 @@ export class PortalService {
       select: {
         id: true,
         nombre: true,
+        rfc: true,
         tipoContrato: true,
         tipoServicio: true,
         estado: true,
         direccion: true,
         fecha: true,
+        ceaNumContrato: true,
       },
       orderBy: { id: 'asc' },
     });

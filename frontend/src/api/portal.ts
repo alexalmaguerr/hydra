@@ -3,11 +3,13 @@ import { apiRequest } from './client';
 export interface PortalContrato {
   id: string;
   nombre: string;
+  rfc: string;
   tipoContrato: string;
   tipoServicio: string;
   estado: string;
   direccion: string;
   fecha: string;
+  ceaNumContrato?: string | null;
 }
 
 export interface PortalConsumo {

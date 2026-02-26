@@ -10,6 +10,7 @@ import {
   type PortalPago,
   type PortalSaldos,
 } from '@/api/portal';
+import { getCeaDeuda, getCeaConsumos, type CeaConsumo } from '@/api/cea';
 import type { PortalContextValue } from '@/components/PortalLayout';
 import {
   FileText,
@@ -77,6 +78,8 @@ function StatusPill({ status }: { status: string }) {
 
 // ─── Tab values ─────────────────────────────────────────────────────────────
 
+const FACTURAS_POR_PAGINA = 10;
+
 const TAB_VALUES = ['inicio', 'consumo', 'facturas', 'recibos', 'metodos-pago', 'tramites-digitales'] as const;
 type TabValue = (typeof TAB_VALUES)[number];
 
@@ -105,18 +108,35 @@ const PortalCliente = () => {
     [setSearchParams]
   );
 
-  // Per-tab data
+  // Per-tab data (from hydra backend)
   const [consumos, setConsumos] = useState<PortalConsumo[]>([]);
   const [timbrados, setTimbrados] = useState<PortalTimbrado[]>([]);
   const [pagos, setPagos] = useState<PortalPago[]>([]);
   const [saldos, setSaldos] = useState<PortalSaldos>({ vencido: 0, vigente: 0, total: 0, intereses: 0 });
   const [loadingData, setLoadingData] = useState(false);
 
+  // CEA live data (real-time from Aquacis)
+  const [ceaConsumos, setCeaConsumos] = useState<CeaConsumo[]>([]);
+  const [ceaNombreCliente, setCeaNombreCliente] = useState<string | null>(null);
+  const [ceaExplotacion, setCeaExplotacion] = useState<string | null>(null);
+  const [ceaSaldosLoading, setCeaSaldosLoading] = useState(false);
+  const [ceaConsumosFetched, setCeaConsumosFetched] = useState(false);
+  const [ceaConsumosLoading, setCeaConsumosLoading] = useState(false);
+
   // Search/filter state
   const [folioSearch, setFolioSearch] = useState('');
   const [filtroEstado, setFiltroEstado] = useState('todos');
+  const [consumoAnioFiltro, setConsumoAnioFiltro] = useState('todos');
   const [recibosSubtab, setRecibosSubtab] = useState<'recientes' | 'historico' | 'pendientes' | 'facturas'>('recientes');
+  const [facturasPagina, setFacturasPagina] = useState(1);
+  const [consumosPagina, setConsumosPagina] = useState(1);
 
+  const contrato = useMemo(
+    () => (contratoId ? contratos.find((c) => c.id === contratoId) ?? null : null),
+    [contratos, contratoId]
+  );
+
+  // Fetch hydra backend data
   useEffect(() => {
     if (!contratoId) return;
     setLoadingData(true);
@@ -138,12 +158,75 @@ const PortalCliente = () => {
     }).finally(() => setLoadingData(false));
   }, [contratoId]);
 
-  const contrato = useMemo(
-    () => (contratoId ? contratos.find((c) => c.id === contratoId) ?? null : null),
-    [contratos, contratoId]
+  // Fetch CEA live saldos (debt) when a CEA contract number is linked
+  useEffect(() => {
+    if (!contrato?.ceaNumContrato) return;
+    setCeaSaldosLoading(true);
+    getCeaDeuda(contrato.ceaNumContrato)
+      .then((deuda) => {
+        if (!deuda) return;
+        const vencido = parseFloat(deuda.deuda ?? '0');
+        const intereses = parseFloat(deuda.deudaComision ?? '0');
+        const total = parseFloat(deuda.deudaTotal ?? '0');
+        const saldoAnt = parseFloat(deuda.saldoAnterior ?? '0');
+        // "vigente" = current period amount not yet overdue
+        const vigente = Math.max(0, saldoAnt - vencido);
+        setSaldos({ vencido, vigente, total, intereses });
+        if (deuda.nombreCliente) setCeaNombreCliente(deuda.nombreCliente);
+        if (deuda.explotacion) setCeaExplotacion(deuda.explotacion);
+      })
+      .catch(() => { /* keep hydra backend saldos on error */ })
+      .finally(() => setCeaSaldosLoading(false));
+  }, [contrato?.ceaNumContrato]);
+
+  // Fetch CEA consumos on demand when tab is active (consumo or facturas)
+  // Wait for ceaExplotacion from getCeaDeuda before fetching
+  useEffect(() => {
+    if (!contrato?.ceaNumContrato || !ceaExplotacion || ceaConsumosFetched) return;
+    if (activeTab !== 'consumo' && activeTab !== 'facturas') return;
+    setCeaConsumosFetched(true);
+    setCeaConsumosLoading(true);
+    getCeaConsumos(contrato.ceaNumContrato, ceaExplotacion)
+      .then((data) => setCeaConsumos(data))
+      .catch(() => setCeaConsumos([]))
+      .finally(() => setCeaConsumosLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, contrato?.ceaNumContrato, ceaExplotacion]);
+
+  // Reset CEA cache when contract changes
+  useEffect(() => {
+    setCeaConsumos([]);
+    setCeaConsumosFetched(false);
+    setCeaNombreCliente(null);
+    setCeaExplotacion(null);
+    setConsumoAnioFiltro('todos');
+  }, [contratoId]);
+
+  const loading = loadingContratos || loadingData || ceaSaldosLoading;
+
+  // Derived: CEA consumos stats + year filter
+  const aniosDisponibles = useMemo(
+    () => [...new Set(ceaConsumos.map((c) => c.ano).filter(Boolean))].sort((a, b) => b.localeCompare(a)),
+    [ceaConsumos]
   );
 
-  const loading = loadingContratos || loadingData;
+  const ceaConsumosFiltrados = useMemo(
+    () => (consumoAnioFiltro === 'todos' ? ceaConsumos : ceaConsumos.filter((c) => c.ano === consumoAnioFiltro)),
+    [ceaConsumos, consumoAnioFiltro]
+  );
+
+  const consumoStats = useMemo(() => {
+    const vals = ceaConsumosFiltrados.map((c) => c.metrosCubicos);
+    if (vals.length === 0) return { promedio: 0, maximo: 0, minimo: 0, total: 0, count: 0 };
+    const positivos = vals.filter((v) => v > 0);
+    return {
+      promedio: Math.round(vals.reduce((a, b) => a + b, 0) / vals.length),
+      maximo: Math.max(...vals),
+      minimo: positivos.length > 0 ? Math.min(...positivos) : 0,
+      total: vals.reduce((a, b) => a + b, 0),
+      count: vals.length,
+    };
+  }, [ceaConsumosFiltrados]);
 
   // Derived: facturas rows
   const facturasRows = useMemo(() => {
@@ -180,15 +263,71 @@ const PortalCliente = () => {
 
   const ultimaFactura = facturasRows[0] ?? null;
 
-  const consumosRows = useMemo(
-    () => consumos.map((c) => ({
-      id: c.id,
-      periodoDisplay: c.periodo ? c.periodo.replace(/-(\d{2})$/, '/$1') : '—',
-      m3: Number(c.m3),
-      tipo: c.tipo,
-    })),
-    [consumos]
-  );
+  // When ceaNumContrato is linked, always use CEA consumos as facturas source.
+  // Hydra DB timbrados may be seed data and are not authoritative.
+  const useCeaForFacturas = !!(contrato?.ceaNumContrato && ceaConsumos.length > 0);
+
+  const facturasFromCea = useMemo(() => {
+    if (!useCeaForFacturas) return [];
+    return ceaConsumos.map((c, i) => ({
+      id: `cea-${i}`,
+      periodoDisplay: c.periodo || '—',
+      fechaFac: c.fechaInicio || '—',
+      vencimiento: c.fechaFin || '—',
+      importe: c.importeTotal,
+      estado: 'Histórico',
+      uuid: '',
+      conceptos: c.conceptos,
+    }));
+  }, [ceaConsumos, useCeaForFacturas]);
+
+  // CEA takes priority when linked; fall back to hydra timbrados
+  const facturasEfectivas = useCeaForFacturas
+    ? facturasFromCea.filter((f) =>
+        folioSearch === '' || f.periodoDisplay.toLowerCase().includes(folioSearch.toLowerCase())
+      )
+    : facturasFiltradas;
+
+  const facturasTotalPaginas = Math.ceil(facturasEfectivas.length / FACTURAS_POR_PAGINA);
+
+  const facturasPaginadas = useMemo(() => {
+    const start = (facturasPagina - 1) * FACTURAS_POR_PAGINA;
+    return facturasEfectivas.slice(start, start + FACTURAS_POR_PAGINA);
+  }, [facturasEfectivas, facturasPagina]);
+
+  // CEA consumos take priority when available; fall back to hydra backend
+  const consumosRows = useMemo(() => {
+    if (ceaConsumosFiltrados.length > 0) {
+      return ceaConsumosFiltrados.map((c, i) => ({
+        id: `cea-${i}`,
+        periodoDisplay: c.periodo || '—',
+        m3: c.metrosCubicos,
+        tipo: 'Real',
+        importe: c.importeTotal,
+        fechaInicio: c.fechaInicio,
+        fechaFin: c.fechaFin,
+      }));
+    }
+    if (consumoAnioFiltro === 'todos') {
+      return consumos.map((c) => ({
+        id: c.id,
+        periodoDisplay: c.periodo ? c.periodo.replace(/-(\d{2})$/, '/$1') : '—',
+        m3: Number(c.m3),
+        tipo: c.tipo,
+        importe: undefined as undefined,
+        fechaInicio: undefined as undefined,
+        fechaFin: undefined as undefined,
+      }));
+    }
+    return [];
+  }, [ceaConsumosFiltrados, consumos, consumoAnioFiltro]);
+
+  const consumosTotalPaginas = Math.ceil(consumosRows.length / FACTURAS_POR_PAGINA);
+
+  const consumosPaginados = useMemo(() => {
+    const start = (consumosPagina - 1) * FACTURAS_POR_PAGINA;
+    return consumosRows.slice(start, start + FACTURAS_POR_PAGINA);
+  }, [consumosRows, consumosPagina]);
 
   // ─── Render ──────────────────────────────────────────────────────────────
 
@@ -219,7 +358,7 @@ const PortalCliente = () => {
         <div className="space-y-6">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">
-              Bienvenido, {contrato?.nombre ?? '—'}
+              Bienvenido, {ceaNombreCliente || contrato?.nombre || '—'}
             </h1>
             <p className="mt-1 text-sm text-gray-500">
               Consulta tu consumo, facturas, pagos y gestiona tus trámites desde aquí.
@@ -242,13 +381,23 @@ const PortalCliente = () => {
             ))}
           </div>
 
-          {/* Payment instructions */}
+          {/* Contract details */}
           <div className="bg-white border border-gray-200 rounded-xl p-5">
-            <h3 className="text-sm font-semibold text-gray-900 mb-3">Instrucciones de pago</h3>
-            <ol className="space-y-1 text-sm text-gray-600 list-decimal list-inside">
-              <li>Banco: Banco Acme</li>
-              <li>Número de cuenta: XXX (referencia por contrato)</li>
-            </ol>
+            <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-4">Datos del Contrato</p>
+            <div className="grid sm:grid-cols-3 gap-4">
+              <div>
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-0.5">Dirección</p>
+                <p className="text-sm text-gray-800">{contrato?.direccion || '—'}</p>
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-0.5">Fecha de Alta</p>
+                <p className="text-sm text-gray-800">{contrato?.fecha || '—'}</p>
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-0.5">RFC / NIF</p>
+                <p className="text-sm font-mono text-gray-800">{contrato?.rfc || '—'}</p>
+              </div>
+            </div>
           </div>
 
           {/* Quick actions */}
@@ -281,38 +430,165 @@ const PortalCliente = () => {
       {activeTab === 'consumo' && (
         <div className="space-y-6">
           <Breadcrumb items={[{ label: 'Portal', onClick: () => setTab('inicio') }, { label: 'Consumo' }]} />
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Mi Consumo</h1>
-            <p className="mt-1 text-sm text-gray-500">Historial de lecturas de consumo de agua potable.</p>
+          <div className="flex items-start justify-between gap-4 flex-wrap">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Mi Consumo</h1>
+              <p className="mt-1 text-sm text-gray-500">Historial de lecturas de consumo de agua potable.</p>
+            </div>
           </div>
-          <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-100">
-                  <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-gray-400">Periodo</th>
-                  <th className="px-5 py-3.5 text-right text-xs font-semibold uppercase tracking-wider text-gray-400">Consumo (m³)</th>
-                  <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-gray-400">Tipo</th>
-                </tr>
-              </thead>
-              <tbody>
-                {consumosRows.length === 0 ? (
-                  <tr>
-                    <td colSpan={3} className="px-5 py-10 text-center text-gray-400 text-sm">
-                      No hay consumos registrados para este contrato.
-                    </td>
+
+          {/* Loading spinner while fetching CEA consumos */}
+          {ceaConsumosLoading && (
+            <div className="flex items-center justify-center py-12">
+              <div className="text-center">
+                <div className="h-8 w-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+                <p className="text-sm text-gray-500">Cargando consumos…</p>
+              </div>
+            </div>
+          )}
+
+          {!ceaConsumosLoading && ceaConsumos.length > 0 && (
+            <>
+              {/* Filtro por año */}
+              {aniosDisponibles.length > 1 && (
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-medium text-gray-700">Filtrar por año:</span>
+                  <select
+                    value={consumoAnioFiltro}
+                    onChange={(e) => { setConsumoAnioFiltro(e.target.value); setConsumosPagina(1); }}
+                    className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="todos">Todos los años</option>
+                    {aniosDisponibles.map((a) => (
+                      <option key={a} value={a}>{a}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Stats cards */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                {[
+                  { label: 'Promedio Mensual', value: `${consumoStats.promedio} m³`, sub: `${consumoStats.count} períodos` },
+                  { label: 'Consumo Máximo', value: `${consumoStats.maximo} m³`, sub: 'Pico registrado' },
+                  { label: 'Consumo Mínimo', value: `${consumoStats.minimo} m³`, sub: 'Menor consumo' },
+                  { label: 'Consumo Total', value: `${consumoStats.total} m³`, sub: 'Suma de períodos' },
+                ].map(({ label, value, sub }) => (
+                  <div key={label} className="bg-white border border-gray-200 rounded-xl p-5">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">{label}</p>
+                    <p className="text-2xl font-bold text-gray-900 tabular-nums">{value}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">{sub}</p>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          {/* Tabla de consumos */}
+          {!ceaConsumosLoading && (
+            <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+              <div className="px-5 py-4 border-b border-gray-100">
+                <h2 className="text-base font-semibold text-gray-900">
+                  Histórico de Consumo{consumosRows.length > 0 ? ` (${consumosRows.length})` : ''}
+                </h2>
+              </div>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-100">
+                    <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-gray-400">Periodo</th>
+                    <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-gray-400">Fechas</th>
+                    <th className="px-5 py-3.5 text-right text-xs font-semibold uppercase tracking-wider text-gray-400">Consumo (m³)</th>
+                    <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-gray-400">Tipo</th>
+                    {ceaConsumos.length > 0 && (
+                      <th className="px-5 py-3.5 text-right text-xs font-semibold uppercase tracking-wider text-gray-400">Importe</th>
+                    )}
                   </tr>
-                ) : (
-                  consumosRows.map((r) => (
-                    <tr key={r.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
-                      <td className="px-5 py-4 font-medium text-gray-800">{r.periodoDisplay}</td>
-                      <td className="px-5 py-4 text-right tabular-nums text-gray-700">{r.m3}</td>
-                      <td className="px-5 py-4 text-gray-500">{r.tipo}</td>
+                </thead>
+                <tbody>
+                  {consumosRows.length === 0 ? (
+                    <tr>
+                      <td colSpan={ceaConsumos.length > 0 ? 5 : 4} className="px-5 py-10 text-center text-gray-400 text-sm">
+                        {ceaExplotacion
+                          ? 'No hay consumos registrados para este contrato.'
+                          : 'Cargando datos del contrato…'}
+                      </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                  ) : (
+                    consumosPaginados.map((r) => (
+                      <tr key={r.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
+                        <td className="px-5 py-4 font-medium text-gray-800">{r.periodoDisplay}</td>
+                        <td className="px-5 py-4 text-gray-500 text-xs">
+                          {r.fechaInicio ? (
+                            <span>{r.fechaInicio}{r.fechaFin ? ` → ${r.fechaFin}` : ''}</span>
+                          ) : '—'}
+                        </td>
+                        <td className="px-5 py-4 text-right tabular-nums font-semibold text-gray-800">{r.m3}</td>
+                        <td className="px-5 py-4">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-teal-100 text-teal-700">
+                            {r.tipo}
+                          </span>
+                        </td>
+                        {ceaConsumos.length > 0 && (
+                          <td className="px-5 py-4 text-right tabular-nums text-gray-700">
+                            {r.importe != null ? fmt(r.importe) : '—'}
+                          </td>
+                        )}
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+              {consumosRows.length > 0 && (
+                <div className="px-5 py-3 border-t border-gray-100 flex items-center justify-between flex-wrap gap-2 text-sm text-gray-500">
+                  <span>
+                    Mostrando {(consumosPagina - 1) * FACTURAS_POR_PAGINA + 1}–{Math.min(consumosPagina * FACTURAS_POR_PAGINA, consumosRows.length)} de {consumosRows.length} períodos
+                  </span>
+                  {consumosTotalPaginas > 1 && (
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => setConsumosPagina((p) => Math.max(1, p - 1))}
+                        disabled={consumosPagina === 1}
+                        className="px-2 py-1 rounded text-gray-400 hover:text-gray-700 disabled:opacity-30 disabled:cursor-not-allowed"
+                      >
+                        &lt;
+                      </button>
+                      {Array.from({ length: consumosTotalPaginas }, (_, i) => i + 1)
+                        .filter((p) => p === 1 || p === consumosTotalPaginas || Math.abs(p - consumosPagina) <= 1)
+                        .reduce<(number | '…')[]>((acc, p, idx, arr) => {
+                          if (idx > 0 && p - (arr[idx - 1] as number) > 1) acc.push('…');
+                          acc.push(p);
+                          return acc;
+                        }, [])
+                        .map((item, idx) =>
+                          item === '…' ? (
+                            <span key={`ellipsis-${idx}`} className="px-1 text-gray-400 text-xs">…</span>
+                          ) : (
+                            <button
+                              key={item}
+                              onClick={() => setConsumosPagina(item as number)}
+                              className={`px-3 py-1 rounded-md text-xs font-semibold transition-colors ${
+                                consumosPagina === item
+                                  ? 'bg-blue-600 text-white'
+                                  : 'text-gray-500 hover:bg-gray-100'
+                              }`}
+                            >
+                              {item}
+                            </button>
+                          )
+                        )}
+                      <button
+                        onClick={() => setConsumosPagina((p) => Math.min(consumosTotalPaginas, p + 1))}
+                        disabled={consumosPagina === consumosTotalPaginas}
+                        className="px-2 py-1 rounded text-gray-400 hover:text-gray-700 disabled:opacity-30 disabled:cursor-not-allowed"
+                      >
+                        &gt;
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -323,12 +599,22 @@ const PortalCliente = () => {
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">Mis Facturas</h1>
-              <p className="mt-1 text-sm text-gray-500">Gestiona tus pagos y descarga tus comprobantes fiscales digitales.</p>
+              <p className="mt-1 text-sm text-gray-500">Historial de períodos facturados del servicio de agua potable.</p>
             </div>
           </div>
 
-          {/* Summary banner */}
-          {ultimaFactura && (
+          {/* Loading while waiting for explotacion or consumos */}
+          {(ceaSaldosLoading || ceaConsumosLoading) && (
+            <div className="flex items-center justify-center py-12">
+              <div className="text-center">
+                <div className="h-8 w-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+                <p className="text-sm text-gray-500">Cargando información…</p>
+              </div>
+            </div>
+          )}
+
+          {/* Summary banner — Estado de cuenta + última factura generada */}
+          {!ceaSaldosLoading && !ceaConsumosLoading && (
             <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
               <div className="flex flex-col sm:flex-row divide-y sm:divide-y-0 sm:divide-x divide-gray-100">
                 <div className="p-6 sm:w-56 shrink-0">
@@ -348,11 +634,15 @@ const PortalCliente = () => {
                   <div className="flex items-start justify-between gap-4 flex-wrap">
                     <div>
                       <p className="text-base font-semibold text-gray-900">Última Factura Generada</p>
-                      <p className="text-sm text-gray-500 mt-0.5">Periodo: {ultimaFactura.periodoDisplay}</p>
+                      <p className="text-sm text-gray-500 mt-0.5">
+                        Periodo: {facturasEfectivas[0]?.periodoDisplay ?? '—'}
+                      </p>
                     </div>
                     <div className="text-right">
                       <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Fecha de Vencimiento</p>
-                      <p className="text-sm font-bold text-gray-800 mt-0.5">{ultimaFactura.vencimiento}</p>
+                      <p className="text-sm font-bold text-gray-800 mt-0.5">
+                        {facturasEfectivas[0]?.vencimiento ?? '—'}
+                      </p>
                     </div>
                   </div>
                   <div className="flex gap-3 mt-5 flex-wrap">
@@ -381,82 +671,180 @@ const PortalCliente = () => {
             <div className="px-5 py-4 border-b border-gray-100 flex flex-wrap items-center gap-3">
               <div className="flex items-center gap-2 mr-1">
                 <RefreshCw className="h-4 w-4 text-blue-600" aria-hidden />
-                <h2 className="text-base font-semibold text-gray-900">Historial de Facturación</h2>
+                <h2 className="text-base font-semibold text-gray-900">
+                  {facturasFromCea.length > 0
+                    ? `Períodos de Facturación (${facturasFromCea.length})`
+                    : 'Historial de Facturación'}
+                </h2>
               </div>
-              <div className="ml-auto flex flex-wrap items-center gap-2">
-                <div className="relative">
-                  <input
-                    type="text"
-                    placeholder="Buscar por folio..."
-                    value={folioSearch}
-                    onChange={(e) => setFolioSearch(e.target.value)}
-                    className="pl-8 pr-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-48"
-                  />
-                  <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
+              {facturasFromCea.length > 0 && (
+                <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-full">
+                  <span className="h-1.5 w-1.5 rounded-full bg-blue-500 animate-pulse" />
+                  Datos en tiempo real
+                </span>
+              )}
+              {facturasRows.length > 0 && (
+                <div className="ml-auto flex flex-wrap items-center gap-2">
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="Buscar por folio..."
+                      value={folioSearch}
+                      onChange={(e) => { setFolioSearch(e.target.value); setFacturasPagina(1); }}
+                      className="pl-8 pr-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-48"
+                    />
+                    <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                  </div>
+                  <select
+                    value={filtroEstado}
+                    onChange={(e) => { setFiltroEstado(e.target.value); setFacturasPagina(1); }}
+                    className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="todos">Todos los estados</option>
+                    <option value="Pagada">Pagada</option>
+                    <option value="Pendiente">Pendiente</option>
+                    <option value="Vencida">Vencida</option>
+                  </select>
                 </div>
-                <select
-                  value={filtroEstado}
-                  onChange={(e) => setFiltroEstado(e.target.value)}
-                  className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="todos">Todos los estados</option>
-                  <option value="Pagada">Pagada</option>
-                  <option value="Pendiente">Pendiente</option>
-                  <option value="Vencida">Vencida</option>
-                </select>
-              </div>
+              )}
             </div>
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-100">
-                  <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-400">Folio</th>
-                  <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-400">Fecha de Emisión</th>
-                  <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-400">Periodo</th>
-                  <th className="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-400">Monto</th>
-                  <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-400">Estado</th>
-                  <th className="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-400">Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {facturasFiltradas.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="px-5 py-10 text-center text-gray-400 text-sm">
-                      No hay facturas para mostrar.
-                    </td>
+
+            {/* Loading */}
+            {ceaConsumosLoading && (
+              <div className="px-5 py-10 text-center">
+                <div className="h-6 w-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                <p className="text-sm text-gray-400">Cargando información…</p>
+              </div>
+            )}
+
+            {!ceaConsumosLoading && facturasFromCea.length > 0 && (
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-100">
+                    <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-400">Periodo</th>
+                    <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-400">Fecha Inicio</th>
+                    <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-400">Fecha Fin</th>
+                    <th className="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-400">Importe</th>
+                    <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-400">Conceptos</th>
                   </tr>
-                ) : (
-                  facturasFiltradas.map((f) => (
+                </thead>
+                <tbody>
+                  {facturasPaginadas.map((f) => (
                     <tr key={f.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
-                      <td className="px-5 py-4 font-mono text-blue-600 font-medium">{f.id}</td>
+                      <td className="px-5 py-4 font-medium text-gray-800">{f.periodoDisplay}</td>
                       <td className="px-5 py-4 text-gray-600">{f.fechaFac}</td>
-                      <td className="px-5 py-4 text-blue-500 font-medium">{f.periodoDisplay}</td>
+                      <td className="px-5 py-4 text-gray-600">{f.vencimiento}</td>
                       <td className="px-5 py-4 text-right tabular-nums font-semibold text-gray-800">{fmt(f.importe)}</td>
-                      <td className="px-5 py-4"><StatusPill status={f.estado} /></td>
                       <td className="px-5 py-4">
-                        <div className="flex items-center justify-end gap-2">
-                          <button disabled title="Descargar PDF" className="p-1.5 rounded-md hover:bg-gray-100 text-gray-400 opacity-40 cursor-not-allowed">
-                            <FileText className="h-4 w-4" aria-hidden />
-                          </button>
-                          <button disabled title="Ver XML" className="p-1.5 rounded-md hover:bg-gray-100 text-gray-400 opacity-40 cursor-not-allowed">
-                            <span className="text-[10px] font-bold">&lt;/&gt;</span>
-                          </button>
+                        <div className="flex flex-wrap gap-1">
+                          {('conceptos' in f ? f.conceptos : []).slice(0, 2).map((c: { descripcion: string }, i: number) => (
+                            <span key={i} className="inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-gray-100 text-gray-600">
+                              {c.descripcion || '—'}
+                            </span>
+                          ))}
+                          {('conceptos' in f ? f.conceptos : []).length > 2 && (
+                            <span className="text-xs text-gray-400">+{('conceptos' in f ? f.conceptos : []).length - 2}</span>
+                          )}
                         </div>
                       </td>
                     </tr>
-                  ))
+                  ))}
+                </tbody>
+              </table>
+            )}
+
+            {!ceaConsumosLoading && facturasFromCea.length === 0 && (
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-100">
+                    <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-400">Folio</th>
+                    <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-400">Fecha de Emisión</th>
+                    <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-400">Periodo</th>
+                    <th className="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-400">Monto</th>
+                    <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-400">Estado</th>
+                    <th className="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-400">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {facturasEfectivas.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="px-5 py-10 text-center text-gray-400 text-sm">
+                        {ceaExplotacion
+                          ? 'No hay facturas registradas para este contrato.'
+                          : 'Cargando datos del contrato…'}
+                      </td>
+                    </tr>
+                  ) : (
+                    (facturasPaginadas as typeof facturasFiltradas).map((f) => (
+                      <tr key={f.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
+                        <td className="px-5 py-4 font-mono text-blue-600 font-medium">{f.id}</td>
+                        <td className="px-5 py-4 text-gray-600">{f.fechaFac}</td>
+                        <td className="px-5 py-4 text-blue-500 font-medium">{f.periodoDisplay}</td>
+                        <td className="px-5 py-4 text-right tabular-nums font-semibold text-gray-800">{fmt(f.importe)}</td>
+                        <td className="px-5 py-4"><StatusPill status={f.estado} /></td>
+                        <td className="px-5 py-4">
+                          <div className="flex items-center justify-end gap-2">
+                            <button disabled title="Descargar PDF" className="p-1.5 rounded-md hover:bg-gray-100 text-gray-400 opacity-40 cursor-not-allowed">
+                              <FileText className="h-4 w-4" aria-hidden />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            )}
+
+            {facturasEfectivas.length > 0 && (
+              <div className="px-5 py-3 border-t border-gray-100 flex items-center justify-between flex-wrap gap-2 text-sm text-gray-500">
+                <span>
+                  Mostrando {(facturasPagina - 1) * FACTURAS_POR_PAGINA + 1}–{Math.min(facturasPagina * FACTURAS_POR_PAGINA, facturasEfectivas.length)} de {facturasEfectivas.length} {facturasFromCea.length > 0 ? 'períodos' : 'facturas'}
+                </span>
+                {facturasTotalPaginas > 1 && (
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => setFacturasPagina((p) => Math.max(1, p - 1))}
+                      disabled={facturasPagina === 1}
+                      className="px-2 py-1 rounded text-gray-400 hover:text-gray-700 disabled:opacity-30 disabled:cursor-not-allowed"
+                    >
+                      &lt;
+                    </button>
+                    {Array.from({ length: facturasTotalPaginas }, (_, i) => i + 1)
+                      .filter((p) => p === 1 || p === facturasTotalPaginas || Math.abs(p - facturasPagina) <= 1)
+                      .reduce<(number | '…')[]>((acc, p, idx, arr) => {
+                        if (idx > 0 && p - (arr[idx - 1] as number) > 1) acc.push('…');
+                        acc.push(p);
+                        return acc;
+                      }, [])
+                      .map((item, idx) =>
+                        item === '…' ? (
+                          <span key={`ellipsis-${idx}`} className="px-1 text-gray-400 text-xs">…</span>
+                        ) : (
+                          <button
+                            key={item}
+                            onClick={() => setFacturasPagina(item as number)}
+                            className={`px-3 py-1 rounded-md text-xs font-semibold transition-colors ${
+                              facturasPagina === item
+                                ? 'bg-blue-600 text-white'
+                                : 'text-gray-500 hover:bg-gray-100'
+                            }`}
+                          >
+                            {item}
+                          </button>
+                        )
+                      )}
+                    <button
+                      onClick={() => setFacturasPagina((p) => Math.min(facturasTotalPaginas, p + 1))}
+                      disabled={facturasPagina === facturasTotalPaginas}
+                      className="px-2 py-1 rounded text-gray-400 hover:text-gray-700 disabled:opacity-30 disabled:cursor-not-allowed"
+                    >
+                      &gt;
+                    </button>
+                  </div>
                 )}
-              </tbody>
-            </table>
-            {facturasFiltradas.length > 0 && (
-              <div className="px-5 py-3 border-t border-gray-100 flex items-center justify-between text-sm text-gray-500">
-                <span>Mostrando 1-{facturasFiltradas.length} de {facturasFiltradas.length} facturas</span>
-                <div className="flex items-center gap-1">
-                  <button disabled className="px-2 py-1 rounded text-gray-300 cursor-not-allowed">&lt;</button>
-                  <button className="px-3 py-1 rounded-md bg-blue-600 text-white text-xs font-semibold">1</button>
-                  <button disabled className="px-2 py-1 rounded text-gray-300 cursor-not-allowed">&gt;</button>
-                </div>
               </div>
             )}
           </div>

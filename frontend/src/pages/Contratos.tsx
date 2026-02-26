@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useData } from '@/context/DataContext';
-import { fetchContratos, createContrato, hasApi, type CreateContratoDto } from '@/api/contratos';
+import { fetchContratos, createContrato, updateContrato, hasApi, type CreateContratoDto } from '@/api/contratos';
 import StatusBadge from '@/components/StatusBadge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,6 +11,54 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { useSearchParams } from 'react-router-dom';
+import { Check, Pencil } from 'lucide-react';
+
+/** Inline editable field for linking/updating the CEA contract number */
+function CeaNumInput({ contratoId, initial, onSaved }: { contratoId: string; initial: string; onSaved: (v: string) => void }) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(initial);
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await updateContrato(contratoId, { ceaNumContrato: value || null });
+      onSaved(value);
+      setEditing(false);
+    } catch {
+      // ignore — keep editing open
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!editing) {
+    return (
+      <span className="flex items-center gap-1.5">
+        <span className="font-mono">{value || '—'}</span>
+        <button onClick={() => setEditing(true)} className="text-muted-foreground hover:text-foreground">
+          <Pencil className="h-3 w-3" />
+        </button>
+      </span>
+    );
+  }
+
+  return (
+    <span className="flex items-center gap-1">
+      <Input
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        placeholder="Ej. 523160"
+        className="h-6 text-xs font-mono w-28 py-0 px-1.5"
+        autoFocus
+        onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') setEditing(false); }}
+      />
+      <button onClick={handleSave} disabled={saving} className="text-emerald-600 hover:text-emerald-700 disabled:opacity-50">
+        <Check className="h-3.5 w-3.5" />
+      </button>
+    </span>
+  );
+}
 
 const Contratos = () => {
   const queryClient = useQueryClient();
@@ -368,6 +416,19 @@ const Contratos = () => {
                             {selected.fechaReconexionPrevista && (
                               <Row label="Reconexión prevista" value={selected.fechaReconexionPrevista} />
                             )}
+                            <Row
+                              label="N° Contrato CEA"
+                              value={
+                                <CeaNumInput
+                                  contratoId={selected.id}
+                                  initial={selected.ceaNumContrato ?? ''}
+                                  onSaved={(v) => {
+                                    // optimistically update local state
+                                    (selected as any).ceaNumContrato = v;
+                                  }}
+                                />
+                              }
+                            />
                           </div>
                         </section>
                         <section className="space-y-2">

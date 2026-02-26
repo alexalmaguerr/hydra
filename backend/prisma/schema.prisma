@@ -111,6 +111,7 @@ model Contrato {
   zonaId                  String?  @map("zona_id")
   domiciliado             Boolean  @default(false)
   fechaReconexionPrevista String?  @map("fecha_reconexion_prevista")
+  ceaNumContrato          String?  @map("cea_num_contrato")
   createdAt               DateTime @default(now()) @map("created_at")
   updatedAt               DateTime @updatedAt @map("updated_at")
   toma                    Toma?    @relation(fields: [tomaId], references: [id], onDelete: SetNull)

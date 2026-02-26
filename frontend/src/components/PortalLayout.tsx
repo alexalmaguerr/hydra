@@ -13,10 +13,10 @@ export interface PortalContextValue {
 
 const NAV_ITEMS = [
   { label: 'Inicio', tab: 'inicio' },
+  { label: 'Trámites', tab: 'tramites-digitales' },
   { label: 'Consumo', tab: 'consumo' },
   { label: 'Facturas', tab: 'facturas' },
   { label: 'Recibos', tab: 'recibos' },
-  { label: 'Trámites', tab: 'tramites-digitales' },
   { label: 'Pagos', tab: 'metodos-pago' },
 ] as const;
 
@@ -265,7 +265,7 @@ const PortalLayout = () => {
                 <polygon points="12,2 22,20 2,20" />
               </svg>
               <span className="text-sm text-gray-500">
-                © 2025 CEA Querétaro. Todos los derechos reservados.
+                © 2026 CEA Querétaro. Todos los derechos reservados.
               </span>
             </div>
             <div className="flex items-center gap-4 text-sm text-gray-500">

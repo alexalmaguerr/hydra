@@ -1,6 +1,13 @@
-import { Controller, Get, Post, Body, Param } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Body, Param } from '@nestjs/common';
 import { ContratosService } from './contratos.service';
 import { CreateContratoDto } from './dto/create-contrato.dto';
+
+class UpdateContratoDto {
+  ceaNumContrato?: string | null;
+  estado?: string;
+  domiciliado?: boolean;
+  fechaReconexionPrevista?: string | null;
+}
 
 @Controller('contratos')
 export class ContratosController {
@@ -19,5 +26,10 @@ export class ContratosController {
   @Post()
   create(@Body() dto: CreateContratoDto) {
     return this.contratosService.create(dto);
+  }
+
+  @Patch(':id')
+  update(@Param('id') id: string, @Body() dto: UpdateContratoDto) {
+    return this.contratosService.update(id, dto);
   }
 }

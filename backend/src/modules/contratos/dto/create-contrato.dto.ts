@@ -13,4 +13,5 @@ export class CreateContratoDto {
   zonaId?: string;
   domiciliado?: boolean;
   fechaReconexionPrevista?: string;
+  ceaNumContrato?: string;
 }

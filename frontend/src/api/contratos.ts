@@ -16,6 +16,7 @@ export interface ContratoDto {
   zonaId?: string | null;
   domiciliado: boolean;
   fechaReconexionPrevista?: string | null;
+  ceaNumContrato?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -35,6 +36,14 @@ export interface CreateContratoDto {
   zonaId?: string;
   domiciliado?: boolean;
   fechaReconexionPrevista?: string;
+  ceaNumContrato?: string;
+}
+
+export interface UpdateContratoDto {
+  ceaNumContrato?: string | null;
+  estado?: string;
+  domiciliado?: boolean;
+  fechaReconexionPrevista?: string | null;
 }
 
 export async function fetchContratos(): Promise<ContratoDto[]> {
@@ -48,6 +57,13 @@ export async function fetchContrato(id: string): Promise<ContratoDto> {
 export async function createContrato(dto: CreateContratoDto): Promise<ContratoDto> {
   return apiRequest<ContratoDto>('/contratos', {
     method: 'POST',
+    body: JSON.stringify(dto),
+  });
+}
+
+export async function updateContrato(id: string, dto: UpdateContratoDto): Promise<ContratoDto> {
+  return apiRequest<ContratoDto>(`/contratos/${id}`, {
+    method: 'PATCH',
     body: JSON.stringify(dto),
   });
 }
