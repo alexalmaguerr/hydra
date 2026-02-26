@@ -1,14 +1,13 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Search, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import type { Contrato } from '@/context/DataContext';
+import { buscarContratos, type ContratoSearch } from '@/api/atencion';
 
 interface BusquedaContratoProps {
-  contratos: Contrato[];
-  contratoSeleccionado: Contrato | null;
-  onSelect: (contrato: Contrato) => void;
+  contratoSeleccionado: ContratoSearch | null;
+  onSelect: (contrato: ContratoSearch) => void;
 }
 
 function highlightMatch(text: string, query: string) {
@@ -31,23 +30,36 @@ const ESTADO_COLORS: Record<string, string> = {
   'Pendiente de alta': 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200',
 };
 
-export default function BusquedaContrato({ contratos, contratoSeleccionado, onSelect }: BusquedaContratoProps) {
+export default function BusquedaContrato({ contratoSeleccionado, onSelect }: BusquedaContratoProps) {
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
+  const [resultados, setResultados] = useState<ContratoSearch[]>([]);
+  const [loading, setLoading] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const resultados = query.trim().length < 2
-    ? []
-    : contratos.filter((c) => {
-        const q = query.toLowerCase();
-        return (
-          c.id.toLowerCase().includes(q) ||
-          c.nombre.toLowerCase().includes(q) ||
-          c.direccion.toLowerCase().includes(q) ||
-          (c.rfc && c.rfc.toLowerCase().includes(q))
-        );
-      }).slice(0, 10);
+  const handleSearch = useCallback((q: string) => {
+    setQuery(q);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (q.trim().length < 2) {
+      setResultados([]);
+      setOpen(false);
+      return;
+    }
+    debounceRef.current = setTimeout(async () => {
+      setLoading(true);
+      try {
+        const data = await buscarContratos(q);
+        setResultados(data);
+        setOpen(true);
+      } catch {
+        setResultados([]);
+      } finally {
+        setLoading(false);
+      }
+    }, 300);
+  }, []);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -59,14 +71,16 @@ export default function BusquedaContrato({ contratos, contratoSeleccionado, onSe
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  function handleSelect(c: Contrato) {
+  function handleSelect(c: ContratoSearch) {
     onSelect(c);
     setQuery('');
     setOpen(false);
+    setResultados([]);
   }
 
   function handleClear() {
     setQuery('');
+    setResultados([]);
     inputRef.current?.focus();
   }
 
@@ -78,8 +92,8 @@ export default function BusquedaContrato({ contratos, contratoSeleccionado, onSe
           <Input
             ref={inputRef}
             value={query}
-            onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
-            onFocus={() => query.length >= 2 && setOpen(true)}
+            onChange={(e) => handleSearch(e.target.value)}
+            onFocus={() => resultados.length > 0 && setOpen(true)}
             placeholder="Buscar por contrato, nombre, dirección o RFC..."
             className="pl-9 pr-8"
           />
@@ -146,15 +160,17 @@ export default function BusquedaContrato({ contratos, contratoSeleccionado, onSe
           </ul>
           <div className="border-t px-3 py-1.5 text-xs text-muted-foreground bg-muted/40">
             {resultados.length} resultado{resultados.length !== 1 ? 's' : ''}
-            {query.length >= 2 && contratos.filter(c => {
-              const q = query.toLowerCase();
-              return c.id.toLowerCase().includes(q) || c.nombre.toLowerCase().includes(q) || c.direccion.toLowerCase().includes(q);
-            }).length > 10 && ' (mostrando los primeros 10)'}
           </div>
         </div>
       )}
 
-      {open && query.trim().length >= 2 && resultados.length === 0 && (
+      {loading && query.trim().length >= 2 && (
+        <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-md px-4 py-3 text-sm text-muted-foreground">
+          Buscando...
+        </div>
+      )}
+
+      {open && !loading && query.trim().length >= 2 && resultados.length === 0 && (
         <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-md px-4 py-3 text-sm text-muted-foreground">
           Sin resultados para "{query}"
         </div>

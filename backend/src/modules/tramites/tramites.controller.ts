@@ -1,0 +1,65 @@
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Param,
+  Body,
+  Query,
+  UseGuards,
+  ParseIntPipe,
+  DefaultValuePipe,
+} from '@nestjs/common';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { TramitesService } from './tramites.service';
+
+@Controller('tramites')
+@UseGuards(JwtAuthGuard)
+export class TramitesController {
+  constructor(private readonly service: TramitesService) {}
+
+  @Get()
+  findAll(
+    @Query('contratoId') contratoId?: string,
+    @Query('tipo') tipo?: string,
+    @Query('estado') estado?: string,
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page = 1,
+    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit = 20,
+  ) {
+    return this.service.findAll({ contratoId, tipo, estado, page, limit });
+  }
+
+  @Get(':id')
+  findOne(@Param('id') id: string) {
+    return this.service.findOne(id);
+  }
+
+  @Post()
+  create(@Body() body: object) {
+    return this.service.create(body as any);
+  }
+
+  @Patch(':id/estado')
+  updateEstado(
+    @Param('id') id: string,
+    @Body() body: { estado: string; aprobadoPor?: string },
+  ) {
+    return this.service.updateEstado(id, body.estado, body.aprobadoPor);
+  }
+
+  @Post(':id/documentos')
+  addDocumento(
+    @Param('id') tramiteId: string,
+    @Body() body: { nombre: string; tipo: string; url?: string; notas?: string },
+  ) {
+    return this.service.addDocumento(tramiteId, body);
+  }
+
+  @Patch('documentos/:documentoId/verificar')
+  verificarDocumento(
+    @Param('documentoId') documentoId: string,
+    @Body() body: { verificado: boolean },
+  ) {
+    return this.service.verificarDocumento(documentoId, body.verificado);
+  }
+}

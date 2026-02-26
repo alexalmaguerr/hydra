@@ -1,14 +1,10 @@
-import { useMemo } from 'react';
-import { AlertTriangle, CheckCircle2, Clock, CreditCard, Droplets, MessageSquareWarning, XCircle, Zap } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { AlertTriangle, CheckCircle2, Clock, CreditCard, MessageSquareWarning, XCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { Contrato, QuejaAclaracion, Pago, Recibo, PagoParcialidad } from '@/context/DataContext';
+import { getContextoAtencion, type ContextoAtencion } from '@/api/atencion';
 
 interface ContextoRapidoProps {
-  contrato: Contrato;
-  quejas: QuejaAclaracion[];
-  pagos: Pago[];
-  recibos: Recibo[];
-  pagosParcialidad: PagoParcialidad[];
+  contratoId: string;
   onVerQuejas: () => void;
 }
 
@@ -18,7 +14,7 @@ function formatCurrency(n: number) {
 
 function formatDate(dateStr: string) {
   if (!dateStr) return '—';
-  const d = new Date(dateStr + (dateStr.length === 10 ? 'T00:00:00' : ''));
+  const d = new Date(dateStr.length === 10 ? dateStr + 'T00:00:00' : dateStr);
   return d.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
@@ -33,6 +29,11 @@ const ESTADO_CONFIG: Record<string, { label: string; icon: React.ReactNode; clas
     icon: <XCircle className="h-4 w-4" />,
     className: 'text-red-700 bg-red-50 border-red-200 dark:text-red-400 dark:bg-red-950 dark:border-red-800',
   },
+  'Inactivo': {
+    label: 'Contrato inactivo',
+    icon: <XCircle className="h-4 w-4" />,
+    className: 'text-gray-700 bg-gray-50 border-gray-200 dark:text-gray-400 dark:bg-gray-900 dark:border-gray-700',
+  },
   'Cancelado': {
     label: 'Contrato cancelado',
     icon: <XCircle className="h-4 w-4" />,
@@ -45,67 +46,53 @@ const ESTADO_CONFIG: Record<string, { label: string; icon: React.ReactNode; clas
   },
 };
 
-interface AlertaItem {
-  tipo: 'error' | 'warning' | 'info';
-  mensaje: string;
-}
+export default function ContextoRapido({ contratoId, onVerQuejas }: ContextoRapidoProps) {
+  const [contexto, setContexto] = useState<ContextoAtencion | null>(null);
+  const [loading, setLoading] = useState(true);
 
-export default function ContextoRapido({
-  contrato,
-  quejas,
-  pagos,
-  recibos,
-  pagosParcialidad,
-  onVerQuejas,
-}: ContextoRapidoProps) {
-  const { alertas, deudaTotal, deudaConvenio, deudaActual, ultimoPago, quejasAbiertas, ultimaQueja } = useMemo(() => {
-    const quejasAbiertas = quejas.filter(q => q.estado === 'Registrada' || q.estado === 'En atención');
-    const ultimaQueja = [...quejas].sort((a, b) => b.fecha.localeCompare(a.fecha))[0] ?? null;
-    const ultimoPago = [...pagos].sort((a, b) => b.fecha.localeCompare(a.fecha))[0] ?? null;
+  useEffect(() => {
+    setLoading(true);
+    getContextoAtencion(contratoId)
+      .then(setContexto)
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, [contratoId]);
 
-    const parcialidadesPendientes = pagosParcialidad.filter(
-      p => p.contratoId === contrato.id && p.estado === 'Pendiente'
-    );
-    const vencidas = parcialidadesPendientes.filter(p => p.fechaVencimiento < new Date().toISOString().slice(0, 10));
+  if (loading) {
+    return <div className="text-sm text-muted-foreground py-4">Cargando contexto...</div>;
+  }
+  if (!contexto) {
+    return <div className="text-sm text-muted-foreground py-4">No se pudo cargar el contexto.</div>;
+  }
 
-    // Deuda calculada a partir de recibos
-    const recibosPorContrato = recibos.filter(r => r.contratoId === contrato.id);
-    const deudaTotal = recibosPorContrato.reduce((acc, r) => acc + r.saldoVigente + r.saldoVencido, 0);
-    const deudaConvenio = recibosPorContrato.reduce((acc, r) => acc + r.parcialidades, 0);
-    const deudaActual = Math.max(0, deudaTotal - deudaConvenio);
-
-    const alertas: AlertaItem[] = [];
-    if (contrato.estado === 'Suspendido') {
-      alertas.push({ tipo: 'error', mensaje: `Servicio suspendido${contrato.fechaReconexionPrevista ? ` · Reconexión prevista: ${formatDate(contrato.fechaReconexionPrevista)}` : ''}` });
-    }
-    if (quejasAbiertas.length > 0) {
-      alertas.push({ tipo: 'warning', mensaje: `${quejasAbiertas.length} queja${quejasAbiertas.length > 1 ? 's' : ''} abierta${quejasAbiertas.length > 1 ? 's' : ''}` });
-    }
-    if (vencidas.length > 0) {
-      alertas.push({ tipo: 'error', mensaje: `${vencidas.length} parcialidad${vencidas.length > 1 ? 'es' : ''} vencida${vencidas.length > 1 ? 's' : ''}` });
-    }
-    if (deudaActual > 0 && contrato.estado === 'Activo') {
-      alertas.push({ tipo: 'info', mensaje: `Deuda actual: ${formatCurrency(deudaActual)}` });
-    }
-
-    return { alertas, deudaTotal, deudaConvenio, deudaActual, ultimoPago, quejasAbiertas, ultimaQueja };
-  }, [contrato, quejas, pagos, recibos, pagosParcialidad]);
-
+  const { contrato, saldo, ultimosPagos, quejasAbiertas, resumen } = contexto;
   const estadoConfig = ESTADO_CONFIG[contrato.estado] ?? ESTADO_CONFIG['Activo'];
+
+  const alertas: { tipo: 'error' | 'warning' | 'info'; mensaje: string }[] = [];
+  if (contrato.estado === 'Suspendido') {
+    alertas.push({ tipo: 'error', mensaje: 'Servicio suspendido' });
+  }
+  if (quejasAbiertas.length > 0) {
+    alertas.push({ tipo: 'warning', mensaje: `${quejasAbiertas.length} queja${quejasAbiertas.length > 1 ? 's' : ''} abierta${quejasAbiertas.length > 1 ? 's' : ''}` });
+  }
+  if (saldo > 0) {
+    alertas.push({ tipo: 'info', mensaje: `Saldo pendiente: ${formatCurrency(saldo)}` });
+  }
+
+  const ultimoPago = ultimosPagos[0] ?? null;
 
   return (
     <div className="space-y-3">
-      {/* Alertas */}
       {alertas.length > 0 && (
         <div className="flex flex-wrap gap-2">
           {alertas.map((a, i) => (
             <div
               key={i}
               className={cn(
-                'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium border',
-                a.tipo === 'error' && 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950 dark:text-red-400 dark:border-red-800',
-                a.tipo === 'warning' && 'bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-950 dark:text-yellow-400 dark:border-yellow-800 cursor-pointer hover:bg-yellow-100',
-                a.tipo === 'info' && 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-400 dark:border-blue-800',
+                'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium border cursor-pointer',
+                a.tipo === 'error' && 'bg-red-50 text-red-700 border-red-200',
+                a.tipo === 'warning' && 'bg-yellow-50 text-yellow-700 border-yellow-200 hover:bg-yellow-100',
+                a.tipo === 'info' && 'bg-blue-50 text-blue-700 border-blue-200',
               )}
               onClick={a.tipo === 'warning' ? onVerQuejas : undefined}
             >
@@ -116,80 +103,68 @@ export default function ContextoRapido({
         </div>
       )}
 
-      {/* Panel de cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {/* Estado del servicio */}
+        {/* Estado */}
         <div className={cn('rounded-lg border p-3 flex flex-col gap-1', estadoConfig.className)}>
-          <div className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide opacity-70">
-            <Droplets className="h-3.5 w-3.5" />
-            Estado
-          </div>
+          <div className="text-xs font-medium uppercase tracking-wide opacity-70">Estado</div>
           <div className="flex items-center gap-1.5 font-semibold text-sm">
             {estadoConfig.icon}
             {estadoConfig.label}
           </div>
-          <div className="text-xs opacity-60">{contrato.tipoServicio} · {contrato.tipoContrato}</div>
+          <div className="text-xs opacity-60">{contrato.tipoServicio}</div>
         </div>
 
-        {/* Deuda total */}
+        {/* Saldo */}
         <div className="rounded-lg border bg-card p-3 flex flex-col gap-1">
           <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wide">
             <CreditCard className="h-3.5 w-3.5" />
-            Deuda total
+            Saldo pendiente
           </div>
-          <div className={cn('font-bold text-lg tabular-nums', deudaTotal > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400')}>
-            {formatCurrency(deudaTotal)}
+          <div className={cn('font-bold text-lg tabular-nums', saldo > 0 ? 'text-red-600' : 'text-green-600')}>
+            {formatCurrency(saldo)}
           </div>
           <div className="text-xs text-muted-foreground">
-            Convenio: {formatCurrency(deudaConvenio)}
+            Facturado: {formatCurrency(resumen.totalFacturado)}
           </div>
         </div>
 
-        {/* Deuda actual */}
+        {/* Último pago */}
         <div className="rounded-lg border bg-card p-3 flex flex-col gap-1">
-          <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wide">
-            <Zap className="h-3.5 w-3.5" />
-            Deuda actual
-          </div>
-          <div className={cn('font-bold text-lg tabular-nums', deudaActual > 0 ? 'text-orange-600 dark:text-orange-400' : 'text-green-600 dark:text-green-400')}>
-            {formatCurrency(deudaActual)}
-          </div>
-          <div className="text-xs text-muted-foreground">
-            {ultimoPago ? `Último pago: ${formatDate(ultimoPago.fecha)}` : 'Sin pagos registrados'}
-          </div>
+          <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Último pago</div>
+          {ultimoPago ? (
+            <>
+              <div className="font-bold text-lg tabular-nums text-green-600">
+                {formatCurrency(Number(ultimoPago.monto))}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                {formatDate(ultimoPago.fecha)} · {ultimoPago.tipo}
+              </div>
+            </>
+          ) : (
+            <div className="text-sm text-muted-foreground">Sin pagos</div>
+          )}
         </div>
 
-        {/* Quejas abiertas */}
+        {/* Quejas */}
         <button
           onClick={onVerQuejas}
           className={cn(
             'rounded-lg border p-3 flex flex-col gap-1 text-left transition-colors',
             quejasAbiertas.length > 0
-              ? 'bg-amber-50 border-amber-200 hover:bg-amber-100 dark:bg-amber-950 dark:border-amber-800'
+              ? 'bg-amber-50 border-amber-200 hover:bg-amber-100'
               : 'bg-card hover:bg-accent'
           )}
         >
           <div className={cn(
             'flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide',
-            quejasAbiertas.length > 0 ? 'text-amber-700 dark:text-amber-400' : 'text-muted-foreground'
+            quejasAbiertas.length > 0 ? 'text-amber-700' : 'text-muted-foreground'
           )}>
             <MessageSquareWarning className="h-3.5 w-3.5" />
             Quejas / Aclaraciones
           </div>
-          <div className={cn(
-            'font-bold text-lg',
-            quejasAbiertas.length > 0 ? 'text-amber-700 dark:text-amber-400' : 'text-foreground'
-          )}>
+          <div className={cn('font-bold text-lg', quejasAbiertas.length > 0 ? 'text-amber-700' : 'text-foreground')}>
             {quejasAbiertas.length > 0 ? `${quejasAbiertas.length} abierta${quejasAbiertas.length > 1 ? 's' : ''}` : 'Sin pendientes'}
           </div>
-          {ultimaQueja && (
-            <div className="text-xs text-muted-foreground truncate">
-              Última: {formatDate(ultimaQueja.fecha)} · {ultimaQueja.tipo}
-            </div>
-          )}
-          {!ultimaQueja && (
-            <div className="text-xs text-muted-foreground">Sin historial</div>
-          )}
         </button>
       </div>
     </div>

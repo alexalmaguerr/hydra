@@ -44,6 +44,7 @@ import TabQuejas from './atencion/TabQuejas';
 import QuejaDialog from './atencion/QuejaDialog';
 import QuejaDetalle from './atencion/QuejaDetalle';
 import type { QuejaAclaracion, QuejaAreaAsignada, SeguimientoTipo } from '@/context/DataContext';
+import type { ContratoSearch } from '@/api/atencion';
 
 // --- Types for Atención a Clientes (view / mock) ---
 export interface OrdenRow {
@@ -219,6 +220,8 @@ const AtencionClientes = () => {
   const [quejaDialogOpen, setQuejaDialogOpen] = useState(false);
   const [quejaDetalleOpen, setQuejaDetalleOpen] = useState(false);
   const [quejaSeleccionada, setQuejaSeleccionada] = useState<QuejaAclaracion | null>(null);
+  const [quejaRefreshKey, setQuejaRefreshKey] = useState(0);
+  const [contratoSeleccionadoSearch, setContratoSeleccionadoSearch] = useState<ContratoSearch | null>(null);
 
   useEffect(() => {
     if (contratos.length && !contratoId) {
@@ -431,9 +434,9 @@ const AtencionClientes = () => {
 
       <div className="flex flex-wrap items-center gap-3">
         <BusquedaContrato
-          contratos={contratos}
-          contratoSeleccionado={contrato}
+          contratoSeleccionado={contratoSeleccionadoSearch}
           onSelect={(c) => {
+            setContratoSeleccionadoSearch(c);
             setContratoId(c.id);
             setContratoInput(c.id);
           }}
@@ -500,11 +503,7 @@ const AtencionClientes = () => {
             </Alert>
           )}
           <ContextoRapido
-            contrato={contrato}
-            quejas={quejasDelContrato}
-            pagos={pagos.filter(p => p.contratoId === contrato.id)}
-            recibos={recibos.filter(r => r.contratoId === contrato.id)}
-            pagosParcialidad={pagosParcialidad}
+            contratoId={contrato.id}
             onVerQuejas={() => setActiveTab('quejas')}
           />
         </>
@@ -1301,9 +1300,10 @@ const AtencionClientes = () => {
             <TabsContent value="quejas" className="space-y-4">
               <div className="widget-card">
                 <TabQuejas
-                  quejas={quejasDelContrato}
+                  contratoId={contratoId ?? ''}
                   onNuevaQueja={() => setQuejaDialogOpen(true)}
-                  onVerDetalle={(q) => { setQuejaSeleccionada(q); setQuejaDetalleOpen(true); }}
+                  onVerDetalle={(q) => { setQuejaSeleccionada(q as any); setQuejaDetalleOpen(true); }}
+                  refreshKey={quejaRefreshKey}
                 />
               </div>
             </TabsContent>
@@ -1314,7 +1314,7 @@ const AtencionClientes = () => {
             onOpenChange={setQuejaDialogOpen}
             contratoId={contratoId ?? ''}
             usuarioActual="jgodinez"
-            onSubmit={addQuejaAclaracion}
+            onCreated={() => setQuejaRefreshKey((k) => k + 1)}
           />
 
           <QuejaDetalle

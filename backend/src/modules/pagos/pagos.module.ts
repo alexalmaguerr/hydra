@@ -1,8 +1,15 @@
 import { Module } from '@nestjs/common';
+import { MulterModule } from '@nestjs/platform-express';
 import { PagosController } from './pagos.controller';
 import { PagosExternosController } from './pagos-externos.controller';
+import { PagosExternosService } from './pagos-externos.service';
+import { EtlPagosService } from './etl-pagos.service';
+import { PrismaModule } from '../../prisma/prisma.module';
 
 @Module({
+  imports: [PrismaModule, MulterModule.register({ limits: { fileSize: 50 * 1024 * 1024 } })],
   controllers: [PagosController, PagosExternosController],
+  providers: [PagosExternosService, EtlPagosService],
+  exports: [PagosExternosService, EtlPagosService],
 })
 export class PagosModule {}

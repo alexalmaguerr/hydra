@@ -12,6 +12,15 @@ import { TimbradosModule } from './modules/timbrados/timbrados.module';
 import { PagosModule } from './modules/pagos/pagos.module';
 import { QuejasModule } from './modules/quejas/quejas.module';
 import { PortalModule } from './modules/portal/portal.module';
+import { OrdenesModule } from './modules/ordenes/ordenes.module';
+import { ContabilidadModule } from './modules/contabilidad/contabilidad.module';
+import { GisModule } from './modules/gis/gis.module';
+import { PersonasModule } from './modules/personas/personas.module';
+import { TramitesModule } from './modules/tramites/tramites.module';
+import { CajaModule } from './modules/caja/caja.module';
+import { ConveniosModule } from './modules/convenios/convenios.module';
+import { MonitoreoModule } from './modules/monitoreo/monitoreo.module';
+import { ConciliacionesModule } from './modules/conciliaciones/conciliaciones.module';
 
 @Module({
   imports: [
@@ -26,6 +35,15 @@ import { PortalModule } from './modules/portal/portal.module';
     PagosModule,
     QuejasModule,
     PortalModule,
+    OrdenesModule,
+    ContabilidadModule,
+    GisModule,
+    PersonasModule,
+    TramitesModule,
+    CajaModule,
+    ConveniosModule,
+    MonitoreoModule,
+    ConciliacionesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

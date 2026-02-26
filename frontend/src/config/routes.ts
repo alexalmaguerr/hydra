@@ -18,6 +18,8 @@ import {
   PieChart,
   Headphones,
   ClipboardList,
+  Handshake,
+  Activity,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -149,6 +151,13 @@ export const APP_ROUTES: AppRouteConfig[] = [
     group: 'Finanzas',
   },
   {
+    path: 'convenios',
+    label: 'Convenios',
+    icon: Handshake,
+    allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'ATENCION_CLIENTES'],
+    group: 'Finanzas',
+  },
+  {
     path: 'contabilidad',
     label: 'Contabilidad',
     icon: PieChart,
@@ -169,6 +178,14 @@ export const APP_ROUTES: AppRouteConfig[] = [
     icon: ClipboardList,
     allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'ATENCION_CLIENTES'],
     group: 'Atención al Cliente',
+  },
+  // Operaciones
+  {
+    path: 'monitoreo',
+    label: 'Monitoreo',
+    icon: Activity,
+    allowedRoles: ['SUPER_ADMIN', 'ADMIN'],
+    group: 'Operaciones',
   },
 ];
 

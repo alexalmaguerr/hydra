@@ -76,8 +76,8 @@ const Pagos = () => {
   const adeudos = activos.map(c => {
     const recibosContrato = recibos.filter(r => r.contratoId === c.id);
     const pagosContrato = pagosVisibles.filter(p => p.contratoId === c.id);
-    const totalRecibos = recibosContrato.reduce((s, r) => s + r.saldoVigente + r.saldoVencido, 0);
-    const totalPagos = pagosContrato.reduce((s, p) => s + p.monto, 0);
+    const totalRecibos = recibosContrato.reduce((s, r) => s + Number(r.saldoVigente) + Number(r.saldoVencido), 0);
+    const totalPagos = pagosContrato.reduce((s, p) => s + Number(p.monto), 0);
     return { contrato: c, saldo: totalRecibos - totalPagos };
   }).filter(a => a.saldo > 0);
 
@@ -143,7 +143,7 @@ const Pagos = () => {
                 {pagosVisibles.slice().reverse().map(p => (
                   <tr key={p.id}>
                     <td className="font-mono text-xs">{p.contratoId}</td>
-                    <td className="font-semibold text-success">${p.monto.toFixed(2)}</td>
+                    <td className="font-semibold text-success">${Number(p.monto).toFixed(2)}</td>
                     <td>{p.tipo}</td>
                     <td className="text-muted-foreground">{p.fecha}</td>
                   </tr>
@@ -166,7 +166,7 @@ const Pagos = () => {
                   return (
                     <tr key={pe.id}>
                       <td className="font-mono text-xs">{pe.referencia}</td>
-                      <td className="font-semibold">${pe.monto.toFixed(2)}</td>
+                      <td className="font-semibold">${Number(pe.monto).toFixed(2)}</td>
                       <td>{pe.tipo}</td>
                       <td>{pe.fecha}</td>
                       <td className="text-xs">
@@ -199,7 +199,7 @@ const Pagos = () => {
                 {pagosNativosAplicados.slice().reverse().map(p => (
                   <tr key={p.id}>
                     <td className="font-mono text-xs">{p.contratoId}</td>
-                    <td className="font-semibold text-success">${p.monto.toFixed(2)}</td>
+                    <td className="font-semibold text-success">${Number(p.monto).toFixed(2)}</td>
                     <td>{p.tipo}</td>
                     <td>{p.fecha}</td>
                     <td className="text-xs">{p.concepto}</td>
@@ -217,7 +217,7 @@ const Pagos = () => {
           <DialogHeader><DialogTitle>Conciliar pago externo</DialogTitle></DialogHeader>
           {peConciliar && (
             <div className="space-y-3">
-              <p className="text-sm"><strong>Referencia:</strong> {peConciliar.referencia} · <strong>Monto:</strong> ${peConciliar.monto.toFixed(2)}</p>
+              <p className="text-sm"><strong>Referencia:</strong> {peConciliar.referencia} · <strong>Monto:</strong> ${Number(peConciliar.monto).toFixed(2)}</p>
               <Select value={conciliarContratoId} onValueChange={setConciliarContratoId}>
                 <SelectTrigger><SelectValue placeholder="Contrato / adeudo a conciliar" /></SelectTrigger>
                 <SelectContent>

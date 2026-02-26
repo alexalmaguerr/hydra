@@ -29,6 +29,7 @@ model Zona {
   contratos          Contrato[]
   rutas              Ruta[]
   medidoresBodega    MedidorBodega[] @relation("MedidorBodegaZona")
+  lotesLecturas      LoteLecturas[]
 
   @@index([administracionId])
   @@map("zonas")
@@ -123,6 +124,12 @@ model Contrato {
   timbrados               Timbrado[]
   recibos                 Recibo[]
   pagos                   Pago[]
+  ordenes                 Orden[]
+  personas                RolPersonaContrato[]
+  historico               HistoricoContrato[]
+  tramites                Tramite[]
+  convenios               Convenio[]
+  anticipos               Anticipo[]
 
   @@index([tomaId])
   @@index([rutaId])
@@ -185,6 +192,7 @@ model Ruta {
   zona        Zona     @relation(fields: [zonaId], references: [id], onDelete: Restrict)
   distrito    Distrito? @relation(fields: [distritoId], references: [id], onDelete: SetNull)
   contratos   Contrato[]
+  lotesLecturas LoteLecturas[]
 
   @@index([zonaId])
   @@index([distritoId])
@@ -296,6 +304,7 @@ model Pago {
   contratoId String   @map("contrato_id")
   reciboId   String?  @map("recibo_id")
   timbradoId String?  @map("timbrado_id")
+  convenioId String?  @map("convenio_id")
   monto      Decimal  @db.Decimal(10, 2)
   fecha      String
   tipo       String   // Efectivo | Transferencia | Tarjeta | SPEI | OXXO | CoDi | WEB
@@ -306,9 +315,11 @@ model Pago {
   contrato   Contrato @relation(fields: [contratoId], references: [id], onDelete: Cascade)
   recibo     Recibo?  @relation(fields: [reciboId], references: [id], onDelete: SetNull)
   timbrado   Timbrado? @relation(fields: [timbradoId], references: [id], onDelete: SetNull)
+  convenio   Convenio? @relation(fields: [convenioId], references: [id], onDelete: SetNull)
 
   @@index([contratoId])
   @@index([reciboId])
+  @@index([convenioId])
   @@map("pagos")
 }
 
@@ -335,4 +346,498 @@ model User {
   updatedAt           DateTime @updatedAt @map("updated_at")
 
   @@map("users")
+}
+
+// ---- T01: Catálogos de lecturas ----
+model Contratista {
+  id          String       @id @default(cuid())
+  nombre      String
+  activo      Boolean      @default(true)
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+  lecturistas Lecturista[]
+
+  @@map("contratistas")
+}
+
+model Lecturista {
+  id            String       @id @default(cuid())
+  codigo        String       @unique
+  nombre        String
+  contratistaId String?      @map("contratista_id")
+  activo        Boolean      @default(true)
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @updatedAt @map("updated_at")
+  contratista   Contratista? @relation(fields: [contratistaId], references: [id], onDelete: SetNull)
+  lecturas      Lectura[]
+
+  @@map("lecturistas")
+}
+
+model CatalogoIncidencia {
+  id          String    @id @default(cuid())
+  codigo      String    @unique
+  descripcion String
+  esAveria    Boolean   @default(false) @map("es_averia")
+  activo      Boolean   @default(true)
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  lecturas    Lectura[]
+
+  @@map("catalogo_incidencias")
+}
+
+model LoteLecturas {
+  id             String    @id @default(cuid())
+  zonaId         String?   @map("zona_id")
+  rutaId         String?   @map("ruta_id")
+  periodo        String
+  tipoLote       String    @map("tipo_lote")
+  archivoNombre  String    @map("archivo_nombre")
+  archivoHash    String?   @map("archivo_hash")
+  estado         String    @default("Pendiente")
+  totalRegistros Int       @default(0) @map("total_registros")
+  totalValidos   Int       @default(0) @map("total_validos")
+  totalConError  Int       @default(0) @map("total_con_error")
+  errores        Json?
+  cargadoPor     String?   @map("cargado_por")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  zona           Zona?     @relation(fields: [zonaId], references: [id], onDelete: SetNull)
+  ruta           Ruta?     @relation(fields: [rutaId], references: [id], onDelete: SetNull)
+  lecturas       Lectura[]
+
+  @@index([zonaId])
+  @@index([rutaId])
+  @@index([periodo])
+  @@map("lotes_lecturas")
+}
+
+model Lectura {
+  id                 String              @id @default(cuid())
+  loteId             String              @map("lote_id")
+  contratoId         String              @map("contrato_id")
+  lecturistaId       String?             @map("lecturista_id")
+  incidenciaId       String?             @map("incidencia_id")
+  periodo            String
+  lecturaActual      Int?                @map("lectura_actual")
+  lecturaAnterior    Int?                @map("lectura_anterior")
+  consumoReal        Int?                @map("consumo_real")
+  consumoEstimado    Int?                @map("consumo_estimado")
+  esEstimada         Boolean             @default(false) @map("es_estimada")
+  lecturaMinZona     Int?                @map("lectura_min_zona")
+  lecturaMaxZona     Int?                @map("lectura_max_zona")
+  urlFoto            String?             @map("url_foto")
+  estado             String              @default("Pendiente")
+  motivoInvalidacion String?             @map("motivo_invalidacion")
+  datosRaw           Json?               @map("datos_raw")
+  createdAt          DateTime            @default(now()) @map("created_at")
+  updatedAt          DateTime            @updatedAt @map("updated_at")
+  lote               LoteLecturas        @relation(fields: [loteId], references: [id], onDelete: Cascade)
+  lecturista         Lecturista?         @relation(fields: [lecturistaId], references: [id], onDelete: SetNull)
+  incidencia         CatalogoIncidencia? @relation(fields: [incidenciaId], references: [id], onDelete: SetNull)
+
+  @@index([loteId])
+  @@index([contratoId])
+  @@index([periodo])
+  @@index([estado])
+  @@map("lecturas")
+}
+
+model MensajeLecturista {
+  id         String   @id @default(cuid())
+  loteId     String?  @map("lote_id")
+  contratoId String?  @map("contrato_id")
+  mensaje    String
+  tipo       String   @default("comentario")
+  visible    Boolean  @default(true)
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@index([loteId])
+  @@index([contratoId])
+  @@map("mensajes_lecturistas")
+}
+
+// ---- T02: Pagos externos ----
+model PagoExterno {
+  id            String   @id @default(cuid())
+  recaudador    String
+  archivoNombre String   @map("archivo_nombre")
+  referencia    String?
+  contratoRaw   String?  @map("contrato_raw")
+  contratoId    String?  @map("contrato_id")
+  monto         Decimal  @db.Decimal(10, 2)
+  fechaPagoReal DateTime @map("fecha_pago_real")
+  formaPago     String?  @map("forma_pago")
+  canal         String?
+  oficina       String?
+  estado        String   @default("pendiente_conciliar")
+  motivoRechazo String?  @map("motivo_rechazo")
+  reciboId      String?  @map("recibo_id")
+  datosRaw      Json?    @map("datos_raw")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@index([contratoId])
+  @@index([estado])
+  @@index([recaudador])
+  @@index([fechaPagoReal])
+  @@map("pagos_externos")
+}
+
+// ---- T03: Sistema de órdenes ----
+model Orden {
+  id              String            @id @default(cuid())
+  contratoId      String            @map("contrato_id")
+  tipo            String
+  estado          String            @default("Pendiente")
+  prioridad       String            @default("Normal")
+  fechaSolicitud  DateTime          @default(now()) @map("fecha_solicitud")
+  fechaProgramada DateTime?         @map("fecha_programada")
+  fechaEjecucion  DateTime?         @map("fecha_ejecucion")
+  operadorId      String?           @map("operador_id")
+  notas           String?
+  datosCampo      Json?             @map("datos_campo")
+  externalRef     String?           @map("external_ref")
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
+  contrato        Contrato          @relation(fields: [contratoId], references: [id], onDelete: Restrict)
+  seguimientos    SeguimientoOrden[]
+
+  @@index([contratoId])
+  @@index([estado])
+  @@index([tipo])
+  @@index([fechaProgramada])
+  @@map("ordenes")
+}
+
+model SeguimientoOrden {
+  id             String   @id @default(cuid())
+  ordenId        String   @map("orden_id")
+  fecha          DateTime @default(now())
+  estadoAnterior String?  @map("estado_anterior")
+  estadoNuevo    String?  @map("estado_nuevo")
+  nota           String?
+  usuario        String?
+  createdAt      DateTime @default(now()) @map("created_at")
+  orden          Orden    @relation(fields: [ordenId], references: [id], onDelete: Cascade)
+
+  @@index([ordenId])
+  @@map("seguimientos_orden")
+}
+
+// ---- T04: Contabilidad SAP ----
+model ReglaContable {
+  id              String   @id @default(cuid())
+  nombre          String
+  tipoTransaccion String   @map("tipo_transaccion")
+  indicador       String
+  cuentaContable  String   @map("cuenta_contable")
+  descripcionSAP  String   @map("descripcion_sap")
+  activo          Boolean  @default(true)
+  orden           Int      @default(0)
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@index([tipoTransaccion])
+  @@map("reglas_contables")
+}
+
+model Poliza {
+  id           String        @id @default(cuid())
+  numero       String        @unique
+  tipo         String
+  periodo      String
+  fecha        DateTime
+  descripcion  String
+  moneda       String        @default("MXN")
+  estado       String        @default("generada")
+  referenciaId String?       @map("referencia_id")
+  errorDetalle String?       @map("error_detalle")
+  archivoIdoc  String?       @map("archivo_idoc")
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+  lineas       LineaPoliza[]
+
+  @@index([periodo])
+  @@index([tipo])
+  @@index([estado])
+  @@map("polizas")
+}
+
+model LineaPoliza {
+  id             String   @id @default(cuid())
+  polizaId       String   @map("poliza_id")
+  posicion       Int
+  indicador      String
+  monto          Decimal  @db.Decimal(12, 2)
+  cuentaContable String   @map("cuenta_contable")
+  fecha          DateTime
+  descripcion    String
+  texto          String?
+  centroCoste    String?  @map("centro_coste")
+  createdAt      DateTime @default(now()) @map("created_at")
+  poliza         Poliza   @relation(fields: [polizaId], references: [id], onDelete: Cascade)
+
+  @@index([polizaId])
+  @@map("lineas_poliza")
+}
+
+// ---- T05: GIS ----
+model LogSincronizacion {
+  id              String      @id @default(cuid())
+  tipo            String      @default("GIS")
+  estado          String      @default("en_progreso")
+  totalCambios    Int?        @map("total_cambios")
+  totalExportados Int?        @map("total_exportados")
+  totalErrores    Int?        @map("total_errores")
+  detalles        Json?
+  fechaInicio     DateTime    @default(now()) @map("fecha_inicio")
+  fechaFin        DateTime?   @map("fecha_fin")
+  createdAt       DateTime    @default(now()) @map("created_at")
+  updatedAt       DateTime    @updatedAt @map("updated_at")
+  cambios         CambioGIS[]
+
+  @@index([estado])
+  @@index([tipo])
+  @@map("logs_sincronizacion")
+}
+
+model CambioGIS {
+  id                String             @id @default(cuid())
+  entidad           String
+  entidadId         String             @map("entidad_id")
+  accion            String
+  camposModificados Json?              @map("campos_modificados")
+  datosSnapshot     Json?              @map("datos_snapshot")
+  exportado         Boolean            @default(false)
+  logId             String?            @map("log_id")
+  createdAt         DateTime           @default(now()) @map("created_at")
+  log               LogSincronizacion? @relation(fields: [logId], references: [id], onDelete: SetNull)
+
+  @@index([entidad, entidadId])
+  @@index([exportado])
+  @@index([createdAt])
+  @@map("cambios_gis")
+}
+
+// ---- T06: Personas, Trámites ----
+model Persona {
+  id        String               @id @default(cuid())
+  nombre    String
+  rfc       String?
+  tipo      String               @default("Fisica")
+  email     String?
+  telefono  String?
+  createdAt DateTime             @default(now()) @map("created_at")
+  updatedAt DateTime             @updatedAt @map("updated_at")
+  roles     RolPersonaContrato[]
+  tramites  Tramite[]
+
+  @@index([rfc])
+  @@index([nombre])
+  @@map("personas")
+}
+
+model RolPersonaContrato {
+  id         String   @id @default(cuid())
+  personaId  String   @map("persona_id")
+  contratoId String   @map("contrato_id")
+  rol        String
+  activo     Boolean  @default(true)
+  fechaDesde DateTime @default(now()) @map("fecha_desde")
+  fechaHasta DateTime? @map("fecha_hasta")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+  persona    Persona  @relation(fields: [personaId], references: [id], onDelete: Restrict)
+  contrato   Contrato @relation(fields: [contratoId], references: [id], onDelete: Restrict)
+
+  @@unique([personaId, contratoId, rol])
+  @@index([contratoId])
+  @@index([personaId])
+  @@map("roles_persona_contrato")
+}
+
+model HistoricoContrato {
+  id            String   @id @default(cuid())
+  contratoId    String   @map("contrato_id")
+  campo         String
+  valorAnterior String?  @map("valor_anterior")
+  valorNuevo    String?  @map("valor_nuevo")
+  motivo        String?
+  usuario       String?
+  tramiteId     String?  @map("tramite_id")
+  createdAt     DateTime @default(now()) @map("created_at")
+  contrato      Contrato @relation(fields: [contratoId], references: [id], onDelete: Cascade)
+  tramite       Tramite? @relation(fields: [tramiteId], references: [id], onDelete: SetNull)
+
+  @@index([contratoId])
+  @@index([campo])
+  @@map("historico_contratos")
+}
+
+model Tramite {
+  id               String              @id @default(cuid())
+  folio            String              @unique
+  contratoId       String?             @map("contrato_id")
+  personaId        String?             @map("persona_id")
+  tipo             String
+  estado           String              @default("Iniciado")
+  descripcion      String?
+  datosAdicionales Json?               @map("datos_adicionales")
+  aprobadoPor      String?             @map("aprobado_por")
+  fechaAprobacion  DateTime?           @map("fecha_aprobacion")
+  createdAt        DateTime            @default(now()) @map("created_at")
+  updatedAt        DateTime            @updatedAt @map("updated_at")
+  contrato         Contrato?           @relation(fields: [contratoId], references: [id], onDelete: SetNull)
+  persona          Persona?            @relation(fields: [personaId], references: [id], onDelete: SetNull)
+  documentos       Documento[]
+  historial        HistoricoContrato[]
+
+  @@index([contratoId])
+  @@index([tipo])
+  @@index([estado])
+  @@map("tramites")
+}
+
+model Documento {
+  id        String   @id @default(cuid())
+  tramiteId String   @map("tramite_id")
+  nombre    String
+  tipo      String
+  url       String?
+  verificado Boolean @default(false)
+  notas     String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  tramite   Tramite  @relation(fields: [tramiteId], references: [id], onDelete: Cascade)
+
+  @@index([tramiteId])
+  @@map("documentos")
+}
+
+// ---- T08: Caja, Convenios ----
+model SesionCaja {
+  id            String     @id @default(cuid())
+  usuarioId     String     @map("usuario_id")
+  apertura      DateTime   @default(now())
+  cierre        DateTime?
+  montoInicial  Decimal    @default(0) @db.Decimal(10, 2) @map("monto_inicial")
+  totalCobrado  Decimal    @default(0) @db.Decimal(10, 2) @map("total_cobrado")
+  totalEfectivo Decimal    @default(0) @db.Decimal(10, 2) @map("total_efectivo")
+  totalTransf   Decimal    @default(0) @db.Decimal(10, 2) @map("total_transf")
+  totalTarjeta  Decimal    @default(0) @db.Decimal(10, 2) @map("total_tarjeta")
+  totalAnticipo Decimal    @default(0) @db.Decimal(10, 2) @map("total_anticipo")
+  estado        String     @default("Abierta")
+  resumen       Json?
+  createdAt     DateTime   @default(now()) @map("created_at")
+  updatedAt     DateTime   @updatedAt @map("updated_at")
+  anticipos     Anticipo[]
+
+  @@index([usuarioId])
+  @@index([estado])
+  @@map("sesiones_caja")
+}
+
+model Anticipo {
+  id         String      @id @default(cuid())
+  contratoId String      @map("contrato_id")
+  sesionId   String?     @map("sesion_id")
+  monto      Decimal     @db.Decimal(10, 2)
+  aplicado   Boolean     @default(false)
+  pagoId     String?     @map("pago_id")
+  concepto   String?
+  createdAt  DateTime    @default(now()) @map("created_at")
+  updatedAt  DateTime    @updatedAt @map("updated_at")
+  sesion     SesionCaja? @relation(fields: [sesionId], references: [id], onDelete: SetNull)
+  contrato   Contrato    @relation(fields: [contratoId], references: [id], onDelete: Cascade)
+
+  @@index([contratoId])
+  @@index([aplicado])
+  @@map("anticipos")
+}
+
+model Convenio {
+  id                    String   @id @default(cuid())
+  contratoId            String   @map("contrato_id")
+  tipo                  String   @default("Parcialidades")
+  numParcialidades      Int      @map("num_parcialidades")
+  montoParcialidad      Decimal  @db.Decimal(10, 2) @map("monto_parcialidad")
+  montoTotal            Decimal  @db.Decimal(10, 2) @map("monto_total")
+  montoPagado           Decimal  @default(0) @db.Decimal(10, 2) @map("monto_pagado")
+  facturas              Json
+  estado                String   @default("Activo")
+  parcialidadesRestantes Int     @default(0) @map("parcialidades_restantes")
+  saldoAFavor           Decimal  @default(0) @db.Decimal(10, 2) @map("saldo_a_favor")
+  fechaInicio           DateTime @default(now()) @map("fecha_inicio")
+  fechaVencimiento      DateTime? @map("fecha_vencimiento")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+  contrato              Contrato @relation(fields: [contratoId], references: [id], onDelete: Restrict)
+  pagos                 Pago[]
+
+  @@index([contratoId])
+  @@index([estado])
+  @@map("convenios")
+}
+
+model MensajeRecibo {
+  id            String    @id @default(cuid())
+  tipo          String
+  contratoId    String?   @map("contrato_id")
+  mensaje       String
+  activo        Boolean   @default(true)
+  vigenciaDesde DateTime? @map("vigencia_desde")
+  vigenciaHasta DateTime? @map("vigencia_hasta")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  @@index([tipo])
+  @@index([contratoId])
+  @@map("mensajes_recibo")
+}
+
+// ---- T09: Monitoreo y Conciliaciones ----
+model LogProceso {
+  id          String    @id @default(cuid())
+  tipo        String
+  subTipo     String?   @map("sub_tipo")
+  estado      String    @default("Iniciado")
+  inicio      DateTime  @default(now())
+  fin         DateTime?
+  duracionMs  Int?      @map("duracion_ms")
+  registros   Int       @default(0)
+  errores     Int       @default(0)
+  advertencias Int      @default(0)
+  detalle     Json?
+  errorMsg    String?   @map("error_msg")
+  usuarioId   String?   @map("usuario_id")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  @@index([tipo])
+  @@index([estado])
+  @@index([inicio])
+  @@map("log_procesos")
+}
+
+model ConciliacionReporte {
+  id              String   @id @default(cuid())
+  tipo            String
+  periodo         String
+  ejecutadoEn     DateTime @default(now()) @map("ejecutado_en")
+  totalSistemaA   Int      @map("total_sistema_a")
+  totalSistemaB   Int      @map("total_sistema_b")
+  coincidencias   Int
+  diferencias     Int
+  montoSistemaA   Decimal? @db.Decimal(14, 2) @map("monto_sistema_a")
+  montoSistemaB   Decimal? @db.Decimal(14, 2) @map("monto_sistema_b")
+  montoDiferencia Decimal? @db.Decimal(14, 2) @map("monto_diferencia")
+  detalles        Json?
+  estado          String   @default("Revisión")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@index([tipo])
+  @@index([periodo])
+  @@map("conciliacion_reportes")
 }

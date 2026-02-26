@@ -18,7 +18,8 @@ export interface LecturaDto {
 }
 
 export async function fetchLecturas(): Promise<LecturaDto[]> {
-  return apiRequest<LecturaDto[]>('/lecturas');
+  const res = await apiRequest<LecturaDto[] | { data: LecturaDto[] }>('/lecturas?limit=200');
+  return Array.isArray(res) ? res : ((res as { data: LecturaDto[] }).data ?? []);
 }
 
 export { hasApi };

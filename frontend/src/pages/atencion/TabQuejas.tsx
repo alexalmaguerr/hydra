@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { ExternalLink, Filter, MessageSquarePlus, Search, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,73 +12,85 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
-import type { QuejaAclaracion, QuejaCategoria, QuejaPrioridad } from '@/context/DataContext';
+import { getQuejasByContrato, type QuejaApi } from '@/api/atencion';
 
 interface TabQuejasProps {
-  quejas: QuejaAclaracion[];
+  contratoId: string;
   onNuevaQueja: () => void;
-  onVerDetalle: (queja: QuejaAclaracion) => void;
+  onVerDetalle: (queja: QuejaApi) => void;
+  refreshKey?: number;
 }
 
-const PRIORIDAD_CONFIG: Record<QuejaPrioridad, { label: string; className: string }> = {
-  Urgente: { label: 'Urgente', className: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 border-red-200 dark:border-red-800' },
-  Alta: { label: 'Alta', className: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200 border-orange-200 dark:border-orange-800' },
-  Media: { label: 'Media', className: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 border-yellow-200 dark:border-yellow-800' },
-  Baja: { label: 'Baja', className: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 border-gray-200 dark:border-gray-700' },
+const PRIORIDAD_CONFIG: Record<string, { label: string; className: string }> = {
+  Urgente: { label: 'Urgente', className: 'bg-red-100 text-red-800 border-red-200' },
+  Alta: { label: 'Alta', className: 'bg-orange-100 text-orange-800 border-orange-200' },
+  Media: { label: 'Media', className: 'bg-yellow-100 text-yellow-800 border-yellow-200' },
+  Baja: { label: 'Baja', className: 'bg-gray-100 text-gray-700 border-gray-200' },
 };
 
 const ESTADO_CONFIG: Record<string, string> = {
-  'Registrada': 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
-  'En atención': 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200',
-  'Resuelta': 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-  'Cerrada': 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
+  'Registrada': 'bg-blue-100 text-blue-800',
+  'En atención': 'bg-amber-100 text-amber-800',
+  'Resuelta': 'bg-green-100 text-green-800',
+  'Cerrada': 'bg-gray-100 text-gray-600',
 };
 
 function formatDate(dateStr: string) {
   if (!dateStr) return '—';
-  const d = new Date(dateStr + (dateStr.length === 10 ? 'T00:00:00' : ''));
+  const d = new Date(dateStr);
   return d.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-const CATEGORIAS: QuejaCategoria[] = ['Facturación', 'Servicio', 'Medidor', 'Lectura', 'Corte/Reconexión', 'Cobro', 'Otro'];
-const PRIORIDADES: QuejaPrioridad[] = ['Urgente', 'Alta', 'Media', 'Baja'];
 const ESTADOS = ['Registrada', 'En atención', 'Resuelta', 'Cerrada'] as const;
+const PRIORIDADES = ['Urgente', 'Alta', 'Media', 'Baja'] as const;
 
-export default function TabQuejas({ quejas, onNuevaQueja, onVerDetalle }: TabQuejasProps) {
+export default function TabQuejas({ contratoId, onNuevaQueja, onVerDetalle, refreshKey }: TabQuejasProps) {
+  const [quejas, setQuejas] = useState<QuejaApi[]>([]);
+  const [loading, setLoading] = useState(true);
   const [busqueda, setBusqueda] = useState('');
   const [filtroEstado, setFiltroEstado] = useState<string>('todos');
   const [filtroPrioridad, setFiltroPrioridad] = useState<string>('todos');
-  const [filtroCategoria, setFiltroCategoria] = useState<string>('todos');
+
+  useEffect(() => {
+    setLoading(true);
+    getQuejasByContrato(contratoId)
+      .then(setQuejas)
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, [contratoId, refreshKey]);
 
   const quejasFiltradas = useMemo(() => {
-    return quejas
-      .filter(q => {
-        if (filtroEstado !== 'todos' && q.estado !== filtroEstado) return false;
-        if (filtroPrioridad !== 'todos' && q.prioridad !== filtroPrioridad) return false;
-        if (filtroCategoria !== 'todos' && q.categoria !== filtroCategoria) return false;
-        if (busqueda) {
-          const b = busqueda.toLowerCase();
-          return q.descripcion.toLowerCase().includes(b) || q.tipo.toLowerCase().includes(b) || (q.categoria && q.categoria.toLowerCase().includes(b)) || (q.atendidoPor && q.atendidoPor.toLowerCase().includes(b));
-        }
-        return true;
-      })
-      .sort((a, b) => b.fecha.localeCompare(a.fecha));
-  }, [quejas, filtroEstado, filtroPrioridad, filtroCategoria, busqueda]);
+    return quejas.filter((q) => {
+      if (filtroEstado !== 'todos' && q.estado !== filtroEstado) return false;
+      if (filtroPrioridad !== 'todos' && q.prioridad !== filtroPrioridad) return false;
+      if (busqueda) {
+        const b = busqueda.toLowerCase();
+        return (
+          q.descripcion.toLowerCase().includes(b) ||
+          q.tipo.toLowerCase().includes(b) ||
+          (q.categoria && q.categoria.toLowerCase().includes(b))
+        );
+      }
+      return true;
+    });
+  }, [quejas, filtroEstado, filtroPrioridad, busqueda]);
 
-  const hasFilters = filtroEstado !== 'todos' || filtroPrioridad !== 'todos' || filtroCategoria !== 'todos' || busqueda;
+  const hasFilters = filtroEstado !== 'todos' || filtroPrioridad !== 'todos' || busqueda;
+  const abiertas = quejas.filter((q) => q.estado === 'Registrada' || q.estado === 'En atención').length;
 
-  const abiertas = quejas.filter(q => q.estado === 'Registrada' || q.estado === 'En atención').length;
+  if (loading) {
+    return <div className="text-sm text-muted-foreground py-4">Cargando quejas...</div>;
+  }
 
   return (
     <div className="space-y-4">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div>
           <h3 className="font-semibold text-base">Quejas y Aclaraciones</h3>
           <p className="text-sm text-muted-foreground">
             {quejas.length} registro{quejas.length !== 1 ? 's' : ''}
             {abiertas > 0 && (
-              <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200">
+              <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
                 {abiertas} abierta{abiertas > 1 ? 's' : ''}
               </span>
             )}
@@ -90,13 +102,12 @@ export default function TabQuejas({ quejas, onNuevaQueja, onVerDetalle }: TabQue
         </Button>
       </div>
 
-      {/* Filtros */}
       <div className="flex flex-wrap gap-2 items-center">
         <div className="relative flex-1 min-w-[180px]">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <Input
             value={busqueda}
-            onChange={e => setBusqueda(e.target.value)}
+            onChange={(e) => setBusqueda(e.target.value)}
             placeholder="Buscar en descripción..."
             className="pl-8 h-8 text-sm"
           />
@@ -108,7 +119,7 @@ export default function TabQuejas({ quejas, onNuevaQueja, onVerDetalle }: TabQue
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="todos">Todos los estados</SelectItem>
-            {ESTADOS.map(e => <SelectItem key={e} value={e}>{e}</SelectItem>)}
+            {ESTADOS.map((e) => <SelectItem key={e} value={e}>{e}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={filtroPrioridad} onValueChange={setFiltroPrioridad}>
@@ -117,16 +128,7 @@ export default function TabQuejas({ quejas, onNuevaQueja, onVerDetalle }: TabQue
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="todos">Todas las prioridades</SelectItem>
-            {PRIORIDADES.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <Select value={filtroCategoria} onValueChange={setFiltroCategoria}>
-          <SelectTrigger className="h-8 text-sm w-40">
-            <SelectValue placeholder="Categoría" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="todos">Todas las categorías</SelectItem>
-            {CATEGORIAS.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+            {PRIORIDADES.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
           </SelectContent>
         </Select>
         {hasFilters && (
@@ -134,14 +136,13 @@ export default function TabQuejas({ quejas, onNuevaQueja, onVerDetalle }: TabQue
             variant="ghost"
             size="sm"
             className="h-8 text-xs text-muted-foreground"
-            onClick={() => { setFiltroEstado('todos'); setFiltroPrioridad('todos'); setFiltroCategoria('todos'); setBusqueda(''); }}
+            onClick={() => { setFiltroEstado('todos'); setFiltroPrioridad('todos'); setBusqueda(''); }}
           >
             Limpiar filtros
           </Button>
         )}
       </div>
 
-      {/* Tabla */}
       {quejasFiltradas.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground text-sm">
           {hasFilters ? 'Sin resultados con los filtros seleccionados.' : 'No hay quejas o aclaraciones registradas para este contrato.'}
@@ -162,17 +163,17 @@ export default function TabQuejas({ quejas, onNuevaQueja, onVerDetalle }: TabQue
               </TableRow>
             </TableHeader>
             <TableBody>
-              {quejasFiltradas.map(q => (
+              {quejasFiltradas.map((q) => (
                 <TableRow
                   key={q.id}
                   className="cursor-pointer hover:bg-accent/50 transition-colors"
                   onClick={() => onVerDetalle(q)}
                 >
-                  <TableCell className="text-xs text-muted-foreground">{formatDate(q.fecha)}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground">{formatDate(q.createdAt)}</TableCell>
                   <TableCell>
                     <span className={cn(
                       'inline-flex items-center px-2 py-0.5 rounded text-xs font-medium',
-                      q.tipo === 'Queja' ? 'bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300' : 'bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300'
+                      q.tipo === 'Queja' ? 'bg-red-50 text-red-700' : 'bg-blue-50 text-blue-700'
                     )}>
                       {q.tipo}
                     </span>
@@ -186,8 +187,8 @@ export default function TabQuejas({ quejas, onNuevaQueja, onVerDetalle }: TabQue
                           href={q.enlaceExterno}
                           target="_blank"
                           rel="noopener noreferrer"
-                          onClick={e => e.stopPropagation()}
-                          className="shrink-0 text-blue-600 hover:text-blue-800 dark:text-blue-400"
+                          onClick={(e) => e.stopPropagation()}
+                          className="shrink-0 text-blue-600 hover:text-blue-800"
                           title="Ver en sistema externo"
                         >
                           <ExternalLink className="h-3 w-3 mt-0.5" />

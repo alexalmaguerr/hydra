@@ -1,7 +1,9 @@
 import { Module } from '@nestjs/common';
-import { RecibosController } from './recibos.controller';
+import { RecibosController, MensajesReciboController } from './recibos.controller';
+import { PrismaModule } from '../../prisma/prisma.module';
 
 @Module({
-  controllers: [RecibosController],
+  imports: [PrismaModule],
+  controllers: [RecibosController, MensajesReciboController],
 })
 export class RecibosModule {}

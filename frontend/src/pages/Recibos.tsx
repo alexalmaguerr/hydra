@@ -1,279 +1,733 @@
-import { useState, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { useData } from '@/context/DataContext';
-import { fetchRecibos, fetchTimbrados, hasApi } from '@/api/recibos';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import {
+  Search, X, Eye, Printer, CreditCard, Plus, RefreshCw, CheckCircle2, Clock,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
+} from '@/components/ui/dialog';
+import { cn } from '@/lib/utils';
+import { buscarContratos, type ContratoSearch } from '@/api/atencion';
+import {
+  getRecibos, getReciboPreview, marcarImpreso, getMensajesRecibo, createMensajeRecibo,
+  type ReciboDto, type ReciboPreviewDto, type MensajeReciboDto,
+} from '@/api/recibos';
+import { getCajaActiva, abrirCaja, cerrarCaja, type SesionCajaDto } from '@/api/caja';
+import { apiRequest } from '@/api/client';
 
-const Recibos = () => {
-  const useApi = hasApi();
-  const {
-    recibos: contextRecibos,
-    addRecibo,
-    updateRecibo,
-    timbrados: contextTimbrados,
-    contratos,
-    allowedZonaIds,
-    mensajeGlobalRecibos,
-    setMensajeGlobalRecibos,
-    pagosParcialidad,
-  } = useData();
-  const { data: apiRecibos = [] } = useQuery({ queryKey: ['recibos'], queryFn: fetchRecibos, enabled: useApi });
-  const { data: apiTimbrados = [] } = useQuery({ queryKey: ['timbrados'], queryFn: fetchTimbrados, enabled: useApi });
-  const recibos = useApi ? apiRecibos : contextRecibos;
-  const timbrados = useApi ? apiTimbrados : contextTimbrados;
-  const [showMensajeIndividual, setShowMensajeIndividual] = useState(false);
-  const [selectedReciboIds, setSelectedReciboIds] = useState<Set<string>>(new Set());
-  const [mensajeIndividualTexto, setMensajeIndividualTexto] = useState('');
-  const [filtroContrato, setFiltroContrato] = useState('');
-  const [previewReciboId, setPreviewReciboId] = useState<string | null>(null);
+const TIPOS_PAGO = ['Efectivo', 'Tarjeta', 'Transferencia', 'SPEI', 'OXXO'] as const;
 
-  const contratoIdsVisibles = useMemo(() => {
-    if (!allowedZonaIds) return new Set(contratos.map(c => c.id));
-    return new Set(contratos.filter(c => c.zonaId && allowedZonaIds.includes(c.zonaId)).map(c => c.id));
-  }, [contratos, allowedZonaIds]);
-  const recibosVisibles = useMemo(() => recibos.filter(r => contratoIdsVisibles.has(r.contratoId)), [recibos, contratoIdsVisibles]);
-  const recibosParaSeleccion = useMemo(() => {
-    if (!filtroContrato) return recibosVisibles;
-    return recibosVisibles.filter(r => r.contratoId === filtroContrato);
-  }, [recibosVisibles, filtroContrato]);
-  const timbradosOK = useMemo(() =>
-    timbrados.filter(t => t.estado === 'Timbrada OK' && contratoIdsVisibles.has(t.contratoId) && !recibos.some(r => r.timbradoId === t.id)),
-    [timbrados, recibos, contratoIdsVisibles]
-  );
+function formatCurrency(n: number) {
+  return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(n);
+}
 
-  const generarRecibo = (t: typeof timbrados[0]) => {
-    if (useApi) return;
-    addRecibo({
-      timbradoId: t.id,
-      contratoId: t.contratoId,
-      saldoVigente: Math.round(Math.random() * 500 + 100),
-      saldoVencido: Math.round(Math.random() * 200),
-      parcialidades: 0,
-      fechaVencimiento: new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0],
-      impreso: false,
-    });
-  };
+function formatDate(s?: string) {
+  if (!s) return '—';
+  const d = new Date(s.length === 10 ? s + 'T00:00:00' : s);
+  return d.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
+}
 
-  const mensajeEfectivo = (r: typeof recibos[0]) => (r.mensajeIndividual ?? mensajeGlobalRecibos) || '—';
+// ─── Inline contract search ───────────────────────────────────────────────────
 
-  const parcialidadesByContrato = useMemo(() => {
-    const map: Record<string, typeof pagosParcialidad> = {};
-    pagosParcialidad.forEach(pp => {
-      if (!map[pp.contratoId]) map[pp.contratoId] = [];
-      map[pp.contratoId].push(pp);
-    });
-    return map;
-  }, [pagosParcialidad]);
+function ContractSearch({
+  selected,
+  onSelect,
+}: {
+  selected: ContratoSearch | null;
+  onSelect: (c: ContratoSearch | null) => void;
+}) {
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState<ContratoSearch[]>([]);
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  const previewRecibo = previewReciboId ? recibos.find(r => r.id === previewReciboId) : null;
-  const previewContrato = previewRecibo ? contratos.find(c => c.id === previewRecibo.contratoId) : null;
-  const previewTimbrado = previewRecibo ? timbrados.find(t => t.id === previewRecibo.timbradoId) : null;
-  const previewParcialidades = previewRecibo ? (parcialidadesByContrato[previewRecibo.contratoId] ?? []) : [];
+  const handleSearch = useCallback((q: string) => {
+    setQuery(q);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (q.trim().length < 2) { setResults([]); setOpen(false); return; }
+    debounceRef.current = setTimeout(async () => {
+      setLoading(true);
+      try {
+        const data = await buscarContratos(q);
+        setResults(data);
+        setOpen(true);
+      } catch { setResults([]); } finally { setLoading(false); }
+    }, 300);
+  }, []);
 
-  const toggleSelectRecibo = (id: string) => {
-    setSelectedReciboIds(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
-  const aplicarMensajeIndividual = () => {
-    if (useApi) return;
-    selectedReciboIds.forEach(id => updateRecibo(id, { mensajeIndividual: mensajeIndividualTexto }));
-    setSelectedReciboIds(new Set());
-    setMensajeIndividualTexto('');
-    setShowMensajeIndividual(false);
-  };
+  useEffect(() => {
+    const handle = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handle);
+    return () => document.removeEventListener('mousedown', handle);
+  }, []);
 
   return (
-    <div>
-      <div className="page-header">
-        <h1 className="page-title">Recibos e Impresión</h1>
+    <div ref={containerRef} className="relative w-full max-w-lg">
+      <div className="relative flex items-center gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+          <Input
+            value={query}
+            onChange={(e) => handleSearch(e.target.value)}
+            onFocus={() => results.length > 0 && setOpen(true)}
+            placeholder="Buscar contrato, nombre, dirección..."
+            className="pl-9 pr-8"
+          />
+          {query && (
+            <button
+              onClick={() => { setQuery(''); setResults([]); setOpen(false); }}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+        {selected && (
+          <Button variant="ghost" size="sm" onClick={() => onSelect(null)} className="shrink-0 text-muted-foreground gap-1">
+            <X className="h-4 w-4" /> Limpiar
+          </Button>
+        )}
+      </div>
+      {open && results.length > 0 && (
+        <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-md overflow-hidden">
+          <ul className="py-1 max-h-64 overflow-y-auto">
+            {results.map((c) => (
+              <li key={c.id}>
+                <button
+                  className="w-full text-left px-3 py-2 hover:bg-accent text-sm"
+                  onClick={() => { onSelect(c); setQuery(''); setOpen(false); setResults([]); }}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-xs text-muted-foreground">{c.id}</span>
+                    <span className="font-medium truncate">{c.nombre}</span>
+                    <span className="ml-auto text-xs text-muted-foreground shrink-0">{c.estado}</span>
+                  </div>
+                  <div className="text-xs text-muted-foreground truncate">{c.direccion}</div>
+                </button>
+              </li>
+            ))}
+          </ul>
+          <div className="border-t px-3 py-1.5 text-xs text-muted-foreground bg-muted/40">
+            {results.length} resultado{results.length !== 1 ? 's' : ''}
+          </div>
+        </div>
+      )}
+      {loading && (
+        <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-md px-4 py-3 text-sm text-muted-foreground">
+          Buscando...
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Preview Dialog ───────────────────────────────────────────────────────────
+
+function PreviewDialog({
+  reciboId, open, onOpenChange, onPaid, onPrinted,
+}: {
+  reciboId: string | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onPaid: () => void;
+  onPrinted: () => void;
+}) {
+  const [preview, setPreview] = useState<ReciboPreviewDto | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [showPayForm, setShowPayForm] = useState(false);
+  const [payForm, setPayForm] = useState({ monto: '', tipo: 'Efectivo', concepto: '' });
+  const [paying, setPaying] = useState(false);
+  const [printing, setPrinting] = useState(false);
+
+  useEffect(() => {
+    if (!reciboId || !open) return;
+    setLoading(true);
+    setPreview(null);
+    setShowPayForm(false);
+    getReciboPreview(reciboId)
+      .then(setPreview)
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, [reciboId, open]);
+
+  async function handlePay() {
+    if (!preview) return;
+    setPaying(true);
+    try {
+      await apiRequest('/pagos', {
+        method: 'POST',
+        body: JSON.stringify({
+          contratoId: preview.recibo.contratoId,
+          reciboId: preview.recibo.id,
+          timbradoId: preview.recibo.timbradoId,
+          monto: Number(payForm.monto),
+          tipo: payForm.tipo,
+          concepto: payForm.concepto || 'Pago en caja',
+        }),
+      });
+      setShowPayForm(false);
+      setPayForm({ monto: '', tipo: 'Efectivo', concepto: '' });
+      onPaid();
+      onOpenChange(false);
+    } catch (err) { console.error(err); } finally { setPaying(false); }
+  }
+
+  async function handlePrint() {
+    if (!preview) return;
+    setPrinting(true);
+    try {
+      await marcarImpreso(preview.recibo.id);
+      onPrinted();
+      onOpenChange(false);
+    } catch (err) { console.error(err); } finally { setPrinting(false); }
+  }
+
+  const r = preview?.recibo;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[560px]">
+        <DialogHeader>
+          <DialogTitle>Vista previa del recibo</DialogTitle>
+          <DialogDescription>
+            {r ? `${r.contrato.nombre} · ${r.timbrado?.periodo ?? ''}` : 'Cargando...'}
+          </DialogDescription>
+        </DialogHeader>
+
+        {loading && (
+          <div className="py-8 text-center text-sm text-muted-foreground">Cargando recibo...</div>
+        )}
+
+        {r && (
+          <div className="space-y-4 text-sm max-h-[60vh] overflow-y-auto pr-1">
+            {/* Contrato */}
+            <div className="rounded-lg border bg-muted/30 p-3 space-y-1 text-xs">
+              <div className="flex gap-2">
+                <span className="text-muted-foreground w-20 shrink-0">Contrato</span>
+                <span className="font-medium">{r.contratoId} – {r.contrato.nombre}</span>
+              </div>
+              <div className="flex gap-2">
+                <span className="text-muted-foreground w-20 shrink-0">Dirección</span>
+                <span>{r.contrato.direccion}</span>
+              </div>
+              {r.contrato.rfc && (
+                <div className="flex gap-2">
+                  <span className="text-muted-foreground w-20 shrink-0">RFC</span>
+                  <span>{r.contrato.rfc}</span>
+                </div>
+              )}
+              {r.timbrado && (
+                <div className="flex gap-2">
+                  <span className="text-muted-foreground w-20 shrink-0">UUID</span>
+                  <code className="font-mono bg-muted px-1 rounded break-all">{r.timbrado.uuid}</code>
+                </div>
+              )}
+            </div>
+
+            {/* Saldos */}
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { label: 'Saldo vigente', value: Number(r.saldoVigente), cls: '' },
+                { label: 'Saldo vencido', value: Number(r.saldoVencido), cls: Number(r.saldoVencido) > 0 ? 'text-destructive' : '' },
+                { label: 'Pendiente', value: preview.pendiente, cls: preview.pendiente > 0 ? 'text-amber-600' : 'text-green-600' },
+              ].map((item) => (
+                <div key={item.label} className="rounded border p-3 text-center">
+                  <div className="text-xs text-muted-foreground mb-1">{item.label}</div>
+                  <div className={cn('font-bold tabular-nums text-sm', item.cls)}>
+                    {formatCurrency(item.value)}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Timbrado */}
+            {r.timbrado && (
+              <div className="grid grid-cols-3 gap-2 text-xs">
+                <div>
+                  <span className="text-muted-foreground">Periodo</span>
+                  <div className="font-medium">{r.timbrado.periodo}</div>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Subtotal</span>
+                  <div className="font-medium">{formatCurrency(Number(r.timbrado.subtotal))}</div>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">IVA</span>
+                  <div className="font-medium">{formatCurrency(Number(r.timbrado.iva))}</div>
+                </div>
+              </div>
+            )}
+
+            {/* Pagos */}
+            {r.pagos.length > 0 && (
+              <div>
+                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
+                  Pagos registrados
+                </div>
+                <div className="space-y-1">
+                  {r.pagos.map((p) => (
+                    <div key={p.id} className="flex items-center justify-between rounded border px-3 py-1.5 text-xs">
+                      <span className="text-muted-foreground">{formatDate(p.fecha)} · {p.tipo}</span>
+                      <span className="font-medium text-green-600">{formatCurrency(Number(p.monto))}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Mensajes */}
+            {preview.mensajes.length > 0 && (
+              <div>
+                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
+                  Mensajes en recibo
+                </div>
+                {preview.mensajes.map((m) => (
+                  <div key={m.id} className="rounded border bg-blue-50 px-3 py-1.5 text-xs text-blue-800 mb-1">
+                    <span className="font-medium mr-1">[{m.tipo}]</span>{m.mensaje}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Pago form */}
+            {showPayForm && (
+              <div className="rounded-lg border p-3 space-y-3 bg-muted/20">
+                <div className="text-sm font-medium">Registrar pago</div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Monto</Label>
+                    <Input
+                      type="number"
+                      min="0.01"
+                      step="0.01"
+                      value={payForm.monto}
+                      onChange={(e) => setPayForm((f) => ({ ...f, monto: e.target.value }))}
+                      placeholder={formatCurrency(preview.pendiente)}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Tipo de pago</Label>
+                    <Select value={payForm.tipo} onValueChange={(v) => setPayForm((f) => ({ ...f, tipo: v }))}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {TIPOS_PAGO.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Concepto (opcional)</Label>
+                  <Input
+                    value={payForm.concepto}
+                    onChange={(e) => setPayForm((f) => ({ ...f, concepto: e.target.value }))}
+                    placeholder="Pago en caja"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        <DialogFooter className="gap-2">
+          {!showPayForm ? (
+            <>
+              <Button variant="outline" onClick={() => onOpenChange(false)}>Cerrar</Button>
+              {r && !r.impreso && (
+                <>
+                  <Button variant="outline" onClick={() => setShowPayForm(true)} className="gap-1.5">
+                    <CreditCard className="h-4 w-4" /> Registrar pago
+                  </Button>
+                  <Button onClick={handlePrint} disabled={printing} className="gap-1.5">
+                    <Printer className="h-4 w-4" />
+                    {printing ? 'Procesando...' : 'Marcar impreso'}
+                  </Button>
+                </>
+              )}
+            </>
+          ) : (
+            <>
+              <Button variant="outline" onClick={() => setShowPayForm(false)} disabled={paying}>
+                Cancelar
+              </Button>
+              <Button onClick={handlePay} disabled={paying || !payForm.monto}>
+                {paying ? 'Guardando...' : 'Confirmar pago'}
+              </Button>
+            </>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── Caja Section ─────────────────────────────────────────────────────────────
+
+function CajaSection() {
+  const [sesion, setSesion] = useState<SesionCajaDto | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [montoInicial, setMontoInicial] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try { setSesion(await getCajaActiva()); } catch { setSesion(null); } finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function handleAbrir() {
+    setSaving(true);
+    try {
+      setSesion(await abrirCaja(Number(montoInicial) || 0));
+      setMontoInicial('');
+    } catch (err) { console.error(err); } finally { setSaving(false); }
+  }
+
+  async function handleCerrar() {
+    if (!sesion) return;
+    setSaving(true);
+    try { setSesion(await cerrarCaja(sesion.id)); } catch (err) { console.error(err); } finally { setSaving(false); }
+  }
+
+  if (loading) return <div className="text-sm text-muted-foreground py-2">Cargando caja...</div>;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="font-semibold">Estado de Caja</h3>
+        <span className={cn(
+          'px-2 py-0.5 rounded-full text-xs font-medium',
+          sesion ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600',
+        )}>
+          {sesion ? 'Abierta' : 'Cerrada'}
+        </span>
       </div>
 
-      <div className="mb-6 rounded-lg border p-4 space-y-3">
-        <h3 className="section-title">Mensajes antes de enviar a timbrar</h3>
-        <div>
-          <label className="text-sm font-medium">Mensaje global</label>
-          <Textarea
-            placeholder="Mensaje que se mostrará en todos los recibos (salvo los que tengan mensaje individual)"
-            value={mensajeGlobalRecibos}
-            onChange={e => setMensajeGlobalRecibos(e.target.value)}
-            className="mt-1 min-h-[80px]"
-          />
+      {sesion ? (
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-2">
+            {[
+              { label: 'Total cobrado', value: sesion.totalCobrado },
+              { label: 'Efectivo', value: sesion.totalEfectivo },
+              { label: 'Transferencia', value: sesion.totalTransf },
+              { label: 'Tarjeta', value: sesion.totalTarjeta },
+            ].map((item) => (
+              <div key={item.label} className="rounded border bg-card p-2.5">
+                <div className="text-xs text-muted-foreground">{item.label}</div>
+                <div className="font-bold tabular-nums text-sm mt-0.5">{formatCurrency(Number(item.value))}</div>
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground">Apertura: {formatDate(sesion.apertura)}</p>
+          <Button variant="destructive" size="sm" onClick={handleCerrar} disabled={saving}>
+            {saving ? 'Cerrando...' : 'Cerrar caja'}
+          </Button>
         </div>
-        <Button variant="outline" size="sm" onClick={() => setShowMensajeIndividual(true)}>
-          Mensaje individual (seleccionar facturas/recibos)
+      ) : (
+        <div className="flex items-end gap-3">
+          <div className="space-y-1">
+            <Label className="text-sm">Monto inicial</Label>
+            <Input
+              type="number"
+              min="0"
+              value={montoInicial}
+              onChange={(e) => setMontoInicial(e.target.value)}
+              placeholder="0.00"
+              className="w-36"
+            />
+          </div>
+          <Button onClick={handleAbrir} disabled={saving} size="sm">
+            {saving ? 'Abriendo...' : 'Abrir caja'}
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Mensajes Section ─────────────────────────────────────────────────────────
+
+function MensajesSection() {
+  const [mensajes, setMensajes] = useState<MensajeReciboDto[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({ tipo: 'Global', mensaje: '', contratoId: '' });
+  const [saving, setSaving] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try { setMensajes(await getMensajesRecibo()); } catch { setMensajes([]); } finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function handleCreate() {
+    setSaving(true);
+    try {
+      await createMensajeRecibo({
+        tipo: form.tipo,
+        mensaje: form.mensaje,
+        ...(form.tipo === 'Individual' && form.contratoId ? { contratoId: form.contratoId } : {}),
+      });
+      setForm({ tipo: 'Global', mensaje: '', contratoId: '' });
+      setShowForm(false);
+      load();
+    } catch (err) { console.error(err); } finally { setSaving(false); }
+  }
+
+  if (loading) return <div className="text-sm text-muted-foreground py-2">Cargando mensajes...</div>;
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <h3 className="font-semibold">Mensajes en Recibos</h3>
+        <Button size="sm" variant="outline" onClick={() => setShowForm(!showForm)} className="gap-1.5">
+          <Plus className="h-4 w-4" /> Nuevo
         </Button>
       </div>
 
-      {timbradosOK.length > 0 && (
-        <div className="mb-6">
-          <h3 className="section-title">Generar recibos</h3>
-          <div className="flex gap-2 flex-wrap">
-            {timbradosOK.map(t => (
-              <Button key={t.id} variant="outline" size="sm" onClick={() => generarRecibo(t)} disabled={useApi}>
-                Recibo {t.contratoId}
-              </Button>
-            ))}
+      {showForm && (
+        <div className="rounded-lg border p-3 space-y-3 bg-muted/20">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label className="text-xs">Tipo</Label>
+              <Select value={form.tipo} onValueChange={(v) => setForm((f) => ({ ...f, tipo: v }))}>
+                <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Global">Global (todos)</SelectItem>
+                  <SelectItem value="Individual">Individual (contrato)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {form.tipo === 'Individual' && (
+              <div className="space-y-1">
+                <Label className="text-xs">ID de contrato</Label>
+                <Input
+                  value={form.contratoId}
+                  onChange={(e) => setForm((f) => ({ ...f, contratoId: e.target.value }))}
+                  placeholder="CONTRATO-001"
+                  className="h-8 text-sm"
+                />
+              </div>
+            )}
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Mensaje</Label>
+            <Textarea
+              value={form.mensaje}
+              onChange={(e) => setForm((f) => ({ ...f, mensaje: e.target.value }))}
+              placeholder="Mensaje para el recibo..."
+              rows={2}
+            />
+          </div>
+          <div className="flex gap-2">
+            <Button size="sm" onClick={handleCreate} disabled={saving || !form.mensaje.trim()}>
+              {saving ? 'Guardando...' : 'Guardar'}
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => setShowForm(false)}>Cancelar</Button>
           </div>
         </div>
       )}
 
-      <div className="rounded-lg border overflow-hidden">
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>Contrato</th>
-              <th>Saldo vigente</th>
-              <th>Saldo vencido</th>
-              <th>Vencimiento</th>
-              <th>Parcialidades</th>
-              <th>Mensaje</th>
-              <th>Impreso</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {recibosVisibles.map(r => {
-              const contrato = contratos.find(c => c.id === r.contratoId);
-              const parcialidades = parcialidadesByContrato[r.contratoId] ?? [];
-              return (
-                <tr key={r.id}>
-                  <td><span className="font-mono text-xs">{r.contratoId}</span> <span className="text-muted-foreground text-xs">- {contrato?.nombre}</span></td>
-                  <td className="font-semibold">${r.saldoVigente.toFixed(2)}</td>
-                  <td className={r.saldoVencido > 0 ? 'text-destructive font-semibold' : ''}>${r.saldoVencido.toFixed(2)}</td>
-                  <td>{r.fechaVencimiento}</td>
-                  <td>{parcialidades.length > 0 ? `${parcialidades.filter(p => p.estado === 'Pendiente').length} pendiente(s)` : r.parcialidades}</td>
-                  <td className="text-xs max-w-[200px] truncate" title={mensajeEfectivo(r)}>{mensajeEfectivo(r)}</td>
-                  <td>{r.impreso ? <span className="status-badge status-success">Sí</span> : <span className="status-badge status-warning">No</span>}</td>
-                  <td className="flex gap-1">
-                    <Button size="sm" variant="outline" onClick={() => setPreviewReciboId(r.id)}>Vista previa</Button>
-                    {!r.impreso && <Button size="sm" onClick={() => updateRecibo(r.id, { impreso: true })} disabled={useApi}>Imprimir</Button>}
-                  </td>
-                </tr>
-              );
-            })}
-            {recibosVisibles.length === 0 && <tr><td colSpan={8} className="text-center text-muted-foreground py-8">No hay recibos</td></tr>}
-          </tbody>
-        </table>
+      {mensajes.length === 0 ? (
+        <div className="text-sm text-muted-foreground py-4 text-center">
+          No hay mensajes configurados.
+        </div>
+      ) : (
+        <div className="space-y-2 max-h-64 overflow-y-auto">
+          {mensajes.map((m) => (
+            <div key={m.id} className="flex items-start gap-2.5 rounded border p-2.5">
+              <span className={cn(
+                'px-1.5 py-0.5 rounded text-xs font-medium shrink-0',
+                m.tipo === 'Global' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800',
+              )}>
+                {m.tipo}
+              </span>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm">{m.mensaje}</p>
+                {m.contratoId && (
+                  <p className="text-xs text-muted-foreground mt-0.5">Contrato: {m.contratoId}</p>
+                )}
+              </div>
+              <span className={cn('text-xs font-medium shrink-0', m.activo ? 'text-green-600' : 'text-muted-foreground')}>
+                {m.activo ? 'Activo' : 'Inactivo'}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
+
+const Recibos = () => {
+  const [contrato, setContrato] = useState<ContratoSearch | null>(null);
+  const [recibos, setRecibos] = useState<ReciboDto[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [filtroImpreso, setFiltroImpreso] = useState<'todos' | 'pendientes' | 'impresos'>('todos');
+  const [previewId, setPreviewId] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  useEffect(() => {
+    if (!contrato) { setRecibos([]); return; }
+    setLoading(true);
+    getRecibos({ contratoId: contrato.id, limit: 50 })
+      .then((res) => setRecibos(res.data))
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, [contrato, refreshKey]);
+
+  const recibosVisibles = recibos.filter((r) => {
+    if (filtroImpreso === 'pendientes') return !r.impreso;
+    if (filtroImpreso === 'impresos') return r.impreso;
+    return true;
+  });
+
+  return (
+    <div className="space-y-6">
+      <div className="page-header">
+        <h1 className="page-title">Recibos e Impresión</h1>
       </div>
 
-      <Dialog open={!!previewReciboId} onOpenChange={() => setPreviewReciboId(null)}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="text-xl">Vista previa del recibo</DialogTitle>
-          </DialogHeader>
-          {previewRecibo && previewContrato && (
-            <div className="space-y-5 text-sm">
-              {/* Datos del contrato */}
-              <div className="space-y-2">
-                <div className="flex flex-wrap items-baseline gap-x-2">
-                  <span className="font-medium text-muted-foreground">Contrato</span>
-                  <span className="font-medium">{previewRecibo.contratoId} – {previewContrato.nombre}</span>
-                </div>
-                <div className="flex flex-wrap items-baseline gap-x-2">
-                  <span className="font-medium text-muted-foreground">Dirección</span>
-                  <span>{previewContrato.direccion}</span>
-                </div>
-                {previewTimbrado && (
-                  <div className="flex flex-wrap items-baseline gap-x-2">
-                    <span className="font-medium text-muted-foreground">UUID</span>
-                    <code className="text-xs font-mono bg-muted/60 px-1.5 py-0.5 rounded break-all" title={previewTimbrado.uuid}>{previewTimbrado.uuid}</code>
-                  </div>
-                )}
-                <div className="flex flex-wrap items-baseline gap-x-2">
-                  <span className="font-medium text-muted-foreground">Fecha vencimiento</span>
-                  <span>{previewRecibo.fechaVencimiento}</span>
-                </div>
-              </div>
-
-              {/* Saldos destacados */}
-              <div className="grid grid-cols-2 gap-3 rounded-lg border bg-muted/30 p-4">
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-0.5">Saldo vigente</p>
-                  <p className="text-lg font-bold tabular-nums">${previewRecibo.saldoVigente.toFixed(2)}</p>
-                </div>
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-0.5">Saldo vencido</p>
-                  <p className={`text-lg font-bold tabular-nums ${previewRecibo.saldoVencido > 0 ? 'text-destructive' : 'text-muted-foreground'}`}>
-                    ${previewRecibo.saldoVencido.toFixed(2)}
-                  </p>
-                </div>
-              </div>
-
-              {/* Parcialidades con badges de estado */}
-              {previewParcialidades.length > 0 && (
-                <div className="space-y-2">
-                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Pagos en parcialidades</h4>
-                  <ul className="space-y-2">
-                    {previewParcialidades.map(pp => (
-                      <li key={pp.id} className="flex flex-wrap items-center justify-between gap-2 rounded border bg-card px-3 py-2">
-                        <span className="font-medium">Cuota {pp.numero}</span>
-                        <span className="tabular-nums">${pp.monto.toFixed(2)}</span>
-                        <span className="text-muted-foreground">{pp.fechaVencimiento}</span>
-                        <span className={`status-badge ${pp.estado === 'Pagado' ? 'status-success' : 'status-warning'}`}>
-                          {pp.estado}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {/* Mensaje: solo mostrar bloque si hay contenido o texto amigable si no */}
-              <div className="space-y-1">
-                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Mensaje</h4>
-                {(previewRecibo.mensajeIndividual ?? mensajeGlobalRecibos) ? (
-                  <p className="rounded border bg-muted/20 px-3 py-2 text-foreground">{mensajeEfectivo(previewRecibo)}</p>
-                ) : (
-                  <p className="text-muted-foreground italic">No hay mensaje para este recibo.</p>
-                )}
-              </div>
+      {/* Búsqueda de contrato */}
+      <div className="rounded-lg border bg-card p-4 space-y-3">
+        <h3 className="font-semibold text-sm">Buscar contrato</h3>
+        <div className="flex flex-wrap items-center gap-3">
+          <ContractSearch selected={contrato} onSelect={setContrato} />
+          {contrato && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <span className="font-medium text-foreground">{contrato.nombre}</span>
+              <span className={cn(
+                'px-2 py-0.5 rounded-full text-xs font-medium',
+                contrato.estado === 'Activo' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600',
+              )}>
+                {contrato.estado}
+              </span>
             </div>
           )}
-        </DialogContent>
-      </Dialog>
+        </div>
+      </div>
 
-      <Dialog open={showMensajeIndividual} onOpenChange={setShowMensajeIndividual}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader><DialogTitle>Mensaje individual</DialogTitle></DialogHeader>
-          <p className="text-sm text-muted-foreground">Selecciona los recibos y asigna un mensaje. Este mensaje tiene prioridad sobre el mensaje global.</p>
-          <Input
-            placeholder="Filtrar por contrato"
-            value={filtroContrato}
-            onChange={e => setFiltroContrato(e.target.value)}
-          />
-          <div className="max-h-48 overflow-y-auto space-y-2 border rounded p-2">
-            {recibosParaSeleccion.map(r => {
-              const c = contratos.find(x => x.id === r.contratoId);
-              return (
-                <label key={r.id} className="flex items-center gap-2 text-sm cursor-pointer">
-                  <Checkbox checked={selectedReciboIds.has(r.id)} onCheckedChange={() => toggleSelectRecibo(r.id)} />
-                  <span className="font-mono text-xs">{r.id}</span>
-                  <span>{r.contratoId}</span>
-                  <span className="text-muted-foreground text-xs">{c?.nombre}</span>
-                </label>
-              );
-            })}
+      {/* Tabla de recibos */}
+      {contrato && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="font-semibold">
+              Recibos
+              {recibos.length > 0 && (
+                <span className="ml-2 text-sm font-normal text-muted-foreground">
+                  ({recibos.length})
+                </span>
+              )}
+            </h3>
+            <div className="flex items-center gap-2">
+              <Select value={filtroImpreso} onValueChange={(v) => setFiltroImpreso(v as typeof filtroImpreso)}>
+                <SelectTrigger className="h-8 text-sm w-36"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos</SelectItem>
+                  <SelectItem value="pendientes">Pendientes</SelectItem>
+                  <SelectItem value="impresos">Impresos</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button variant="ghost" size="sm" onClick={() => setRefreshKey((k) => k + 1)}>
+                <RefreshCw className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
-          <Textarea
-            placeholder="Mensaje para los recibos seleccionados"
-            value={mensajeIndividualTexto}
-            onChange={e => setMensajeIndividualTexto(e.target.value)}
-            className="min-h-[60px]"
-          />
-          <Button onClick={aplicarMensajeIndividual} disabled={useApi || selectedReciboIds.size === 0 || !mensajeIndividualTexto.trim()}>
-            Aplicar a {selectedReciboIds.size} recibo(s)
-          </Button>
-        </DialogContent>
-      </Dialog>
+
+          {loading ? (
+            <div className="text-sm text-muted-foreground py-4">Cargando recibos...</div>
+          ) : recibosVisibles.length === 0 ? (
+            <div className="rounded-lg border p-8 text-center text-sm text-muted-foreground">
+              {recibos.length === 0
+                ? 'No hay recibos para este contrato.'
+                : 'Sin recibos con el filtro seleccionado.'}
+            </div>
+          ) : (
+            <div className="rounded-md border overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/40">
+                  <tr>
+                    <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">Periodo</th>
+                    <th className="text-right px-3 py-2 text-xs font-semibold text-muted-foreground">Saldo vigente</th>
+                    <th className="text-right px-3 py-2 text-xs font-semibold text-muted-foreground">Saldo vencido</th>
+                    <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">Vencimiento</th>
+                    <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">Estado</th>
+                    <th className="px-3 py-2"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {recibosVisibles.map((r) => (
+                    <tr key={r.id} className="hover:bg-accent/40 transition-colors">
+                      <td className="px-3 py-2 text-xs font-mono text-muted-foreground">
+                        {r.timbrado?.periodo ?? '—'}
+                      </td>
+                      <td className="px-3 py-2 text-right font-medium tabular-nums">
+                        {formatCurrency(Number(r.saldoVigente))}
+                      </td>
+                      <td className={cn(
+                        'px-3 py-2 text-right font-medium tabular-nums',
+                        Number(r.saldoVencido) > 0 ? 'text-destructive' : '',
+                      )}>
+                        {formatCurrency(Number(r.saldoVencido))}
+                      </td>
+                      <td className="px-3 py-2 text-xs text-muted-foreground">{r.fechaVencimiento}</td>
+                      <td className="px-3 py-2">
+                        <span className={cn(
+                          'inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium',
+                          r.impreso ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800',
+                        )}>
+                          {r.impreso
+                            ? <><CheckCircle2 className="h-3 w-3" />Impreso</>
+                            : <><Clock className="h-3 w-3" />Pendiente</>}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 text-right">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setPreviewId(r.id)}
+                          className="gap-1.5"
+                        >
+                          <Eye className="h-3.5 w-3.5" /> Vista previa
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Caja + Mensajes */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="rounded-lg border bg-card p-4">
+          <CajaSection />
+        </div>
+        <div className="rounded-lg border bg-card p-4">
+          <MensajesSection />
+        </div>
+      </div>
+
+      <PreviewDialog
+        reciboId={previewId}
+        open={!!previewId}
+        onOpenChange={(open) => { if (!open) setPreviewId(null); }}
+        onPaid={() => setRefreshKey((k) => k + 1)}
+        onPrinted={() => setRefreshKey((k) => k + 1)}
+      />
     </div>
   );
 };

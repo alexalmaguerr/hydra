@@ -1,4 +1,16 @@
-import { Controller, Get, Post, Patch, Body, Param } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Body,
+  Param,
+  Query,
+  UseGuards,
+  ParseIntPipe,
+  DefaultValuePipe,
+} from '@nestjs/common';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { ContratosService } from './contratos.service';
 import { CreateContratoDto } from './dto/create-contrato.dto';
 
@@ -10,12 +22,32 @@ class UpdateContratoDto {
 }
 
 @Controller('contratos')
+@UseGuards(JwtAuthGuard)
 export class ContratosController {
   constructor(private readonly contratosService: ContratosService) {}
+
+  // IMPORTANT: static routes declared BEFORE /:id
+  @Get('search')
+  search(
+    @Query('q') q: string,
+    @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit = 10,
+  ) {
+    return this.contratosService.search(q ?? '', limit);
+  }
 
   @Get()
   findAll() {
     return this.contratosService.findAll();
+  }
+
+  @Get(':id/historial')
+  getHistorial(@Param('id') id: string) {
+    return this.contratosService.getHistorial(id);
+  }
+
+  @Get(':id/contexto-atencion')
+  getContextoAtencion(@Param('id') id: string) {
+    return this.contratosService.getContextoAtencion(id);
   }
 
   @Get(':id')

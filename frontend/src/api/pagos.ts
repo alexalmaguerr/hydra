@@ -23,7 +23,8 @@ export interface PagoExternoDto {
 }
 
 export async function fetchPagos(): Promise<PagoDto[]> {
-  return apiRequest<PagoDto[]>('/pagos');
+  const res = await apiRequest<PagoDto[] | { data: PagoDto[] }>('/pagos?limit=200');
+  return Array.isArray(res) ? res : ((res as { data: PagoDto[] }).data ?? []);
 }
 
 export async function fetchPagosExternos(): Promise<PagoExternoDto[]> {
