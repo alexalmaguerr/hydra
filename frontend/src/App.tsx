@@ -40,6 +40,9 @@ const AtencionClientes = lazy(() => import('@/pages/AtencionClientes'));
 // Portal + public pages (lazy)
 const PortalCliente = lazy(() => import('@/pages/PortalCliente'));
 const TramitesDigitales = lazy(() => import('@/pages/TramitesDigitales'));
+const TramiteBajaDefinitiva = lazy(() => import('@/pages/portal/TramiteBajaDefinitiva'));
+const TramiteBajaTemporal = lazy(() => import('@/pages/portal/TramiteBajaTemporal'));
+const TramiteCambioPropietario = lazy(() => import('@/pages/portal/TramiteCambioPropietario'));
 
 // Misc
 import NotFound from '@/pages/NotFound';
@@ -113,6 +116,9 @@ const App = () => (
                 >
                   <Route element={<PortalLayout />}>
                     <Route path="/portal" element={<PortalCliente />} />
+                    <Route path="/portal/tramites/baja-definitiva" element={<TramiteBajaDefinitiva />} />
+                    <Route path="/portal/tramites/baja-temporal" element={<TramiteBajaTemporal />} />
+                    <Route path="/portal/tramites/cambio-propietario" element={<TramiteCambioPropietario />} />
                   </Route>
                 </Route>
 

@@ -1,0 +1,84 @@
+000 CONTROL FILE  = 20260223031244_001_0001_1000_001_500_0001_0001_0000_50125200_1pags_01
+001 ---------------------------------------
+002 NOMBRE DEL FICHERO DE DATOS  = 20260223031244_001_0001_1000_001_500_0001_0001_0000_50125200_1pags_01.pdf
+003 FICHERO DE ENTRADA  = 3841207.xml
+004 ---------------------------------------
+005 EXPLOTACION
+006 Código  = 1
+007 Descripción  = QUERÉTARO
+008 EMPRESA
+009 Código  = 1000
+010 Descripción  = XENON INDUSTRIAL ARTICLES
+011 Nif  = XIA190128J61
+012 Domicilio fiscal  = PROLONGACION ZARAGOZA 10 LOCALES 12, 16 Y 17 VILLAS CAMPESTRE
+013 Población fiscal  = SAN JOSÉ DE LOS OLVERA
+014 ENSOBRADOR
+015 Código  = 1
+016 Descripción  = XENON INDUSTRIAL ARTICLES
+017 TRANSPORTISTA
+018 Código  =  -
+019 Descripción  = -
+020 DISTRIBUIDOR
+021 Código  = 001
+022 Descripción  = XENON INDUSTRIAL ARTICLES
+023 CENTRO DISTRIBUCIÓN 
+024 Código  = 1
+025 Descripción  = Comisión Estatal Aguas Querétaro
+026 Dirección  = AV. 5 DE FEBRERO NO. 35, COLONIA LAS CAMPANAS. C.P. 76010, SANTIAGO DE QUERETARO,QRO.
+027 Teléfono  = 
+028 Localidad  = SANTIAGO DE QUERETARO
+029 Código Postal  = 26670
+030 ---------------------------------------
+031  CONTRATO     = 
+032  FACTURABLE   = 
+033  DETALLABLE   = 
+034  MODALIDAD    = ORDINARIO
+035 ---------------------------------------
+036  TIPO DE PAPEL A UTILIZAR 
+037  - BANDEJA 1   = 2
+038  - BANDEJA 2   = 
+039  REFERENCIA DEL SOBRE   = 500
+040 ---------------------------------------
+041 TOTALES
+042 -------- FACTURAS  = 2301
+043 -------- HOJAS1  = SI
+044 -------- HOJAS2  = NO
+045 -------- SOBRES = 2301
+046 - PESO <20 gr. = 
+047 - PESO >=20 gr. = 
+048 ---------------------------------------
+049 MARKETING
+050 INSERC. MARKETING 1
+051 - Código =	
+052 - Descripción =	
+053 - Nº Documentos =	
+054 INSERC. MARKETING 2
+055 - Código =	
+056 - Descripción =	
+057 - Nº Documentos =	
+058 INSERC. MARKETING 3
+059 - Código =	
+060 - Descripción =	
+061 - Nº Documentos = 
+062 ---------------------------------------
+063 INSTRUCCIONES OPERADOR
+064 TOTAL
+065 SOBRES TRAMO 0 = 
+066 PESO <20 gr. =	
+067 PESO >=20 gr. =	
+068 SOBRES TRAMO 1 =	
+069 PESO <20 gr. =	
+070 PESO >=20 gr. =	
+071 SOBRES TRAMO 2 =	
+072 PESO <20 gr. =	
+073 PESO >=20 gr. =	
+074 SOBRES TRAMO 3 =	
+075 PESO <20 gr. =	
+076 PESO >=20 gr. =	
+077 SOBRES TRAMO 4 =	
+078 PESO <20 gr. =	
+079 PESO >=20 gr. =	
+080 SOBRES TRAMO 5 =	
+081 PESO <20 gr. =	
+082 PESO >=20 gr.=	
+084 ENTORNO =  QRTINT
