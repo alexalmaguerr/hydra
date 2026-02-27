@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Plus, RefreshCw, Search, X, ChevronRight, CreditCard } from 'lucide-react';
+import { CheckSquare, ChevronRight, CreditCard, Plus, RefreshCw, Search, Square, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,7 +11,8 @@ import { cn } from '@/lib/utils';
 import { buscarContratos, type ContratoSearch } from '@/api/atencion';
 import {
   getConvenios, createConvenio, aplicarParcialidad, cancelarConvenio,
-  type ConvenioDto,
+  updateChecklistConvenio,
+  type ConvenioDto, type ConvenioChecklist,
 } from '@/api/convenios';
 
 const TIPOS_PAGO = ['Efectivo', 'Tarjeta', 'Transferencia', 'SPEI', 'OXXO'] as const;
@@ -142,6 +143,7 @@ function NuevoConvenioDialog({
   const [tipo, setTipo] = useState<string>('Parcialidades');
   const [numParcialidades, setNumParcialidades] = useState('3');
   const [fechaVencimiento, setFechaVencimiento] = useState('');
+  const [porcentajeAnticipo, setPorcentajeAnticipo] = useState('');
   // facturas: array of { timbradoId, monto }
   const [facturas, setFacturas] = useState([{ timbradoId: '', monto: '' }]);
   const [saving, setSaving] = useState(false);
@@ -152,6 +154,7 @@ function NuevoConvenioDialog({
     setTipo('Parcialidades');
     setNumParcialidades('3');
     setFechaVencimiento('');
+    setPorcentajeAnticipo('');
     setFacturas([{ timbradoId: '', monto: '' }]);
     setError('');
   }
@@ -162,8 +165,11 @@ function NuevoConvenioDialog({
   }
 
   const montoTotal = facturas.reduce((s, f) => s + (Number(f.monto) || 0), 0);
+  const pctAnticipo = Number(porcentajeAnticipo) || 0;
+  const montoAnticipo = pctAnticipo > 0 ? Math.round(montoTotal * pctAnticipo / 100 * 100) / 100 : 0;
+  const montoRestante = montoTotal - montoAnticipo;
   const montoParcialidad = numParcialidades && Number(numParcialidades) > 0
-    ? Math.ceil(montoTotal / Number(numParcialidades) * 100) / 100
+    ? Math.ceil(montoRestante / Number(numParcialidades) * 100) / 100
     : 0;
 
   async function handleSubmit() {
@@ -181,6 +187,7 @@ function NuevoConvenioDialog({
         numParcialidades: Number(numParcialidades),
         facturas: facturas.map(f => ({ timbradoId: f.timbradoId.trim(), monto: Number(f.monto) })),
         fechaVencimiento: fechaVencimiento || undefined,
+        porcentajeAnticipo: pctAnticipo > 0 ? pctAnticipo : undefined,
       });
       handleClose();
       onCreated();
@@ -227,13 +234,32 @@ function NuevoConvenioDialog({
             </div>
           </div>
 
-          <div className="space-y-1.5">
-            <Label>Fecha de vencimiento (opcional)</Label>
-            <Input
-              type="date"
-              value={fechaVencimiento}
-              onChange={(e) => setFechaVencimiento(e.target.value)}
-            />
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Fecha de vencimiento (opcional)</Label>
+              <Input
+                type="date"
+                value={fechaVencimiento}
+                onChange={(e) => setFechaVencimiento(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Anticipo % (opcional)</Label>
+              <Input
+                type="number"
+                min="0"
+                max="100"
+                step="5"
+                value={porcentajeAnticipo}
+                onChange={(e) => setPorcentajeAnticipo(e.target.value)}
+                placeholder="0"
+              />
+              {montoAnticipo > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Anticipo: {formatCurrency(montoAnticipo)}
+                </p>
+              )}
+            </div>
           </div>
 
           {/* Facturas */}
@@ -285,7 +311,19 @@ function NuevoConvenioDialog({
                 <span className="text-muted-foreground">Monto total</span>
                 <span className="font-medium">{formatCurrency(montoTotal)}</span>
               </div>
-              <div className="flex justify-between">
+              {montoAnticipo > 0 && (
+                <>
+                  <div className="flex justify-between text-amber-700">
+                    <span>Anticipo ({pctAnticipo}%)</span>
+                    <span className="font-medium">{formatCurrency(montoAnticipo)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Monto a financiar</span>
+                    <span className="font-medium">{formatCurrency(montoRestante)}</span>
+                  </div>
+                </>
+              )}
+              <div className="flex justify-between border-t pt-1">
                 <span className="text-muted-foreground">Monto por parcialidad</span>
                 <span className="font-bold">{formatCurrency(montoParcialidad)}</span>
               </div>
@@ -399,6 +437,76 @@ function AplicarParcialidadDialog({
 
 // ─── Convenio Detail Panel ────────────────────────────────────────────────────
 
+// ─── Checklist documental ────────────────────────────────────────────────────
+
+const DOCUMENTOS_CONVENIO_DEFAULT = [
+  'Identificación oficial',
+  'Comprobante de domicilio',
+  'Solicitud de convenio firmada',
+  'Constancia fiscal (si aplica)',
+  'Carta poder (si aplica)',
+];
+
+function ChecklistPanel({
+  convenio,
+  onUpdated,
+}: {
+  convenio: ConvenioDto;
+  onUpdated: () => void;
+}) {
+  const docs = DOCUMENTOS_CONVENIO_DEFAULT;
+  const checklist: ConvenioChecklist = (convenio.checklistInterna as ConvenioChecklist | null) ?? {};
+  const [saving, setSaving] = useState(false);
+  const [local, setLocal] = useState<ConvenioChecklist>({ ...checklist });
+
+  async function toggle(doc: string) {
+    const next = { ...local, [doc]: !local[doc] };
+    setLocal(next);
+    setSaving(true);
+    try {
+      await updateChecklistConvenio(convenio.id, next);
+      onUpdated();
+    } catch (err) { console.error(err); } finally { setSaving(false); }
+  }
+
+  const completed = docs.filter((d) => local[d]).length;
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-1.5">
+        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+          Checklist documental
+        </div>
+        <span className={cn(
+          'text-xs px-1.5 py-0.5 rounded-full font-medium',
+          completed === docs.length ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700',
+        )}>
+          {completed}/{docs.length}
+        </span>
+      </div>
+      <ul className="space-y-1">
+        {docs.map((doc) => (
+          <li key={doc}>
+            <button
+              className="w-full flex items-center gap-2 text-xs py-1 text-left hover:text-foreground transition-colors disabled:opacity-50"
+              onClick={() => toggle(doc)}
+              disabled={saving}
+            >
+              {local[doc]
+                ? <CheckSquare className="h-3.5 w-3.5 text-green-600 shrink-0" />
+                : <Square className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+              }
+              <span className={local[doc] ? 'line-through text-muted-foreground' : ''}>{doc}</span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+// ─── Convenio Detail Panel ────────────────────────────────────────────────────
+
 function ConvenioDetail({
   convenio,
   onClose,
@@ -476,6 +584,9 @@ function ConvenioDetail({
           { label: 'Saldo a favor', value: formatCurrency(Number(convenio.saldoAFavor)) },
           { label: 'Inicio', value: formatDate(convenio.fechaInicio) },
           { label: 'Vencimiento', value: formatDate(convenio.fechaVencimiento) },
+          ...(convenio.montoAnticipo
+            ? [{ label: 'Anticipo', value: `${formatCurrency(Number(convenio.montoAnticipo))}${convenio.anticipoPagado ? ' ✓' : ' (pendiente)'}` }]
+            : []),
         ].map((item) => (
           <div key={item.label} className="rounded border p-2">
             <div className="text-muted-foreground">{item.label}</div>
@@ -500,6 +611,11 @@ function ConvenioDetail({
           </div>
         </div>
       )}
+
+      {/* Checklist documental */}
+      <div className="border-t pt-3">
+        <ChecklistPanel convenio={convenio} onUpdated={onAction} />
+      </div>
 
       {/* Acciones */}
       {convenio.estado === 'Activo' && (

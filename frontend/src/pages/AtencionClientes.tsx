@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type { LucideIcon } from 'lucide-react';
-import { AlertTriangle, BookOpen, Copy, ExternalLink, FileText, FileWarning, ListChecks, MessageSquare, Plus, Search, User } from 'lucide-react';
+import { AlertTriangle, BookOpen, Copy, ExternalLink, FileText, FileWarning, ListChecks, MessageSquare, Plus, RefreshCw, Search, User } from 'lucide-react';
 import {
   Alert,
   AlertDescription,
@@ -47,6 +47,9 @@ import type { QuejaAclaracion, QuejaAreaAsignada, SeguimientoTipo } from '@/cont
 import type { ContratoSearch } from '@/api/atencion';
 import { updateQueja, addSeguimientoQueja } from '@/api/atencion';
 import { fetchContrato, type ContratoDto } from '@/api/contratos';
+import { fetchOrdenesByContrato, updateOrdenEstado, type OrdenDto } from '@/api/ordenes';
+import SeguimientoPanel from '@/components/SeguimientoPanel';
+import { usePermissions } from '@/hooks/usePermissions';
 
 // --- Types for Atención a Clientes (view / mock) ---
 export interface OrdenRow {
@@ -94,34 +97,7 @@ async function copyToClipboard(text: string) {
   }
 }
 
-// Mock data per contrato for Ordenes, Observaciones, PagoOperacion
-const MOCK_ORDENES: OrdenRow[] = [
-  {
-    id: '2593261',
-    contratoId: 'CT001',
-    fechaOrden: '2021-09-19',
-    estadoOrden: 'ACABADA',
-    tipoOrden: 'ORDEN REPARACION',
-    motivoOrden: 'REPARACION',
-    generaOrden: 'SANCHEZ OROZCO MARTHA GABRIELA',
-    fechaEjecucion: '2021-09-19',
-    fechaCertificacion: '2021-09-19',
-    observaciones: 'Incidencia antes/después. CUMPLIMENTADA/OBSTACULO',
-  },
-  {
-    id: '2593256',
-    contratoId: 'CT001',
-    fechaOrden: '2021-09-19',
-    estadoOrden: 'ACABADA',
-    tipoOrden: 'TRABAJOS GENERICOS',
-    motivoOrden: 'FALTA PRESIÓN/SIN AGUA',
-    generaOrden: 'SANCHEZ OROZCO MARTHA GABRIELA',
-    fechaEjecucion: '2021-09-19',
-    fechaCertificacion: '2021-09-19',
-    observaciones:
-      'PRUEBA FALTA PRESIÓN Incidencia antes / después CUMPLIMENTADA / Otros Incidencia antes / después: Otros / CUMPLIMENTADA',
-  },
-];
+// Mock data per contrato for Observaciones, PagoOperacion
 
 const MOCK_OBSERVACIONES: ObservacionRow[] = [
   { quien: 'CONVERSION', fecha: '2019-07-28', observacion: '442 245 13 52', vigencia: '' },
@@ -186,6 +162,8 @@ const AtencionClientes = () => {
     calcularTarifa,
   } = useData();
 
+  const { can } = usePermissions();
+
   const [contratoInput, setContratoInput] = useState('');
   const [contratoId, setContratoId] = useState<string | null>(null);
 
@@ -217,6 +195,7 @@ const AtencionClientes = () => {
   const [bajaTemporalDialogOpen, setBajaTemporalDialogOpen] = useState(false);
   const [bajaDefinitivaDialogOpen, setBajaDefinitivaDialogOpen] = useState(false);
   const [fechaReconexionPrevista, setFechaReconexionPrevista] = useState('');
+  const [tramiteSeguimientoId, setTramiteSeguimientoId] = useState<string | null>(null);
   const [quejaDialogOpen, setQuejaDialogOpen] = useState(false);
   const [quejaDetalleOpen, setQuejaDetalleOpen] = useState(false);
   const [quejaSeleccionada, setQuejaSeleccionada] = useState<QuejaAclaracion | null>(null);
@@ -225,6 +204,9 @@ const AtencionClientes = () => {
   /** URL para el modal grande de foto/sistema externo de lectura */
   const [lecturaModalUrl, setLecturaModalUrl] = useState<string | null>(null);
   const [contratoFromApi, setContratoFromApi] = useState<ContratoDto | null>(null);
+  const [ordenesApi, setOrdenesApi] = useState<OrdenDto[] | null>(null);
+  const [ordenesLoading, setOrdenesLoading] = useState(false);
+  const [ordenesRefreshKey, setOrdenesRefreshKey] = useState(0);
 
   useEffect(() => {
     if (contratos.length && !contratoId) {
@@ -248,6 +230,16 @@ const AtencionClientes = () => {
       setContratoFromApi(null);
     }
   }, [contratoId, contratoFromMock]);
+
+  // Load real orders from API when contratoId or tab changes
+  useEffect(() => {
+    if (!contratoId) return;
+    setOrdenesLoading(true);
+    fetchOrdenesByContrato(contratoId)
+      .then(setOrdenesApi)
+      .catch(() => setOrdenesApi(null))
+      .finally(() => setOrdenesLoading(false));
+  }, [contratoId, ordenesRefreshKey]);
 
   const contrato = contratoFromMock ?? contratoFromApi;
 
@@ -339,10 +331,6 @@ const AtencionClientes = () => {
       .sort((a, b) => (b.periodo ?? '').localeCompare(a.periodo ?? ''));
   }, [contratoId, lecturas]);
 
-  const ordenesRows = useMemo(
-    () => (contratoId ? MOCK_ORDENES.filter((o) => o.contratoId === contratoId) : []),
-    [contratoId]
-  );
   const observacionesRows = useMemo(
     () => (contratoId ? MOCK_OBSERVACIONES : []),
     [contratoId]
@@ -608,7 +596,12 @@ const AtencionClientes = () => {
                         </TableRow>
                       ) : (
                         tramitesDelContrato.map((t) => (
-                          <TableRow key={t.id}>
+                          <TableRow
+                            key={t.id}
+                            className="cursor-pointer hover:bg-accent/40"
+                            onClick={() => setTramiteSeguimientoId(t.id)}
+                            title="Ver seguimiento del trámite"
+                          >
                             <TableCell>{t.tipo}</TableCell>
                             <TableCell>
                               <StatusBadge status={t.estado === 'Completado' ? 'Activo' : t.estado === 'Rechazado' ? 'Inactivo' : 'Pendiente'} />
@@ -1102,59 +1095,92 @@ const AtencionClientes = () => {
 
             <TabsContent value="ordenes" className="space-y-4">
               <div className="widget-card">
-                <h3 className="section-title">Órdenes</h3>
-                <div className="overflow-x-auto min-w-0">
-                  <table className="data-table">
-                    <thead>
-                      <tr>
-                        <th>ID Orden</th>
-                        <th>Fecha Orden</th>
-                        <th>Estado de Orden</th>
-                        <th>Tipo de Orden</th>
-                        <th>Motivo de Orden</th>
-                        <th>Genera Orden</th>
-                        <th>Fecha de Ejecución</th>
-                        <th>Fecha Certificación</th>
-                        <th>Observaciones</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {ordenesRows.map((o) => (
-                        <tr key={o.id}>
-                          <td>
-                            <a href="#" className="text-primary underline hover:no-underline font-mono">
-                              {o.id}
-                            </a>
-                          </td>
-                          <td>{o.fechaOrden}</td>
-                          <td>{o.estadoOrden}</td>
-                          <td>{o.tipoOrden}</td>
-                          <td>{o.motivoOrden}</td>
-                          <td>{o.generaOrden}</td>
-                          <td>{o.fechaEjecucion}</td>
-                          <td>{o.fechaCertificacion}</td>
-                          <td className="max-w-[280px]">
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <span className="line-clamp-2 cursor-help">{o.observaciones}</span>
-                              </TooltipTrigger>
-                              <TooltipContent side="left" className="max-w-sm">
-                                {o.observaciones}
-                              </TooltipContent>
-                            </Tooltip>
-                          </td>
-                        </tr>
-                      ))}
-                      {ordenesRows.length === 0 && (
-                        <tr>
-                          <td colSpan={9} className="text-center text-muted-foreground py-8">
-                            No hay órdenes para este contrato.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
+                <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+                  <h3 className="section-title mb-0">Órdenes de trabajo</h3>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setOrdenesRefreshKey((k) => k + 1)}
+                    disabled={ordenesLoading}
+                    aria-label="Refrescar órdenes"
+                  >
+                    <RefreshCw className={cn('h-4 w-4', ordenesLoading && 'animate-spin')} />
+                  </Button>
                 </div>
+                {ordenesLoading && <p className="text-sm text-muted-foreground">Cargando órdenes...</p>}
+                {!ordenesLoading && (
+                  <div className="overflow-x-auto min-w-0">
+                    <table className="data-table data-table-interactive" aria-label="Órdenes del contrato">
+                      <thead>
+                        <tr>
+                          <th>ID</th>
+                          <th>Tipo</th>
+                          <th>Estado</th>
+                          <th>Prioridad</th>
+                          <th>Fecha solicitud</th>
+                          <th>Fecha programada</th>
+                          <th>Fecha ejecución</th>
+                          <th>Notas</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(ordenesApi ?? []).map((o) => (
+                          <tr
+                            key={o.id}
+                            role="button"
+                            tabIndex={0}
+                            aria-label={`Orden ${o.id} - ${o.tipo}`}
+                            onClick={() => setDetalleOrdenId(o.id)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                setDetalleOrdenId(o.id);
+                              }
+                            }}
+                            className="cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset min-h-[44px]"
+                          >
+                            <td className="font-mono text-primary">{o.id.slice(-8)}</td>
+                            <td>{o.tipo}</td>
+                            <td>
+                              <span className={cn(
+                                'status-badge',
+                                o.estado === 'Completada' && 'status-success',
+                                o.estado === 'Pendiente' && 'status-warning',
+                                o.estado === 'EnProceso' && 'status-info',
+                                o.estado === 'Cancelada' && 'status-error',
+                              )}>
+                                {o.estado}
+                              </span>
+                            </td>
+                            <td>{o.prioridad}</td>
+                            <td>{o.fechaSolicitud?.slice(0, 10)}</td>
+                            <td>{o.fechaProgramada?.slice(0, 10) ?? '—'}</td>
+                            <td>{o.fechaEjecucion?.slice(0, 10) ?? '—'}</td>
+                            <td className="max-w-[220px]">
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="line-clamp-2 cursor-help">{o.notas ?? '—'}</span>
+                                </TooltipTrigger>
+                                {o.notas && (
+                                  <TooltipContent side="left" className="max-w-sm">
+                                    {o.notas}
+                                  </TooltipContent>
+                                )}
+                              </Tooltip>
+                            </td>
+                          </tr>
+                        ))}
+                        {(ordenesApi ?? []).length === 0 && !ordenesLoading && (
+                          <tr>
+                            <td colSpan={8} className="text-center text-muted-foreground py-8">
+                              <EmptyState icon={ListChecks} message="No hay órdenes para este contrato." description="Las órdenes de trabajo (reconexión, reparación, etc.) se muestran aquí." />
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             </TabsContent>
 
@@ -1270,9 +1296,11 @@ const AtencionClientes = () => {
               <div className="widget-card">
                 <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
                   <h3 className="section-title mb-0">Convenios</h3>
-                  <Button size="sm" onClick={() => setConvenioDialogOpen(true)} aria-label="Nuevo convenio">
-                    Nuevo convenio
-                  </Button>
+                  {can('convenios.create') && (
+                    <Button size="sm" onClick={() => setConvenioDialogOpen(true)} aria-label="Nuevo convenio">
+                      Nuevo convenio
+                    </Button>
+                  )}
                 </div>
                 <div className="overflow-x-auto min-w-0">
                   <Table>
@@ -1740,30 +1768,70 @@ const AtencionClientes = () => {
 
           {/* Sheet Detalle Orden */}
           <Sheet open={!!detalleOrdenId} onOpenChange={(open) => !open && setDetalleOrdenId(null)}>
-            <SheetContent side="right" className="sm:max-w-md flex flex-col">
+            <SheetContent side="right" className="sm:max-w-lg flex flex-col">
               <SheetHeader>
                 <SheetTitle>Detalle de orden</SheetTitle>
               </SheetHeader>
               {(() => {
-                const o = ordenesRows.find((r) => r.id === detalleOrdenId);
+                const o = (ordenesApi ?? []).find((r) => r.id === detalleOrdenId);
                 if (!o) return null;
                 return (
                   <ScrollArea className="flex-1 -mx-6 px-6">
                     <div className="space-y-4 text-sm">
                       <dl className="grid grid-cols-1 gap-2">
                         <DetailRow label="ID Orden" value={o.id} mono />
-                        <DetailRow label="Fecha orden" value={o.fechaOrden} />
-                        <DetailRow label="Estado" value={o.estadoOrden} />
-                        <DetailRow label="Tipo de orden" value={o.tipoOrden} />
-                        <DetailRow label="Motivo" value={o.motivoOrden} />
-                        <DetailRow label="Genera orden" value={o.generaOrden} />
-                        <DetailRow label="Fecha ejecución" value={o.fechaEjecucion} />
-                        <DetailRow label="Fecha certificación" value={o.fechaCertificacion} />
-                        <div>
-                          <dt className="text-muted-foreground text-xs mb-1">Observaciones</dt>
-                          <dd className="text-foreground break-words">{o.observaciones || '—'}</dd>
-                        </div>
+                        <DetailRow label="Tipo" value={o.tipo} />
+                        <DetailRow label="Estado" value={o.estado} />
+                        <DetailRow label="Prioridad" value={o.prioridad} />
+                        <DetailRow label="Fecha solicitud" value={o.fechaSolicitud?.slice(0, 10)} />
+                        <DetailRow label="Fecha programada" value={o.fechaProgramada?.slice(0, 10) ?? '—'} />
+                        <DetailRow label="Fecha ejecución" value={o.fechaEjecucion?.slice(0, 10) ?? '—'} />
+                        <DetailRow label="Referencia externa" value={o.externalRef ?? '—'} />
+                        {o.notas && (
+                          <div>
+                            <dt className="text-muted-foreground text-xs mb-1">Notas</dt>
+                            <dd className="text-foreground break-words">{o.notas}</dd>
+                          </div>
+                        )}
                       </dl>
+                      {o.seguimientos && o.seguimientos.length > 0 && (
+                        <>
+                          <h4 className="font-semibold text-xs uppercase tracking-wider text-muted-foreground pt-2 border-t">
+                            Seguimiento
+                          </h4>
+                          <ul className="space-y-2">
+                            {o.seguimientos.map((s) => (
+                              <li key={s.id} className="rounded-md border p-2 text-xs space-y-0.5">
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="font-medium">{s.estadoAnterior ?? '—'} → {s.estadoNuevo ?? '—'}</span>
+                                  <span className="text-muted-foreground tabular-nums">{s.fecha?.slice(0, 10)}</span>
+                                </div>
+                                {s.nota && <p className="text-muted-foreground">{s.nota}</p>}
+                                {s.usuario && <p className="text-muted-foreground">Por: {s.usuario}</p>}
+                              </li>
+                            ))}
+                          </ul>
+                        </>
+                      )}
+                      {can('ordenes.changeEstado') && (
+                        <div className="pt-2 border-t flex flex-wrap gap-2">
+                          {(['Pendiente', 'EnProceso', 'Completada', 'Cancelada'] as const).map((estado) => (
+                            <Button
+                              key={estado}
+                              variant="outline"
+                              size="sm"
+                              disabled={o.estado === estado}
+                              onClick={async () => {
+                                await updateOrdenEstado(o.id, estado);
+                                setOrdenesRefreshKey((k) => k + 1);
+                                setDetalleOrdenId(null);
+                              }}
+                            >
+                              → {estado}
+                            </Button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </ScrollArea>
                 );
@@ -1806,6 +1874,23 @@ const AtencionClientes = () => {
                   </ScrollArea>
                 );
               })()}
+            </SheetContent>
+          </Sheet>
+
+          {/* Sheet Seguimiento Trámite */}
+          <Sheet open={!!tramiteSeguimientoId} onOpenChange={(open) => !open && setTramiteSeguimientoId(null)}>
+            <SheetContent side="right" className="sm:max-w-md flex flex-col">
+              <SheetHeader>
+                <SheetTitle>Seguimiento del trámite</SheetTitle>
+              </SheetHeader>
+              {tramiteSeguimientoId && (
+                <div className="flex-1 overflow-y-auto px-0 py-2">
+                  <SeguimientoPanel
+                    tramiteId={tramiteSeguimientoId}
+                    usuarioActual="jgodinez"
+                  />
+                </div>
+              )}
             </SheetContent>
           </Sheet>
 

@@ -44,6 +44,26 @@ export interface UpdateContratoDto {
   estado?: string;
   domiciliado?: boolean;
   fechaReconexionPrevista?: string | null;
+  bloqueadoJuridico?: boolean;
+  razonSocial?: string | null;
+  regimenFiscal?: string | null;
+  constanciaFiscalUrl?: string | null;
+}
+
+export interface EstadoOperativoDto {
+  contratoId: string;
+  nombre: string;
+  estado: string;
+  bloqueadoJuridico: boolean;
+  tieneAdeudo: boolean;
+  montoAdeudo: number;
+  tieneConvenioActivo: boolean;
+  fechaReconexionPrevista?: string | null;
+  canTramitar: boolean;
+  canReconectar: boolean;
+  canBaja: boolean;
+  canConvenio: boolean;
+  alertas: string[];
 }
 
 export async function fetchContratos(): Promise<ContratoDto[]> {
@@ -66,6 +86,10 @@ export async function updateContrato(id: string, dto: UpdateContratoDto): Promis
     method: 'PATCH',
     body: JSON.stringify(dto),
   });
+}
+
+export async function fetchEstadoOperativo(id: string): Promise<EstadoOperativoDto> {
+  return apiRequest<EstadoOperativoDto>(`/contratos/${id}/estado-operativo`);
 }
 
 export { hasApi };

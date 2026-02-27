@@ -10,11 +10,15 @@ import {
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PrismaService } from '../../prisma/prisma.service';
+import { PagosService } from './pagos.service';
 
 @Controller('pagos')
 @UseGuards(JwtAuthGuard)
 export class PagosController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly pagosService: PagosService,
+  ) {}
 
   @Get()
   async findAll(
@@ -57,19 +61,6 @@ export class PagosController {
       fecha?: string;
     },
   ) {
-    return this.prisma.pago.create({
-      data: {
-        contratoId: body.contratoId,
-        reciboId: body.reciboId ?? null,
-        timbradoId: body.timbradoId ?? null,
-        convenioId: body.convenioId ?? null,
-        monto: body.monto,
-        fecha: body.fecha ?? new Date().toISOString().substring(0, 10),
-        tipo: body.tipo,
-        concepto: body.concepto ?? 'Pago en caja',
-        origen: 'nativo',
-      },
-      include: { recibo: true },
-    });
+    return this.pagosService.crear(body);
   }
 }

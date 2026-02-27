@@ -21,10 +21,13 @@ import { CajaModule } from './modules/caja/caja.module';
 import { ConveniosModule } from './modules/convenios/convenios.module';
 import { MonitoreoModule } from './modules/monitoreo/monitoreo.module';
 import { ConciliacionesModule } from './modules/conciliaciones/conciliaciones.module';
+import { AgoraModule } from './modules/agora/agora.module';
+import { NotificacionesModule } from './modules/notificaciones/notificaciones.module';
 
 @Module({
   imports: [
     PrismaModule,
+    NotificacionesModule,
     ContratosModule,
     AuthModule,
     LecturasModule,
@@ -44,6 +47,7 @@ import { ConciliacionesModule } from './modules/conciliaciones/conciliaciones.mo
     ConveniosModule,
     MonitoreoModule,
     ConciliacionesModule,
+    AgoraModule,
   ],
   controllers: [AppController],
   providers: [AppService],

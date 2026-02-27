@@ -366,8 +366,98 @@ async function seedUser() {
   console.log('Usuarios creados: demo (SUPER_ADMIN), operador (OPERADOR), lecturista (LECTURISTA), atencion (ATENCION_CLIENTES), cliente (CLIENTE) — todos con contraseña demo123');
 }
 
+async function seedCatalogoTramites() {
+  const tipos = [
+    {
+      tipo: 'Alta',
+      descripcion: 'Alta de nuevo servicio de agua potable y/o saneamiento',
+      tipoFirma: 'autografa',
+      documentosRequeridos: [
+        { nombre: 'Identificación oficial', requerido: true },
+        { nombre: 'Comprobante de domicilio', requerido: true },
+        { nombre: 'Escritura o título de propiedad', requerido: true },
+        { nombre: 'CURP', requerido: false },
+      ],
+    },
+    {
+      tipo: 'Baja Temporal',
+      descripcion: 'Suspensión temporal del servicio a solicitud del titular',
+      tipoFirma: 'ambas',
+      documentosRequeridos: [
+        { nombre: 'Identificación oficial', requerido: true },
+        { nombre: 'Solicitud de baja temporal', requerido: true },
+        { nombre: 'Estado de cuenta sin adeudos', requerido: true },
+      ],
+    },
+    {
+      tipo: 'Baja Definitiva',
+      descripcion: 'Cancelación definitiva del servicio',
+      tipoFirma: 'autografa',
+      documentosRequeridos: [
+        { nombre: 'Identificación oficial', requerido: true },
+        { nombre: 'Solicitud de baja definitiva', requerido: true },
+        { nombre: 'Estado de cuenta sin adeudos', requerido: true },
+        { nombre: 'Croquis de ubicación de toma', requerido: false },
+      ],
+    },
+    {
+      tipo: 'Cambio Propietario',
+      descripcion: 'Cambio de titular del contrato de servicio',
+      tipoFirma: 'autografa',
+      documentosRequeridos: [
+        { nombre: 'Identificación oficial del nuevo propietario', requerido: true },
+        { nombre: 'Escritura o contrato de compra-venta', requerido: true },
+        { nombre: 'Estado de cuenta sin adeudos', requerido: true },
+        { nombre: 'Comprobante de domicilio del nuevo propietario', requerido: false },
+      ],
+    },
+    {
+      tipo: 'Reconexion',
+      descripcion: 'Reconexión del servicio después de corte por adeudo u otro motivo',
+      tipoFirma: 'ambas',
+      documentosRequeridos: [
+        { nombre: 'Comprobante de pago del adeudo', requerido: true },
+        { nombre: 'Identificación oficial', requerido: false },
+      ],
+    },
+    {
+      tipo: 'CambioNombre',
+      descripcion: 'Corrección o actualización del nombre en el contrato',
+      tipoFirma: 'ambas',
+      documentosRequeridos: [
+        { nombre: 'Identificación oficial', requerido: true },
+        { nombre: 'Acta de nacimiento o escritura (si aplica)', requerido: false },
+      ],
+    },
+    {
+      tipo: 'CambioTarifa',
+      descripcion: 'Cambio de tarifa o tipo de servicio',
+      tipoFirma: 'autografa',
+      documentosRequeridos: [
+        { nombre: 'Solicitud de cambio de tarifa', requerido: true },
+        { nombre: 'Documentación que acredite nuevo uso', requerido: true },
+      ],
+    },
+  ];
+
+  for (const cat of tipos) {
+    await prisma.catalogoTramite.upsert({
+      where: { tipo: cat.tipo },
+      update: { descripcion: cat.descripcion, tipoFirma: cat.tipoFirma, documentosRequeridos: cat.documentosRequeridos },
+      create: {
+        tipo: cat.tipo,
+        descripcion: cat.descripcion,
+        tipoFirma: cat.tipoFirma,
+        documentosRequeridos: cat.documentosRequeridos,
+      },
+    });
+  }
+  console.log('Catálogo de trámites sembrado:', tipos.map(t => t.tipo).join(', '));
+}
+
 main()
   .then(() => seedUser())
+  .then(() => seedCatalogoTramites())
   .catch((e) => {
     console.error(e);
     process.exit(1);

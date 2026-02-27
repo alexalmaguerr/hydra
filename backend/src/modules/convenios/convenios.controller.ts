@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Param,
   Body,
   Query,
@@ -48,5 +49,13 @@ export class ConveniosController {
   @Post(':id/cancelar')
   cancelar(@Param('id') id: string) {
     return this.service.cancelar(id);
+  }
+
+  @Patch(':id/checklist')
+  updateChecklist(
+    @Param('id') id: string,
+    @Body() body: Record<string, boolean>,
+  ) {
+    return this.service.updateChecklist(id, body);
   }
 }

@@ -182,4 +182,37 @@ export class TramitesService {
   async verificarDocumento(documentoId: string, verificado: boolean) {
     return this.prisma.documento.update({ where: { id: documentoId }, data: { verificado } });
   }
+
+  async getCatalogo(tipo?: string) {
+    return this.prisma.catalogoTramite.findMany({
+      where: {
+        activo: true,
+        ...(tipo && { tipo }),
+      },
+      orderBy: { tipo: 'asc' },
+    });
+  }
+
+  async addSeguimiento(
+    tramiteId: string,
+    data: { nota: string; usuario: string; tipo?: string },
+  ) {
+    await this.findOne(tramiteId);
+    return this.prisma.seguimientoTramite.create({
+      data: {
+        tramiteId,
+        nota: data.nota,
+        usuario: data.usuario,
+        tipo: data.tipo ?? 'nota',
+      },
+    });
+  }
+
+  async getSeguimientos(tramiteId: string) {
+    await this.findOne(tramiteId);
+    return this.prisma.seguimientoTramite.findMany({
+      where: { tramiteId },
+      orderBy: { fecha: 'asc' },
+    });
+  }
 }

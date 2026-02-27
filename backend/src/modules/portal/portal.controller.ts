@@ -1,4 +1,4 @@
-import { Controller, Get, Query, Req, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Query, Param, Body, Req, UseGuards } from '@nestjs/common';
 import { Request } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PortalService } from './portal.service';
@@ -34,6 +34,12 @@ export class PortalController {
     return this.portalService.getTimbrados(contratoId, user.contratoIds ?? []);
   }
 
+  @Get('timbrados/:id/descargar')
+  getTimbradoDescarga(@Param('id') id: string, @Req() req: Request) {
+    const user = req.user as AuthUser;
+    return this.portalService.getTimbradoDescarga(id, user.contratoIds ?? []);
+  }
+
   @Get('recibos')
   getRecibos(@Query('contratoId') contratoId: string, @Req() req: Request) {
     const user = req.user as AuthUser;
@@ -50,5 +56,49 @@ export class PortalController {
   getSaldos(@Query('contratoId') contratoId: string, @Req() req: Request) {
     const user = req.user as AuthUser;
     return this.portalService.getSaldos(contratoId, user.contratoIds ?? []);
+  }
+
+  @Get('ordenes')
+  getOrdenes(@Query('contratoId') contratoId: string, @Req() req: Request) {
+    const user = req.user as AuthUser;
+    return this.portalService.getOrdenes(contratoId, user.contratoIds ?? []);
+  }
+
+  @Get('estado-operativo')
+  getEstadoOperativo(@Query('contratoId') contratoId: string, @Req() req: Request) {
+    const user = req.user as AuthUser;
+    return this.portalService.getEstadoOperativo(contratoId, user.contratoIds ?? []);
+  }
+
+  @Get('datos-fiscales')
+  getDatosFiscales(@Query('contratoId') contratoId: string, @Req() req: Request) {
+    const user = req.user as AuthUser;
+    return this.portalService.getDatosFiscales(contratoId, user.contratoIds ?? []);
+  }
+
+  @Patch('datos-fiscales')
+  updateDatosFiscales(
+    @Query('contratoId') contratoId: string,
+    @Body() body: { rfc?: string; razonSocial?: string; regimenFiscal?: string; constanciaFiscalUrl?: string },
+    @Req() req: Request,
+  ) {
+    const user = req.user as AuthUser;
+    return this.portalService.updateDatosFiscales(contratoId, user.contratoIds ?? [], body);
+  }
+
+  @Get('contactos')
+  getContactos(@Query('contratoId') contratoId: string, @Req() req: Request) {
+    const user = req.user as AuthUser;
+    return this.portalService.getContactos(contratoId, user.contratoIds ?? []);
+  }
+
+  @Post('contactos')
+  addContacto(
+    @Query('contratoId') contratoId: string,
+    @Body() body: { personaId?: string; nombre?: string; rfc?: string; email?: string; telefono?: string; rol: string },
+    @Req() req: Request,
+  ) {
+    const user = req.user as AuthUser;
+    return this.portalService.addContacto(contratoId, user.contratoIds ?? [], body);
   }
 }

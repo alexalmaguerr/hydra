@@ -3,6 +3,13 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { CreateContratoDto } from './dto/create-contrato.dto';
 import { Prisma } from '@prisma/client';
 
+// Estados que implican servicio activo
+const ESTADOS_ACTIVOS = ['Activo', 'activo'];
+// Estados cortados que pueden reconectarse
+const ESTADOS_CORTADOS = ['Cortado', 'cortado'];
+// Estados de baja que bloquean la mayoria de tramites
+const ESTADOS_BAJA = ['BajaTemp', 'BajaDef', 'Baja Temporal', 'Baja Definitiva'];
+
 @Injectable()
 export class ContratosService {
   constructor(private readonly prisma: PrismaService) {}
@@ -17,7 +24,19 @@ export class ContratosService {
     return c;
   }
 
-  async update(id: string, dto: { ceaNumContrato?: string | null; estado?: string; domiciliado?: boolean; fechaReconexionPrevista?: string | null }) {
+  async update(
+    id: string,
+    dto: {
+      ceaNumContrato?: string | null;
+      estado?: string;
+      domiciliado?: boolean;
+      fechaReconexionPrevista?: string | null;
+      bloqueadoJuridico?: boolean;
+      razonSocial?: string | null;
+      regimenFiscal?: string | null;
+      constanciaFiscalUrl?: string | null;
+    },
+  ) {
     await this.findOne(id);
     return this.prisma.contrato.update({
       where: { id },
@@ -26,8 +45,92 @@ export class ContratosService {
         ...(dto.estado !== undefined && { estado: dto.estado }),
         ...(dto.domiciliado !== undefined && { domiciliado: dto.domiciliado }),
         ...(dto.fechaReconexionPrevista !== undefined && { fechaReconexionPrevista: dto.fechaReconexionPrevista }),
+        ...(dto.bloqueadoJuridico !== undefined && { bloqueadoJuridico: dto.bloqueadoJuridico }),
+        ...(dto.razonSocial !== undefined && { razonSocial: dto.razonSocial }),
+        ...(dto.regimenFiscal !== undefined && { regimenFiscal: dto.regimenFiscal }),
+        ...(dto.constanciaFiscalUrl !== undefined && { constanciaFiscalUrl: dto.constanciaFiscalUrl }),
       },
     });
+  }
+
+  async getEstadoOperativo(contratoId: string) {
+    const contrato = await this.prisma.contrato.findUnique({
+      where: { id: contratoId },
+      select: {
+        id: true,
+        nombre: true,
+        estado: true,
+        bloqueadoJuridico: true,
+        fechaReconexionPrevista: true,
+      },
+    });
+    if (!contrato) throw new NotFoundException('Contrato no encontrado');
+
+    const [totalFacturadoAgg, totalPagadoAgg, convenioActivo] = await Promise.all([
+      this.prisma.timbrado.aggregate({
+        where: { contratoId, estado: 'Timbrada OK' },
+        _sum: { total: true },
+      }),
+      this.prisma.pago.aggregate({
+        where: { contratoId },
+        _sum: { monto: true },
+      }),
+      this.prisma.convenio.findFirst({
+        where: { contratoId, estado: 'Activo' },
+        select: { id: true, estado: true },
+      }),
+    ]);
+
+    const totalFacturado = Number(totalFacturadoAgg._sum.total ?? 0);
+    const totalPagado = Number(totalPagadoAgg._sum.monto ?? 0);
+    const montoAdeudo = Math.max(0, totalFacturado - totalPagado);
+    const tieneAdeudo = montoAdeudo > 0.01;
+
+    const estadoNorm = contrato.estado ?? '';
+    const esCortado = ESTADOS_CORTADOS.some(s => estadoNorm.toLowerCase().includes(s.toLowerCase()));
+    const esActivo = ESTADOS_ACTIVOS.some(s => estadoNorm.toLowerCase() === s.toLowerCase());
+    const esBaja = ESTADOS_BAJA.some(s => estadoNorm.toLowerCase().includes(s.toLowerCase()));
+    const bloqueadoJuridico = contrato.bloqueadoJuridico;
+
+    const alertas: string[] = [];
+
+    if (bloqueadoJuridico) {
+      alertas.push('Contrato con bloqueo jurídico. Comuníquese con el área legal antes de realizar cualquier trámite.');
+    }
+    if (tieneAdeudo && !bloqueadoJuridico) {
+      alertas.push(`Adeudo pendiente de $${montoAdeudo.toFixed(2)} MXN. Algunos trámites requieren saldo en cero.`);
+    }
+    if (esCortado) {
+      alertas.push('Servicio actualmente cortado. Para reconexión realice el pago total o convenga parcialidades.');
+    }
+    if (esBaja) {
+      alertas.push('Contrato en proceso de baja. Las operaciones disponibles son limitadas.');
+    }
+
+    // Candado: solo puede tramitar alta/cambios de datos si no está bloqueado jurídicamente
+    const canTramitar = !bloqueadoJuridico;
+    // Reconexión: solo si está cortado (o tiene adeudo pero quiere convenio)
+    const canReconectar = !bloqueadoJuridico && (esCortado || tieneAdeudo);
+    // Baja temporal/definitiva: requiere adeudo cero
+    const canBaja = !tieneAdeudo && !bloqueadoJuridico && !esBaja;
+    // Convenios: solo si no está bloqueado jurídicamente
+    const canConvenio = !bloqueadoJuridico && tieneAdeudo;
+
+    return {
+      contratoId: contrato.id,
+      nombre: contrato.nombre,
+      estado: contrato.estado,
+      bloqueadoJuridico,
+      tieneAdeudo,
+      montoAdeudo,
+      tieneConvenioActivo: !!convenioActivo,
+      fechaReconexionPrevista: contrato.fechaReconexionPrevista,
+      canTramitar,
+      canReconectar,
+      canBaja,
+      canConvenio,
+      alertas,
+    };
   }
 
   async search(query: string, limit = 10) {

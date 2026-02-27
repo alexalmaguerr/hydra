@@ -103,10 +103,14 @@ model Contrato {
   tipoServicio            String   @map("tipo_servicio")
   nombre                  String
   rfc                     String
+  razonSocial             String?  @map("razon_social")
+  regimenFiscal           String?  @map("regimen_fiscal")
+  constanciaFiscalUrl     String?  @map("constancia_fiscal_url")
   direccion               String
   contacto                String
   estado                  String
   fecha                   String
+  bloqueadoJuridico       Boolean  @default(false) @map("bloqueado_juridico")
   medidorId               String?  @map("medidor_id")
   rutaId                  String?  @map("ruta_id")
   zonaId                  String?  @map("zona_id")
@@ -688,17 +692,47 @@ model Tramite {
   datosAdicionales Json?               @map("datos_adicionales")
   aprobadoPor      String?             @map("aprobado_por")
   fechaAprobacion  DateTime?           @map("fecha_aprobacion")
+  canal            String?             @default("presencial") // presencial | digital | hibrido
+  notificadoPor    String?             @map("notificado_por") // email | whatsapp | null
   createdAt        DateTime            @default(now()) @map("created_at")
   updatedAt        DateTime            @updatedAt @map("updated_at")
   contrato         Contrato?           @relation(fields: [contratoId], references: [id], onDelete: SetNull)
   persona          Persona?            @relation(fields: [personaId], references: [id], onDelete: SetNull)
   documentos       Documento[]
   historial        HistoricoContrato[]
+  seguimientos     SeguimientoTramite[]
 
   @@index([contratoId])
   @@index([tipo])
   @@index([estado])
   @@map("tramites")
+}
+
+model SeguimientoTramite {
+  id        String   @id @default(cuid())
+  tramiteId String   @map("tramite_id")
+  fecha     DateTime @default(now())
+  nota      String
+  usuario   String
+  tipo      String   @default("nota") // nota | cambio_estado | documento | contacto
+  createdAt DateTime @default(now()) @map("created_at")
+  tramite   Tramite  @relation(fields: [tramiteId], references: [id], onDelete: Cascade)
+
+  @@index([tramiteId])
+  @@map("seguimientos_tramite")
+}
+
+model CatalogoTramite {
+  id                  String   @id @default(cuid())
+  tipo                String   @unique
+  descripcion         String
+  tipoFirma           String   @map("tipo_firma") // autografa | digital | ambas
+  documentosRequeridos Json    @map("documentos_requeridos")
+  activo              Boolean  @default(true)
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  @@map("catalogo_tramites")
 }
 
 model Documento {
@@ -715,6 +749,28 @@ model Documento {
 
   @@index([tramiteId])
   @@map("documentos")
+}
+
+// ---- Agora integration (mock) ----
+model AgoraTicket {
+  id           String   @id @default(cuid())
+  contratoId   String?  @map("contrato_id")
+  tramiteId    String?  @map("tramite_id")
+  quejaId      String?  @map("queja_id")
+  agoraRef     String?  @map("agora_ref")
+  titulo       String
+  descripcion  String
+  estado       String   @default("Abierto")
+  prioridad    String   @default("Media")
+  creadoPor    String   @map("creado_por")
+  datosEnvio   Json?    @map("datos_envio")
+  respuesta    Json?
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@index([contratoId])
+  @@index([estado])
+  @@map("agora_tickets")
 }
 
 // ---- T08: Caja, Convenios ----
@@ -766,7 +822,12 @@ model Convenio {
   montoParcialidad      Decimal  @db.Decimal(10, 2) @map("monto_parcialidad")
   montoTotal            Decimal  @db.Decimal(10, 2) @map("monto_total")
   montoPagado           Decimal  @default(0) @db.Decimal(10, 2) @map("monto_pagado")
+  porcentajeAnticipo    Decimal? @db.Decimal(5, 2) @map("porcentaje_anticipo")
+  montoAnticipo         Decimal? @db.Decimal(10, 2) @map("monto_anticipo")
+  anticipoPagado        Boolean  @default(false) @map("anticipo_pagado")
   facturas              Json
+  datosConvenio         Json?    @map("datos_convenio") // nombre firmante, cargo, docs presentados
+  checklistInterna      Json?    @map("checklist_interna")
   estado                String   @default("Activo")
   parcialidadesRestantes Int     @default(0) @map("parcialidades_restantes")
   saldoAFavor           Decimal  @default(0) @db.Decimal(10, 2) @map("saldo_a_favor")

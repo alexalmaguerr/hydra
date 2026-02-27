@@ -19,6 +19,10 @@ class UpdateContratoDto {
   estado?: string;
   domiciliado?: boolean;
   fechaReconexionPrevista?: string | null;
+  bloqueadoJuridico?: boolean;
+  razonSocial?: string | null;
+  regimenFiscal?: string | null;
+  constanciaFiscalUrl?: string | null;
 }
 
 @Controller('contratos')
@@ -48,6 +52,11 @@ export class ContratosController {
   @Get(':id/contexto-atencion')
   getContextoAtencion(@Param('id') id: string) {
     return this.contratosService.getContextoAtencion(id);
+  }
+
+  @Get(':id/estado-operativo')
+  getEstadoOperativo(@Param('id') id: string) {
+    return this.contratosService.getEstadoOperativo(id);
   }
 
   @Get(':id')

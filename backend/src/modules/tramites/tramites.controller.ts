@@ -18,6 +18,12 @@ import { TramitesService } from './tramites.service';
 export class TramitesController {
   constructor(private readonly service: TramitesService) {}
 
+  // Static routes MUST come before /:id
+  @Get('catalogo')
+  getCatalogo(@Query('tipo') tipo?: string) {
+    return this.service.getCatalogo(tipo);
+  }
+
   @Get()
   findAll(
     @Query('contratoId') contratoId?: string,
@@ -32,6 +38,11 @@ export class TramitesController {
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.service.findOne(id);
+  }
+
+  @Get(':id/seguimientos')
+  getSeguimientos(@Param('id') id: string) {
+    return this.service.getSeguimientos(id);
   }
 
   @Post()
@@ -61,5 +72,13 @@ export class TramitesController {
     @Body() body: { verificado: boolean },
   ) {
     return this.service.verificarDocumento(documentoId, body.verificado);
+  }
+
+  @Post(':id/seguimientos')
+  addSeguimiento(
+    @Param('id') tramiteId: string,
+    @Body() body: { nota: string; usuario: string; tipo?: string },
+  ) {
+    return this.service.addSeguimiento(tramiteId, body);
   }
 }

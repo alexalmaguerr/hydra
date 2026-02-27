@@ -1,5 +1,9 @@
 import { apiRequest } from './client';
 
+export interface ConvenioChecklist {
+  [docNombre: string]: boolean;
+}
+
 export interface ConvenioDto {
   id: string;
   contratoId: string;
@@ -17,6 +21,14 @@ export interface ConvenioDto {
   contrato?: { nombre: string; estado: string };
   pagos?: { id: string; monto: number; fecha: string; tipo: string; concepto: string }[];
   createdAt?: string;
+  /** Parámetros de anticipo (si aplica) */
+  porcentajeAnticipo?: number | null;
+  montoAnticipo?: number | null;
+  anticipoPagado?: boolean;
+  /** Checklist documental interna */
+  checklistInterna?: ConvenioChecklist | null;
+  /** Datos adicionales del convenio */
+  datosConvenio?: Record<string, unknown> | null;
 }
 
 export async function getConvenios(params?: {
@@ -45,8 +57,20 @@ export async function createConvenio(data: {
   numParcialidades: number;
   facturas: { timbradoId: string; monto: number }[];
   fechaVencimiento?: string;
+  porcentajeAnticipo?: number;
+  datosConvenio?: Record<string, unknown>;
 }) {
   return apiRequest<ConvenioDto>('/convenios', { method: 'POST', body: JSON.stringify(data) });
+}
+
+export async function updateChecklistConvenio(
+  convenioId: string,
+  checklist: ConvenioChecklist,
+) {
+  return apiRequest<ConvenioDto>(`/convenios/${convenioId}/checklist`, {
+    method: 'PATCH',
+    body: JSON.stringify({ checklistInterna: checklist }),
+  });
 }
 
 export async function aplicarParcialidad(convenioId: string, monto: number, tipo: string) {

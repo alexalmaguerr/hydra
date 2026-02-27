@@ -1,5 +1,8 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+
+const ESTADOS_CORTADOS = ['Cortado', 'cortado'];
 
 @Injectable()
 export class ConveniosService {
@@ -44,24 +47,44 @@ export class ConveniosService {
     contratoId: string;
     tipo?: string;
     numParcialidades: number;
+    porcentajeAnticipo?: number;
     facturas: { timbradoId: string; monto: number }[];
     fechaVencimiento?: string;
+    datosConvenio?: Record<string, unknown>;
+    checklistInterna?: Record<string, boolean>;
   }) {
     const montoTotal = dto.facturas.reduce((s, f) => s + f.monto, 0);
-    const montoParcialidad = Math.ceil((montoTotal / dto.numParcialidades) * 100) / 100;
+    const porcentaje = dto.porcentajeAnticipo ?? 0;
+    const montoAnticipo = porcentaje > 0 ? Math.round(montoTotal * porcentaje) / 100 : 0;
+    const montoAFinanciar = montoTotal - montoAnticipo;
+    const numParc = dto.numParcialidades;
+    const montoParcialidad = numParc > 0 ? Math.ceil((montoAFinanciar / numParc) * 100) / 100 : 0;
 
     return this.prisma.convenio.create({
       data: {
         contratoId: dto.contratoId,
         tipo: dto.tipo ?? 'Parcialidades',
-        numParcialidades: dto.numParcialidades,
+        numParcialidades: numParc,
         montoParcialidad,
         montoTotal,
-        parcialidadesRestantes: dto.numParcialidades,
+        porcentajeAnticipo: porcentaje > 0 ? porcentaje : null,
+        montoAnticipo: montoAnticipo > 0 ? montoAnticipo : null,
+        parcialidadesRestantes: numParc,
         facturas: dto.facturas,
         fechaVencimiento: dto.fechaVencimiento ? new Date(dto.fechaVencimiento) : null,
+        datosConvenio: dto.datosConvenio ? (dto.datosConvenio as Prisma.InputJsonValue) : Prisma.JsonNull,
+        checklistInterna: dto.checklistInterna ? (dto.checklistInterna as Prisma.InputJsonValue) : Prisma.JsonNull,
       },
       include: { contrato: { select: { nombre: true } } },
+    });
+  }
+
+  async updateChecklist(convenioId: string, checklist: Record<string, boolean>) {
+    const convenio = await this.prisma.convenio.findUnique({ where: { id: convenioId } });
+    if (!convenio) throw new NotFoundException('Convenio no encontrado');
+    return this.prisma.convenio.update({
+      where: { id: convenioId },
+      data: { checklistInterna: checklist },
     });
   }
 
@@ -100,12 +123,61 @@ export class ConveniosService {
       },
     });
 
+    // When convenio completes, check if auto-reconexion is needed
+    if (nuevoEstado === 'Completado') {
+      await this.verificarAutoReconexionPorConvenio(convenio.contratoId);
+    }
+
     return {
       pagoId: pago.id,
       estado: nuevoEstado,
       saldoAFavor,
       parcialidadesRestantes: Math.max(0, nuevasRestantes),
     };
+  }
+
+  private async verificarAutoReconexionPorConvenio(contratoId: string): Promise<void> {
+    const contrato = await this.prisma.contrato.findUnique({
+      where: { id: contratoId },
+      select: { estado: true, bloqueadoJuridico: true },
+    });
+    if (!contrato) return;
+
+    const esCortado = ESTADOS_CORTADOS.some(s =>
+      (contrato.estado ?? '').toLowerCase().includes(s.toLowerCase()),
+    );
+    if (!esCortado || contrato.bloqueadoJuridico) return;
+
+    const ordenExistente = await this.prisma.orden.findFirst({
+      where: { contratoId, tipo: 'Reconexion', estado: { in: ['Pendiente', 'En proceso'] } },
+    });
+    if (ordenExistente) return;
+
+    const fechaProgramada = new Date();
+    fechaProgramada.setDate(fechaProgramada.getDate() + 1);
+
+    await this.prisma.$transaction([
+      this.prisma.orden.create({
+        data: {
+          contratoId,
+          tipo: 'Reconexion',
+          prioridad: 'Alta',
+          notas: 'Generada automáticamente al completar convenio de pago',
+          fechaProgramada,
+          seguimientos: {
+            create: {
+              estadoNuevo: 'Pendiente',
+              nota: 'Orden de reconexión generada por cumplimiento de convenio',
+              usuario: 'sistema',
+            },
+          },
+        },
+      }),
+      this.prisma.contrato.update({
+        where: { id: contratoId },
+        data: { fechaReconexionPrevista: fechaProgramada.toISOString().substring(0, 10) },
+      }),
+    ]);
   }
 
   async cancelar(convenioId: string) {

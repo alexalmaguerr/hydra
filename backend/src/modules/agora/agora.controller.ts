@@ -1,0 +1,43 @@
+import { Controller, Get, Post, Patch, Param, Body, Query, UseGuards } from '@nestjs/common';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { AgoraService } from './agora.service';
+
+@Controller('agora/tickets')
+@UseGuards(JwtAuthGuard)
+export class AgoraController {
+  constructor(private readonly service: AgoraService) {}
+
+  @Get()
+  findAll(
+    @Query('contratoId') contratoId?: string,
+    @Query('estado') estado?: string,
+  ) {
+    return this.service.findAll({ contratoId, estado });
+  }
+
+  @Get(':id')
+  findOne(@Param('id') id: string) {
+    return this.service.findOne(id);
+  }
+
+  @Post()
+  create(
+    @Body()
+    body: {
+      contratoId?: string;
+      tramiteId?: string;
+      quejaId?: string;
+      titulo: string;
+      descripcion: string;
+      prioridad?: string;
+      creadoPor: string;
+    },
+  ) {
+    return this.service.createTicket(body);
+  }
+
+  @Patch(':id/estado')
+  updateEstado(@Param('id') id: string, @Body() body: { estado: string }) {
+    return this.service.updateEstado(id, body.estado);
+  }
+}

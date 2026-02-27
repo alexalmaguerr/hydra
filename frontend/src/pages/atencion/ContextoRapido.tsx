@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { AlertTriangle, CheckCircle2, Clock, CreditCard, MessageSquareWarning, XCircle } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Clock, CreditCard, Gavel, MessageSquareWarning, WifiOff, XCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getContextoAtencion, type ContextoAtencion } from '@/api/atencion';
+import { fetchEstadoOperativo, type EstadoOperativoDto } from '@/api/contratos';
 
 interface ContextoRapidoProps {
   contratoId: string;
@@ -31,6 +32,21 @@ const ESTADO_CONFIG: Record<string, { label: string; icon: React.ReactNode; clas
     icon: <XCircle className="h-4 w-4" />,
     className: 'text-red-700 bg-red-50 border-red-200 dark:text-red-400 dark:bg-red-950 dark:border-red-800',
   },
+  'Cortado': {
+    label: 'Servicio cortado',
+    icon: <WifiOff className="h-4 w-4" />,
+    className: 'text-red-700 bg-red-50 border-red-200 dark:text-red-400 dark:bg-red-950 dark:border-red-800',
+  },
+  'cortado': {
+    label: 'Servicio cortado',
+    icon: <WifiOff className="h-4 w-4" />,
+    className: 'text-red-700 bg-red-50 border-red-200 dark:text-red-400 dark:bg-red-950 dark:border-red-800',
+  },
+  'BloqueadoJuridico': {
+    label: 'Bloqueo jurídico',
+    icon: <Gavel className="h-4 w-4" />,
+    className: 'text-purple-700 bg-purple-50 border-purple-200 dark:text-purple-400 dark:bg-purple-950 dark:border-purple-800',
+  },
   'Inactivo': {
     label: 'Contrato inactivo',
     icon: <XCircle className="h-4 w-4" />,
@@ -50,12 +66,19 @@ const ESTADO_CONFIG: Record<string, { label: string; icon: React.ReactNode; clas
 
 export default function ContextoRapido({ contratoId, onVerQuejas, refreshKey }: ContextoRapidoProps) {
   const [contexto, setContexto] = useState<ContextoAtencion | null>(null);
+  const [estadoOp, setEstadoOp] = useState<EstadoOperativoDto | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     setLoading(true);
-    getContextoAtencion(contratoId)
-      .then(setContexto)
+    Promise.all([
+      getContextoAtencion(contratoId),
+      fetchEstadoOperativo(contratoId).catch(() => null),
+    ])
+      .then(([ctx, estOp]) => {
+        setContexto(ctx);
+        setEstadoOp(estOp);
+      })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, [contratoId, refreshKey]);
@@ -71,8 +94,11 @@ export default function ContextoRapido({ contratoId, onVerQuejas, refreshKey }: 
   const estadoConfig = ESTADO_CONFIG[contrato.estado] ?? ESTADO_CONFIG['Activo'];
 
   const alertas: { tipo: 'error' | 'warning' | 'info'; mensaje: string }[] = [];
-  if (contrato.estado === 'Suspendido') {
-    alertas.push({ tipo: 'error', mensaje: 'Servicio suspendido' });
+  if (estadoOp?.bloqueadoJuridico) {
+    alertas.push({ tipo: 'error', mensaje: 'Bloqueo jurídico activo — contactar área legal' });
+  }
+  if (contrato.estado === 'Suspendido' || contrato.estado === 'Cortado') {
+    alertas.push({ tipo: 'error', mensaje: `Servicio ${contrato.estado.toLowerCase()}` });
   }
   if (quejasAbiertas.length > 0) {
     alertas.push({ tipo: 'warning', mensaje: `${quejasAbiertas.length} queja${quejasAbiertas.length > 1 ? 's' : ''} abierta${quejasAbiertas.length > 1 ? 's' : ''}` });
@@ -107,13 +133,18 @@ export default function ContextoRapido({ contratoId, onVerQuejas, refreshKey }: 
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {/* Estado */}
-        <div className={cn('rounded-lg border p-3 flex flex-col gap-1', estadoConfig.className)}>
+        <div className={cn('rounded-lg border p-3 flex flex-col gap-1', estadoOp?.bloqueadoJuridico ? ESTADO_CONFIG['BloqueadoJuridico'].className : estadoConfig.className)}>
           <div className="text-xs font-medium uppercase tracking-wide opacity-70">Estado</div>
           <div className="flex items-center gap-1.5 font-semibold text-sm">
-            {estadoConfig.icon}
-            {estadoConfig.label}
+            {estadoOp?.bloqueadoJuridico ? ESTADO_CONFIG['BloqueadoJuridico'].icon : estadoConfig.icon}
+            {estadoOp?.bloqueadoJuridico ? ESTADO_CONFIG['BloqueadoJuridico'].label : estadoConfig.label}
           </div>
           <div className="text-xs opacity-60">{contrato.tipoServicio}</div>
+          {estadoOp?.fechaReconexionPrevista && (
+            <div className="text-xs opacity-80 mt-0.5">
+              Reconexión: {formatDate(estadoOp.fechaReconexionPrevista)}
+            </div>
+          )}
         </div>
 
         {/* Saldo */}

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -25,7 +25,10 @@ import {
   Percent,
   UserCheck,
   Plug,
+  PenLine,
+  Shield,
 } from 'lucide-react';
+import { getCatalogoTramites, type CatalogoTramiteDto } from '@/api/tramites';
 
 type FieldType = 'text' | 'date' | 'number' | 'select';
 interface FieldConfig {
@@ -140,9 +143,37 @@ const TRAMITE_FIELDS: Record<string, FieldConfig[]> = {
  * y envían solicitudes. No requiere sesión ni selector de contrato interno.
  * Modales de prueba: formularios con inputs vacíos según referencia del sistema.
  */
+// Map from tramite id to backend 'tipo' key for catalog lookup
+const TRAMITE_ID_TO_TIPO: Record<string, string> = {
+  alta: 'Alta',
+  'cambio-propietario': 'CambioPropietario',
+  'baja-temporal': 'BajaTemporal',
+  'baja-permanente': 'BajaDefinitiva',
+  descuentos: 'Descuento',
+  'jubilado-pensionado': 'Descuento',
+  reconexion: 'Reconexion',
+};
+
+const FIRMA_ICON: Record<string, React.ElementType> = {
+  Digital: PenLine,
+  Fisica: PenLine,
+  NoRequerida: Shield,
+};
+
 const TramitesDigitales = () => {
   const [tramiteModal, setTramiteModal] = useState<string | null>(null);
   const [formValues, setFormValues] = useState<Record<string, string>>({});
+  const [catalogoMap, setCatalogoMap] = useState<Record<string, CatalogoTramiteDto>>({});
+
+  useEffect(() => {
+    getCatalogoTramites()
+      .then((items) => {
+        const map: Record<string, CatalogoTramiteDto> = {};
+        for (const item of items) map[item.tipo] = item;
+        setCatalogoMap(map);
+      })
+      .catch(() => {/* catalog unavailable — continue with defaults */});
+  }, []);
 
   const openModal = (id: string) => {
     setTramiteModal(id);
@@ -156,6 +187,8 @@ const TramitesDigitales = () => {
 
   const currentTramite = tramiteModal ? ALL_TRAMITES.find((t) => t.id === tramiteModal) : null;
   const fields = tramiteModal ? TRAMITE_FIELDS[tramiteModal] ?? [] : [];
+  const catalogoTipo = tramiteModal ? TRAMITE_ID_TO_TIPO[tramiteModal] : null;
+  const catalogoEntry = catalogoTipo ? catalogoMap[catalogoTipo] ?? null : null;
 
   return (
     <div className="space-y-6 p-6 max-w-4xl mx-auto">
@@ -224,6 +257,36 @@ const TramitesDigitales = () => {
               Formulario de prueba. Complete los datos de referencia del trámite.
             </DialogDescription>
           </DialogHeader>
+          {/* Document requirements from catalog */}
+          {catalogoEntry && (
+            <div className="rounded-lg bg-muted/40 border p-3 space-y-2 text-sm">
+              {catalogoEntry.documentosRequeridos.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
+                    Documentos requeridos
+                  </p>
+                  <ul className="space-y-0.5">
+                    {catalogoEntry.documentosRequeridos.map((doc) => (
+                      <li key={doc} className="flex items-center gap-1.5 text-xs text-foreground">
+                        <FileText className="h-3 w-3 text-muted-foreground shrink-0" />
+                        {doc}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {catalogoEntry.tipoFirma && catalogoEntry.tipoFirma !== 'NoRequerida' && (() => {
+                const FirmaIcon = FIRMA_ICON[catalogoEntry.tipoFirma] ?? PenLine;
+                return (
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground border-t pt-2">
+                    <FirmaIcon className="h-3.5 w-3.5 shrink-0" />
+                    <span>Firma requerida: <strong>{catalogoEntry.tipoFirma}</strong></span>
+                  </div>
+                );
+              })()}
+            </div>
+          )}
+
           <div className="grid gap-4 py-4">
             {fields.map((field) => (
               <div key={field.name}>
