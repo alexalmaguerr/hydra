@@ -90,7 +90,9 @@ export default function ContextoRapido({ contratoId, onVerQuejas, refreshKey }: 
     return <div className="text-sm text-muted-foreground py-4">No se pudo cargar el contexto.</div>;
   }
 
-  const { contrato, saldo, ultimosPagos, quejasAbiertas, resumen } = contexto;
+  const { contrato, saldo, resumen } = contexto;
+  const ultimosPagos = Array.isArray(contexto.ultimosPagos) ? contexto.ultimosPagos : [];
+  const quejasAbiertas = Array.isArray(contexto.quejasAbiertas) ? contexto.quejasAbiertas : [];
   const estadoConfig = ESTADO_CONFIG[contrato.estado] ?? ESTADO_CONFIG['Activo'];
 
   const alertas: { tipo: 'error' | 'warning' | 'info'; mensaje: string }[] = [];

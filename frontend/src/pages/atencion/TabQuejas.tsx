@@ -54,8 +54,15 @@ export default function TabQuejas({ contratoId, onNuevaQueja, onVerDetalle, refr
   useEffect(() => {
     setLoading(true);
     getQuejasByContrato(contratoId)
-      .then(setQuejas)
-      .catch(console.error)
+      .then((res) => {
+        // Normalize: API may return a paginated wrapper { data: [...] } instead of a plain array
+        const list = Array.isArray(res) ? res : Array.isArray((res as any)?.data) ? (res as any).data : [];
+        setQuejas(list);
+      })
+      .catch((err) => {
+        console.error(err);
+        setQuejas([]);
+      })
       .finally(() => setLoading(false));
   }, [contratoId, refreshKey]);
 

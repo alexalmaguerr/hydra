@@ -51,7 +51,11 @@ export function getContextoAtencion(contratoId: string): Promise<ContextoAtencio
 }
 
 export function getQuejasByContrato(contratoId: string): Promise<QuejaApi[]> {
-  return apiRequest<QuejaApi[]>(`/quejas/contrato/${contratoId}`);
+  return apiRequest<unknown>(`/quejas/contrato/${contratoId}`).then((res) => {
+    if (Array.isArray(res)) return res as QuejaApi[];
+    if (res && Array.isArray((res as any).data)) return (res as any).data as QuejaApi[];
+    return [];
+  });
 }
 
 export function createQueja(data: {
