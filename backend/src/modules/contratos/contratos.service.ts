@@ -35,6 +35,9 @@ export class ContratosService {
       razonSocial?: string | null;
       regimenFiscal?: string | null;
       constanciaFiscalUrl?: string | null;
+      domicilioId?: string | null;
+      puntoServicioId?: string | null;
+      tipoContratacionId?: string | null;
     },
   ) {
     await this.findOne(id);
@@ -49,6 +52,9 @@ export class ContratosService {
         ...(dto.razonSocial !== undefined && { razonSocial: dto.razonSocial }),
         ...(dto.regimenFiscal !== undefined && { regimenFiscal: dto.regimenFiscal }),
         ...(dto.constanciaFiscalUrl !== undefined && { constanciaFiscalUrl: dto.constanciaFiscalUrl }),
+        ...(dto.domicilioId !== undefined && { domicilioId: dto.domicilioId }),
+        ...(dto.puntoServicioId !== undefined && { puntoServicioId: dto.puntoServicioId }),
+        ...(dto.tipoContratacionId !== undefined && { tipoContratacionId: dto.tipoContratacionId }),
       },
     });
   }
@@ -241,6 +247,9 @@ export class ContratosService {
     return this.prisma.contrato.create({
       data: {
         tomaId: dto.tomaId ?? null,
+        puntoServicioId: dto.puntoServicioId ?? null,
+        domicilioId: dto.domicilioId ?? null,
+        tipoContratacionId: dto.tipoContratacionId ?? null,
         tipoContrato: dto.tipoContrato,
         tipoServicio: dto.tipoServicio,
         nombre: dto.nombre,
@@ -257,5 +266,56 @@ export class ContratosService {
         ceaNumContrato: dto.ceaNumContrato ?? null,
       },
     });
+  }
+
+  /** Flujo completo del contrato: personas, domicilio, tipo contratación, historial */
+  async getFlujoCompleto(contratoId: string) {
+    const contrato = await this.prisma.contrato.findUnique({
+      where: { id: contratoId },
+      include: {
+        domicilio: {
+          include: {
+            coloniaINEGI: true,
+            municipioINEGI: true,
+            estadoINEGI: true,
+          },
+        },
+        tipoContratacion: {
+          include: {
+            conceptos: { include: { conceptoCobro: true } },
+            clausulas: { include: { clausula: true } },
+            documentos: true,
+          },
+        },
+        personas: {
+          where: { activo: true },
+          include: {
+            persona: {
+              select: {
+                id: true,
+                nombre: true,
+                apellidoPaterno: true,
+                apellidoMaterno: true,
+                rfc: true,
+                curp: true,
+                tipo: true,
+                email: true,
+                telefono: true,
+              },
+            },
+          },
+        },
+        procesosContratacion: {
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        },
+        historico: {
+          orderBy: { createdAt: 'desc' },
+          take: 10,
+        },
+      },
+    });
+    if (!contrato) throw new NotFoundException('Contrato no encontrado');
+    return contrato;
   }
 }

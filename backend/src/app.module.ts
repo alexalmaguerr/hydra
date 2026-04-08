@@ -24,6 +24,9 @@ import { ConciliacionesModule } from './modules/conciliaciones/conciliaciones.mo
 import { AgoraModule } from './modules/agora/agora.module';
 import { NotificacionesModule } from './modules/notificaciones/notificaciones.module';
 import { SigeHydraModule } from './modules/sige-hydra/sige-hydra.module';
+import { DomiciliosModule } from './modules/domicilios/domicilios.module';
+import { PuntosServicioModule } from './modules/puntos-servicio/puntos-servicio.module';
+import { TiposContratacionModule } from './modules/tipos-contratacion/tipos-contratacion.module';
 
 @Module({
   imports: [
@@ -50,6 +53,9 @@ import { SigeHydraModule } from './modules/sige-hydra/sige-hydra.module';
     ConciliacionesModule,
     AgoraModule,
     SigeHydraModule,
+    DomiciliosModule,
+    PuntosServicioModule,
+    TiposContratacionModule,
   ],
   controllers: [AppController],
   providers: [AppService],

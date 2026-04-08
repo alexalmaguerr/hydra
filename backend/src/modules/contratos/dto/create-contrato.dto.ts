@@ -1,5 +1,8 @@
 export class CreateContratoDto {
   tomaId?: string;
+  puntoServicioId?: string;
+  domicilioId?: string;
+  tipoContratacionId?: string;
   tipoContrato: string;
   tipoServicio: string;
   nombre: string;

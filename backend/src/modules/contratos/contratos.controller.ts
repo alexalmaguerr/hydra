@@ -13,6 +13,7 @@ import {
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { ContratosService } from './contratos.service';
 import { CreateContratoDto } from './dto/create-contrato.dto';
+import { TiposContratacionService } from '../tipos-contratacion/tipos-contratacion.service';
 
 class UpdateContratoDto {
   ceaNumContrato?: string | null;
@@ -23,12 +24,18 @@ class UpdateContratoDto {
   razonSocial?: string | null;
   regimenFiscal?: string | null;
   constanciaFiscalUrl?: string | null;
+  domicilioId?: string | null;
+  puntoServicioId?: string | null;
+  tipoContratacionId?: string | null;
 }
 
 @Controller('contratos')
 @UseGuards(JwtAuthGuard)
 export class ContratosController {
-  constructor(private readonly contratosService: ContratosService) {}
+  constructor(
+    private readonly contratosService: ContratosService,
+    private readonly tiposContratacionService: TiposContratacionService,
+  ) {}
 
   // IMPORTANT: static routes declared BEFORE /:id
   @Get('search')
@@ -42,6 +49,11 @@ export class ContratosController {
   @Get()
   findAll() {
     return this.contratosService.findAll();
+  }
+
+  @Get(':id/flujo-completo')
+  getFlujoCompleto(@Param('id') id: string) {
+    return this.contratosService.getFlujoCompleto(id);
   }
 
   @Get(':id/historial')
@@ -72,5 +84,18 @@ export class ContratosController {
   @Patch(':id')
   update(@Param('id') id: string, @Body() dto: UpdateContratoDto) {
     return this.contratosService.update(id, dto);
+  }
+
+  @Post(':id/cambiar-tipo')
+  cambiarTipo(
+    @Param('id') id: string,
+    @Body() body: { nuevoTipoId: string; motivo: string; usuario?: string },
+  ) {
+    return this.tiposContratacionService.cambiarTipoContrato(
+      id,
+      body.nuevoTipoId,
+      body.motivo,
+      body.usuario,
+    );
   }
 }

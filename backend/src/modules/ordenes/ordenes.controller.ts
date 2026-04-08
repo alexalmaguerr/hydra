@@ -34,12 +34,13 @@ export class OrdenesController {
     @Query('tipo') tipo?: string,
     @Query('estado') estado?: string,
     @Query('operadorId') operadorId?: string,
+    @Query('subtipoCorteId') subtipoCorteId?: string,
     @Query('desde') desde?: string,
     @Query('hasta') hasta?: string,
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page?: number,
     @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit?: number,
   ) {
-    return this.service.findAll({ contratoId, tipo, estado, operadorId, desde, hasta, page, limit });
+    return this.service.findAll({ contratoId, tipo, estado, operadorId, subtipoCorteId, desde, hasta, page, limit });
   }
 
   @Get(':id')
@@ -53,11 +54,16 @@ export class OrdenesController {
     body: {
       contratoId: string;
       tipo: string;
+      subtipoCorteId?: string;
       prioridad?: string;
       fechaProgramada?: string;
       operadorId?: string;
       notas?: string;
       externalRef?: string;
+      origenAutomatico?: boolean;
+      eventoOrigen?: string;
+      ubicacionCorte?: string;
+      condicionCortable?: boolean;
     },
   ) {
     return this.service.create(body);

@@ -22,10 +22,12 @@ export class PersonasController {
   findAll(
     @Query('nombre') nombre?: string,
     @Query('rfc') rfc?: string,
+    @Query('curp') curp?: string,
+    @Query('tipo') tipo?: string,
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page = 1,
     @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit = 20,
   ) {
-    return this.service.findAll({ nombre, rfc, page, limit });
+    return this.service.findAll({ nombre, rfc, curp, tipo, page, limit });
   }
 
   @Get(':id')

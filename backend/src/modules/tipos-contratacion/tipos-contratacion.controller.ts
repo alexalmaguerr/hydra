@@ -1,0 +1,123 @@
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Delete,
+  Param,
+  Body,
+  Query,
+  UseGuards,
+  ParseIntPipe,
+  DefaultValuePipe,
+} from '@nestjs/common';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { TiposContratacionService } from './tipos-contratacion.service';
+
+@Controller('tipos-contratacion')
+@UseGuards(JwtAuthGuard)
+export class TiposContratacionController {
+  constructor(private readonly service: TiposContratacionService) {}
+
+  @Get()
+  findAll(
+    @Query('activo') activo?: string,
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page?: number,
+    @Query('limit', new DefaultValuePipe(50), ParseIntPipe) limit?: number,
+  ) {
+    return this.service.findAll({ activo, page, limit });
+  }
+
+  @Get(':id')
+  findOne(@Param('id') id: string) {
+    return this.service.findOne(id);
+  }
+
+  @Post()
+  create(
+    @Body()
+    body: {
+      codigo: string;
+      nombre: string;
+      descripcion?: string;
+      requiereMedidor?: boolean;
+    },
+  ) {
+    return this.service.create(body);
+  }
+
+  @Patch(':id')
+  update(
+    @Param('id') id: string,
+    @Body()
+    body: {
+      nombre?: string;
+      descripcion?: string;
+      requiereMedidor?: boolean;
+      activo?: boolean;
+    },
+  ) {
+    return this.service.update(id, body);
+  }
+
+  // ─── Configuración ────────────────────────────────────────────────────────
+
+  @Get(':id/configuracion')
+  getConfiguracion(@Param('id') id: string) {
+    return this.service.getConfiguracion(id);
+  }
+
+  // ─── Conceptos ────────────────────────────────────────────────────────────
+
+  @Post(':id/conceptos')
+  agregarConcepto(
+    @Param('id') id: string,
+    @Body() body: { conceptoCobroId: string; obligatorio?: boolean; orden?: number },
+  ) {
+    return this.service.agregarConcepto(id, body);
+  }
+
+  @Delete(':id/conceptos/:conceptoCobroId')
+  removerConcepto(
+    @Param('id') id: string,
+    @Param('conceptoCobroId') conceptoCobroId: string,
+  ) {
+    return this.service.removerConcepto(id, conceptoCobroId);
+  }
+
+  // ─── Cláusulas ────────────────────────────────────────────────────────────
+
+  @Post(':id/clausulas')
+  agregarClausula(
+    @Param('id') id: string,
+    @Body() body: { clausulaId: string; obligatorio?: boolean; orden?: number },
+  ) {
+    return this.service.agregarClausula(id, body);
+  }
+
+  @Delete(':id/clausulas/:clausulaId')
+  removerClausula(
+    @Param('id') id: string,
+    @Param('clausulaId') clausulaId: string,
+  ) {
+    return this.service.removerClausula(id, clausulaId);
+  }
+
+  // ─── Documentos Requeridos ────────────────────────────────────────────────
+
+  @Post(':id/documentos-requeridos')
+  agregarDocumento(
+    @Param('id') id: string,
+    @Body() body: { nombreDocumento: string; descripcion?: string; obligatorio?: boolean },
+  ) {
+    return this.service.agregarDocumento(id, body);
+  }
+
+  @Delete(':id/documentos-requeridos/:documentoId')
+  removerDocumento(
+    @Param('id') id: string,
+    @Param('documentoId') documentoId: string,
+  ) {
+    return this.service.removerDocumento(id, documentoId);
+  }
+}

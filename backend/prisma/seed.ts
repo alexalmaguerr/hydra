@@ -455,9 +455,130 @@ async function seedCatalogoTramites() {
   console.log('Catálogo de trámites sembrado:', tipos.map(t => t.tipo).join(', '));
 }
 
+async function seedCatalogosOperativos() {
+  // Tipos de corte (T11 — CatalogoTipoCorte)
+  const tiposCorte = [
+    { codigo: 'DEUDA', descripcion: 'Corte por adeudo', impacto: 'suspensión_total', requiereCuadrilla: true },
+    { codigo: 'BAJA_TEMP', descripcion: 'Baja temporal', impacto: 'suspensión_total', requiereCuadrilla: true },
+    { codigo: 'ADMIN', descripcion: 'Corte administrativo', impacto: 'solo_registro', requiereCuadrilla: false },
+    { codigo: 'FUGA', descripcion: 'Corte por fuga', impacto: 'suspensión_total', requiereCuadrilla: true },
+  ];
+  for (const tc of tiposCorte) {
+    await prisma.catalogoTipoCorte.upsert({
+      where: { codigo: tc.codigo },
+      update: { descripcion: tc.descripcion, impacto: tc.impacto, requiereCuadrilla: tc.requiereCuadrilla },
+      create: tc,
+    });
+  }
+  console.log('Tipos de corte sembrados:', tiposCorte.map(t => t.codigo).join(', '));
+
+  // Tipos de suministro (T11 — CatalogoTipoSuministro)
+  const tiposSuministro = [
+    { codigo: 'AGUA', descripcion: 'Agua potable' },
+    { codigo: 'SANEAMIENTO', descripcion: 'Saneamiento' },
+    { codigo: 'ALCANTARILLADO', descripcion: 'Alcantarillado' },
+    { codigo: 'MIXTO', descripcion: 'Agua potable + Saneamiento' },
+  ];
+  for (const ts of tiposSuministro) {
+    await prisma.catalogoTipoSuministro.upsert({
+      where: { codigo: ts.codigo },
+      update: { descripcion: ts.descripcion },
+      create: ts,
+    });
+  }
+  console.log('Tipos de suministro sembrados:', tiposSuministro.map(t => t.codigo).join(', '));
+
+  // Estructuras técnicas (T11 — CatalogoEstructuraTecnica)
+  const estructuras = [
+    { codigo: 'DOM_IND', descripcion: 'Domiciliaria individual' },
+    { codigo: 'DOM_COND', descripcion: 'Domiciliaria condominial' },
+    { codigo: 'COM_IND', descripcion: 'Comercial individual' },
+    { codigo: 'IND_PESADO', descripcion: 'Industrial pesado' },
+    { codigo: 'GOB_PUB', descripcion: 'Gobierno / uso público' },
+  ];
+  for (const et of estructuras) {
+    await prisma.catalogoEstructuraTecnica.upsert({
+      where: { codigo: et.codigo },
+      update: { descripcion: et.descripcion },
+      create: et,
+    });
+  }
+  console.log('Estructuras técnicas sembradas:', estructuras.map(e => e.codigo).join(', '));
+}
+
+async function seedCatalogosContratacion() {
+  // Tipos de contratación (T13)
+  const tiposContratacion = [
+    { codigo: 'DOM_HAB', nombre: 'Doméstico Habitacional', requiereMedidor: true },
+    { codigo: 'COM', nombre: 'Comercial', requiereMedidor: true },
+    { codigo: 'IND', nombre: 'Industrial', requiereMedidor: true },
+    { codigo: 'GOB', nombre: 'Gobierno', requiereMedidor: true },
+    { codigo: 'MIXTO', nombre: 'Uso Mixto', requiereMedidor: true },
+  ];
+  for (const tc of tiposContratacion) {
+    await prisma.tipoContratacion.upsert({
+      where: { codigo: tc.codigo },
+      update: { nombre: tc.nombre, requiereMedidor: tc.requiereMedidor },
+      create: tc,
+    });
+  }
+  console.log('Tipos de contratación sembrados:', tiposContratacion.map(t => t.codigo).join(', '));
+
+  // Conceptos de cobro (T13)
+  const conceptosCobro = [
+    { codigo: 'AGUA', nombre: 'Servicio de agua', tipo: 'variable' },
+    { codigo: 'SANEAMIENTO', nombre: 'Saneamiento', tipo: 'porcentual' },
+    { codigo: 'ALCANTARILLADO', nombre: 'Alcantarillado', tipo: 'fijo' },
+    { codigo: 'CONTRATACION', nombre: 'Cargo por contratación', tipo: 'fijo' },
+    { codigo: 'RECONEXION', nombre: 'Cargo por reconexión', tipo: 'fijo' },
+  ];
+  for (const cc of conceptosCobro) {
+    await prisma.conceptoCobro.upsert({
+      where: { codigo: cc.codigo },
+      update: { nombre: cc.nombre, tipo: cc.tipo },
+      create: cc,
+    });
+  }
+  console.log('Conceptos de cobro sembrados:', conceptosCobro.map(c => c.codigo).join(', '));
+
+  // Cláusulas contractuales base (T13)
+  const clausulas = [
+    {
+      codigo: 'DERECHOS_USUARIO',
+      titulo: 'Derechos del Usuario',
+      contenido: 'El usuario tiene derecho a recibir el servicio en condiciones adecuadas de presión, continuidad y calidad conforme a la normativa vigente.',
+    },
+    {
+      codigo: 'OBLIGACIONES_USUARIO',
+      titulo: 'Obligaciones del Usuario',
+      contenido: 'El usuario está obligado a pagar puntualmente los cargos por servicio, conservar en buen estado las instalaciones y permitir la revisión del medidor.',
+    },
+    {
+      codigo: 'CAUSAS_CORTE',
+      titulo: 'Causas de Interrupción del Servicio',
+      contenido: 'El organismo operador podrá interrumpir el servicio por falta de pago, mal uso de las instalaciones, fraude o situaciones de emergencia técnica.',
+    },
+    {
+      codigo: 'VIGENCIA',
+      titulo: 'Vigencia del Contrato',
+      contenido: 'El presente contrato tendrá vigencia indefinida a partir de su firma, pudiendo ser rescindido por cualquiera de las partes con aviso previo de 30 días naturales.',
+    },
+  ];
+  for (const cl of clausulas) {
+    await prisma.clausulaContractual.upsert({
+      where: { codigo: cl.codigo },
+      update: { titulo: cl.titulo, contenido: cl.contenido },
+      create: cl,
+    });
+  }
+  console.log('Cláusulas contractuales sembradas:', clausulas.map(c => c.codigo).join(', '));
+}
+
 main()
   .then(() => seedUser())
   .then(() => seedCatalogoTramites())
+  .then(() => seedCatalogosOperativos())
+  .then(() => seedCatalogosContratacion())
   .catch((e) => {
     console.error(e);
     process.exit(1);

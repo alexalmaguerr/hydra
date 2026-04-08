@@ -19,17 +19,17 @@ model Administracion {
 }
 
 model Zona {
-  id                 String   @id @default(cuid())
-  administracionId   String   @map("administracion_id")
-  nombre             String
-  createdAt          DateTime @default(now()) @map("created_at")
-  updatedAt          DateTime @updatedAt @map("updated_at")
-  administracion     Administracion @relation(fields: [administracionId], references: [id], onDelete: Restrict)
-  distritos          Distrito[]
-  contratos          Contrato[]
-  rutas              Ruta[]
-  medidoresBodega    MedidorBodega[] @relation("MedidorBodegaZona")
-  lotesLecturas      LoteLecturas[]
+  id               String          @id @default(cuid())
+  administracionId String          @map("administracion_id")
+  nombre           String
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @updatedAt @map("updated_at")
+  administracion   Administracion  @relation(fields: [administracionId], references: [id], onDelete: Restrict)
+  distritos        Distrito[]
+  contratos        Contrato[]
+  rutas            Ruta[]
+  medidoresBodega  MedidorBodega[] @relation("MedidorBodegaZona")
+  lotesLecturas    LoteLecturas[]
 
   @@index([administracionId])
   @@map("zonas")
@@ -50,29 +50,29 @@ model Distrito {
 
 // ---- Ciclo de obra ----
 model Factibilidad {
-  id           String   @id @default(cuid())
-  predio       String
-  solicitante  String
-  direccion    String
-  estado       String
-  fecha        String
-  notas        String  @default("")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  id             String         @id @default(cuid())
+  predio         String
+  solicitante    String
+  direccion      String
+  estado         String
+  fecha          String
+  notas          String         @default("")
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
   construcciones Construccion[]
 
   @@map("factibilidades")
 }
 
 model Construccion {
-  id             String   @id @default(cuid())
-  factibilidadId String   @map("factibilidad_id")
+  id             String       @id @default(cuid())
+  factibilidadId String       @map("factibilidad_id")
   nombre         String
-  ubicacion       String
+  ubicacion      String
   estado         String
   fecha          String
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
   factibilidad   Factibilidad @relation(fields: [factibilidadId], references: [id], onDelete: Restrict)
   tomas          Toma[]
 
@@ -81,13 +81,13 @@ model Construccion {
 }
 
 model Toma {
-  id             String   @id @default(cuid())
-  construccionId String   @map("construccion_id")
+  id             String       @id @default(cuid())
+  construccionId String       @map("construccion_id")
   ubicacion      String
-  tipo           String   // Agua | Saneamiento | Alcantarillado
-  estado         String   // Disponible | Asignada
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  tipo           String // Agua | Saneamiento | Alcantarillado
+  estado         String // Disponible | Asignada
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
   construccion   Construccion @relation(fields: [construccionId], references: [id], onDelete: Restrict)
   contratos      Contrato[]
 
@@ -97,31 +97,37 @@ model Toma {
 
 // ---- Contratos y medidores ----
 model Contrato {
-  id                      String   @id @default(cuid())
-  tomaId                  String?  @map("toma_id")
-  tipoContrato            String   @map("tipo_contrato")
-  tipoServicio            String   @map("tipo_servicio")
+  id                      String                @id @default(cuid())
+  tomaId                  String?               @map("toma_id")
+  puntoServicioId         String?               @map("punto_servicio_id")
+  domicilioId             String?               @map("domicilio_id")
+  tipoContratacionId      String?               @map("tipo_contratacion_id")
+  tipoContrato            String                @map("tipo_contrato")
+  tipoServicio            String                @map("tipo_servicio")
   nombre                  String
   rfc                     String
-  razonSocial             String?  @map("razon_social")
-  regimenFiscal           String?  @map("regimen_fiscal")
-  constanciaFiscalUrl     String?  @map("constancia_fiscal_url")
+  razonSocial             String?               @map("razon_social")
+  regimenFiscal           String?               @map("regimen_fiscal")
+  constanciaFiscalUrl     String?               @map("constancia_fiscal_url")
   direccion               String
   contacto                String
   estado                  String
   fecha                   String
-  bloqueadoJuridico       Boolean  @default(false) @map("bloqueado_juridico")
-  medidorId               String?  @map("medidor_id")
-  rutaId                  String?  @map("ruta_id")
-  zonaId                  String?  @map("zona_id")
-  domiciliado             Boolean  @default(false)
-  fechaReconexionPrevista String?  @map("fecha_reconexion_prevista")
-  ceaNumContrato          String?  @map("cea_num_contrato")
-  createdAt               DateTime @default(now()) @map("created_at")
-  updatedAt               DateTime @updatedAt @map("updated_at")
-  toma                    Toma?    @relation(fields: [tomaId], references: [id], onDelete: SetNull)
-  zona                    Zona?    @relation(fields: [zonaId], references: [id], onDelete: SetNull)
-  ruta                    Ruta?    @relation(fields: [rutaId], references: [id], onDelete: SetNull)
+  bloqueadoJuridico       Boolean               @default(false) @map("bloqueado_juridico")
+  medidorId               String?               @map("medidor_id")
+  rutaId                  String?               @map("ruta_id")
+  zonaId                  String?               @map("zona_id")
+  domiciliado             Boolean               @default(false)
+  fechaReconexionPrevista String?               @map("fecha_reconexion_prevista")
+  ceaNumContrato          String?               @map("cea_num_contrato")
+  createdAt               DateTime              @default(now()) @map("created_at")
+  updatedAt               DateTime              @updatedAt @map("updated_at")
+  toma                    Toma?                 @relation(fields: [tomaId], references: [id], onDelete: SetNull)
+  puntoServicio           PuntoServicio?        @relation(fields: [puntoServicioId], references: [id], onDelete: SetNull)
+  domicilio               Domicilio?            @relation(fields: [domicilioId], references: [id], onDelete: SetNull)
+  tipoContratacion        TipoContratacion?     @relation(fields: [tipoContratacionId], references: [id], onDelete: SetNull)
+  zona                    Zona?                 @relation(fields: [zonaId], references: [id], onDelete: SetNull)
+  ruta                    Ruta?                 @relation(fields: [rutaId], references: [id], onDelete: SetNull)
   medidor                 Medidor?
   costosContrato          CostoContrato[]
   consumos                Consumo[]
@@ -135,8 +141,12 @@ model Contrato {
   convenios               Convenio[]
   anticipos               Anticipo[]
   sigeHydraCasos          SigeHydra[]
+  procesosContratacion    ProcesoContratacion[]
 
   @@index([tomaId])
+  @@index([puntoServicioId])
+  @@index([domicilioId])
+  @@index([tipoContratacionId])
   @@index([rutaId])
   @@index([zonaId])
   @@index([medidorId])
@@ -144,29 +154,29 @@ model Contrato {
 }
 
 model CostoContrato {
-  id          String   @id @default(cuid())
-  contratoId  String   @map("contrato_id")
-  concepto    String
-  monto       Decimal  @db.Decimal(10, 2)
-  periodo     String?
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
-  contrato    Contrato @relation(fields: [contratoId], references: [id], onDelete: Cascade)
+  id         String   @id @default(cuid())
+  contratoId String   @map("contrato_id")
+  concepto   String
+  monto      Decimal  @db.Decimal(10, 2)
+  periodo    String?
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+  contrato   Contrato @relation(fields: [contratoId], references: [id], onDelete: Cascade)
 
   @@index([contratoId])
   @@map("costos_contrato")
 }
 
 model Medidor {
-  id              String   @id @default(cuid())
-  contratoId      String   @unique @map("contrato_id")
-  serie           String
-  estado          String
-  cobroDiferido   Boolean  @default(false) @map("cobro_diferido")
-  lecturaInicial  Int      @map("lectura_inicial")
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
-  contrato        Contrato @relation(fields: [contratoId], references: [id], onDelete: Cascade)
+  id             String   @id @default(cuid())
+  contratoId     String   @unique @map("contrato_id")
+  serie          String
+  estado         String
+  cobroDiferido  Boolean  @default(false) @map("cobro_diferido")
+  lecturaInicial Int      @map("lectura_inicial")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+  contrato       Contrato @relation(fields: [contratoId], references: [id], onDelete: Cascade)
 
   @@index([contratoId])
   @@map("medidores")
@@ -176,7 +186,7 @@ model MedidorBodega {
   id        String   @id @default(cuid())
   serie     String
   zonaId    String?  @map("zona_id")
-  estado    String   // Disponible | En reparación
+  estado    String // Disponible | En reparación
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
   zona      Zona?    @relation("MedidorBodegaZona", fields: [zonaId], references: [id], onDelete: SetNull)
@@ -186,17 +196,17 @@ model MedidorBodega {
 }
 
 model Ruta {
-  id          String   @id @default(cuid())
-  zonaId      String   @map("zona_id")
-  distritoId  String?  @map("distrito_id")
-  sector      String
-  libreta     String
-  lecturista  String
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
-  zona        Zona     @relation(fields: [zonaId], references: [id], onDelete: Restrict)
-  distrito    Distrito? @relation(fields: [distritoId], references: [id], onDelete: SetNull)
-  contratos   Contrato[]
+  id            String         @id @default(cuid())
+  zonaId        String         @map("zona_id")
+  distritoId    String?        @map("distrito_id")
+  sector        String
+  libreta       String
+  lecturista    String
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+  zona          Zona           @relation(fields: [zonaId], references: [id], onDelete: Restrict)
+  distrito      Distrito?      @relation(fields: [distritoId], references: [id], onDelete: SetNull)
+  contratos     Contrato[]
   lotesLecturas LoteLecturas[]
 
   @@index([zonaId])
@@ -206,23 +216,23 @@ model Ruta {
 
 // ---- Quejas y Aclaraciones ----
 model QuejaAclaracion {
-  id             String   @id @default(cuid())
-  contratoId     String   @map("contrato_id")
-  fecha          DateTime @default(now())
-  tipo           String   // 'Queja' | 'Aclaración'
-  descripcion    String
-  estado         String   @default("Registrada")
-  atendidoPor    String?  @map("atendido_por")
-  categoria      String?
-  prioridad      String   @default("Media")
-  canal          String   @default("Ventanilla")
-  areaAsignada   String   @default("Atención a clientes") @map("area_asignada")
-  enlaceExterno  String?  @map("enlace_externo")
-  motivoCierre   String?  @map("motivo_cierre")
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  id            String   @id @default(cuid())
+  contratoId    String   @map("contrato_id")
+  fecha         DateTime @default(now())
+  tipo          String // 'Queja' | 'Aclaración'
+  descripcion   String
+  estado        String   @default("Registrada")
+  atendidoPor   String?  @map("atendido_por")
+  categoria     String?
+  prioridad     String   @default("Media")
+  canal         String   @default("Ventanilla")
+  areaAsignada  String   @default("Atención a clientes") @map("area_asignada")
+  enlaceExterno String?  @map("enlace_externo")
+  motivoCierre  String?  @map("motivo_cierre")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
 
-  seguimientos   SeguimientoQueja[]
+  seguimientos SeguimientoQueja[]
 
   @@index([contratoId])
   @@map("quejas_aclaraciones")
@@ -234,10 +244,10 @@ model SeguimientoQueja {
   fecha     DateTime @default(now())
   nota      String
   usuario   String
-  tipo      String   // 'nota' | 'cambio_estado' | 'reasignacion' | 'contacto_cliente'
+  tipo      String // 'nota' | 'cambio_estado' | 'reasignacion' | 'contacto_cliente'
   createdAt DateTime @default(now()) @map("created_at")
 
-  queja     QuejaAclaracion @relation(fields: [quejaId], references: [id], onDelete: Cascade)
+  queja QuejaAclaracion @relation(fields: [quejaId], references: [id], onDelete: Cascade)
 
   @@index([quejaId])
   @@map("seguimientos_queja")
@@ -245,15 +255,15 @@ model SeguimientoQueja {
 
 // ---- Portal de clientes ----
 model Consumo {
-  id         String   @id @default(cuid())
-  contratoId String   @map("contrato_id")
+  id         String    @id @default(cuid())
+  contratoId String    @map("contrato_id")
   periodo    String
-  m3         Decimal  @db.Decimal(10, 2)
-  tipo       String   // Real | Promedio histórico | Mixto | Consumo fijo
-  confirmado Boolean  @default(false)
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
-  contrato   Contrato @relation(fields: [contratoId], references: [id], onDelete: Cascade)
+  m3         Decimal   @db.Decimal(10, 2)
+  tipo       String // Real | Promedio histórico | Mixto | Consumo fijo
+  confirmado Boolean   @default(false)
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+  contrato   Contrato  @relation(fields: [contratoId], references: [id], onDelete: Cascade)
   timbrado   Timbrado?
 
   @@index([contratoId])
@@ -265,7 +275,7 @@ model Timbrado {
   contratoId       String   @map("contrato_id")
   consumoId        String?  @unique @map("consumo_id")
   uuid             String   @default("")
-  estado           String   // Timbrada OK | Error PAC | Pendiente
+  estado           String // Timbrada OK | Error PAC | Pendiente
   periodo          String
   subtotal         Decimal  @db.Decimal(10, 2)
   iva              Decimal  @db.Decimal(10, 2)
@@ -288,8 +298,8 @@ model Recibo {
   id               String   @id @default(cuid())
   contratoId       String   @map("contrato_id")
   timbradoId       String   @map("timbrado_id")
-  saldoVigente     Decimal  @db.Decimal(10, 2) @map("saldo_vigente")
-  saldoVencido     Decimal  @db.Decimal(10, 2) @map("saldo_vencido")
+  saldoVigente     Decimal  @map("saldo_vigente") @db.Decimal(10, 2)
+  saldoVencido     Decimal  @map("saldo_vencido") @db.Decimal(10, 2)
   fechaVencimiento String   @map("fecha_vencimiento")
   parcialidades    Int      @default(1)
   impreso          Boolean  @default(false)
@@ -305,20 +315,20 @@ model Recibo {
 }
 
 model Pago {
-  id         String   @id @default(cuid())
-  contratoId String   @map("contrato_id")
-  reciboId   String?  @map("recibo_id")
-  timbradoId String?  @map("timbrado_id")
-  convenioId String?  @map("convenio_id")
-  monto      Decimal  @db.Decimal(10, 2)
+  id         String    @id @default(cuid())
+  contratoId String    @map("contrato_id")
+  reciboId   String?   @map("recibo_id")
+  timbradoId String?   @map("timbrado_id")
+  convenioId String?   @map("convenio_id")
+  monto      Decimal   @db.Decimal(10, 2)
   fecha      String
-  tipo       String   // Efectivo | Transferencia | Tarjeta | SPEI | OXXO | CoDi | WEB
+  tipo       String // Efectivo | Transferencia | Tarjeta | SPEI | OXXO | CoDi | WEB
   concepto   String
-  origen     String   @default("nativo") // nativo | externo
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
-  contrato   Contrato @relation(fields: [contratoId], references: [id], onDelete: Cascade)
-  recibo     Recibo?  @relation(fields: [reciboId], references: [id], onDelete: SetNull)
+  origen     String    @default("nativo") // nativo | externo
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+  contrato   Contrato  @relation(fields: [contratoId], references: [id], onDelete: Cascade)
+  recibo     Recibo?   @relation(fields: [reciboId], references: [id], onDelete: SetNull)
   timbrado   Timbrado? @relation(fields: [timbradoId], references: [id], onDelete: SetNull)
   convenio   Convenio? @relation(fields: [convenioId], references: [id], onDelete: SetNull)
 
@@ -339,16 +349,16 @@ enum UserRole {
 }
 
 model User {
-  id                  String   @id @default(cuid())
-  email               String   @unique
-  passwordHash        String   @map("password_hash")
-  name                String
-  role                UserRole @default(OPERADOR)
-  administracionIds   String[] @map("administracion_ids")
-  zonaIds             String[] @map("zona_ids")
-  contratoIds         String[] @map("contrato_ids")
-  createdAt           DateTime @default(now()) @map("created_at")
-  updatedAt           DateTime @updatedAt @map("updated_at")
+  id                String   @id @default(cuid())
+  email             String   @unique
+  passwordHash      String   @map("password_hash")
+  name              String
+  role              UserRole @default(OPERADOR)
+  administracionIds String[] @map("administracion_ids")
+  zonaIds           String[] @map("zona_ids")
+  contratoIds       String[] @map("contrato_ids")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
 
   @@map("users")
 }
@@ -493,26 +503,33 @@ model PagoExterno {
 
 // ---- T03: Sistema de órdenes ----
 model Orden {
-  id              String            @id @default(cuid())
-  contratoId      String            @map("contrato_id")
-  tipo            String
-  estado          String            @default("Pendiente")
-  prioridad       String            @default("Normal")
-  fechaSolicitud  DateTime          @default(now()) @map("fecha_solicitud")
-  fechaProgramada DateTime?         @map("fecha_programada")
-  fechaEjecucion  DateTime?         @map("fecha_ejecucion")
-  operadorId      String?           @map("operador_id")
-  notas           String?
-  datosCampo      Json?             @map("datos_campo")
-  externalRef     String?           @map("external_ref")
-  createdAt       DateTime          @default(now()) @map("created_at")
-  updatedAt       DateTime          @updatedAt @map("updated_at")
-  contrato        Contrato          @relation(fields: [contratoId], references: [id], onDelete: Restrict)
-  seguimientos    SeguimientoOrden[]
+  id                String             @id @default(cuid())
+  contratoId        String             @map("contrato_id")
+  tipo              String
+  subtipoCorteId    String?            @map("subtipo_corte_id")
+  estado            String             @default("Pendiente")
+  prioridad         String             @default("Normal")
+  origenAutomatico  Boolean            @default(false) @map("origen_automatico")
+  eventoOrigen      String?            @map("evento_origen")
+  fechaSolicitud    DateTime           @default(now()) @map("fecha_solicitud")
+  fechaProgramada   DateTime?          @map("fecha_programada")
+  fechaEjecucion    DateTime?          @map("fecha_ejecucion")
+  operadorId        String?            @map("operador_id")
+  ubicacionCorte    String?            @map("ubicacion_corte") // cuadro | toma | llave_banqueta
+  condicionCortable Boolean?           @map("condicion_cortable")
+  notas             String?
+  datosCampo        Json?              @map("datos_campo")
+  externalRef       String?            @map("external_ref")
+  createdAt         DateTime           @default(now()) @map("created_at")
+  updatedAt         DateTime           @updatedAt @map("updated_at")
+  contrato          Contrato           @relation(fields: [contratoId], references: [id], onDelete: Restrict)
+  subtipoCorte      CatalogoTipoCorte? @relation(fields: [subtipoCorteId], references: [id], onDelete: SetNull)
+  seguimientos      SeguimientoOrden[]
 
   @@index([contratoId])
   @@index([estado])
   @@index([tipo])
+  @@index([subtipoCorteId])
   @@index([fechaProgramada])
   @@map("ordenes")
 }
@@ -629,34 +646,44 @@ model CambioGIS {
 
 // ---- T06: Personas, Trámites ----
 model Persona {
-  id        String               @id @default(cuid())
-  nombre    String
-  rfc       String?
-  tipo      String               @default("Fisica")
-  email     String?
-  telefono  String?
-  createdAt DateTime             @default(now()) @map("created_at")
-  updatedAt DateTime             @updatedAt @map("updated_at")
-  roles     RolPersonaContrato[]
-  tramites  Tramite[]
+  id                 String               @id @default(cuid())
+  nombre             String
+  apellidoPaterno    String?              @map("apellido_paterno")
+  apellidoMaterno    String?              @map("apellido_materno")
+  rfc                String?
+  curp               String?
+  tipo               String               @default("Fisica") // Fisica | Moral
+  razonSocial        String?              @map("razon_social")
+  regimenFiscal      String?              @map("regimen_fiscal")
+  tipoIdentificacion String?              @map("tipo_identificacion") // INE | Pasaporte | Licencia
+  numIdentificacion  String?              @map("num_identificacion")
+  email              String?
+  telefono           String?
+  telefonoAlt        String?              @map("telefono_alt")
+  createdAt          DateTime             @default(now()) @map("created_at")
+  updatedAt          DateTime             @updatedAt @map("updated_at")
+  roles              RolPersonaContrato[]
+  tramites           Tramite[]
+  domicilios         DomicilioPersona[]
 
   @@index([rfc])
+  @@index([curp])
   @@index([nombre])
   @@map("personas")
 }
 
 model RolPersonaContrato {
-  id         String   @id @default(cuid())
-  personaId  String   @map("persona_id")
-  contratoId String   @map("contrato_id")
+  id         String    @id @default(cuid())
+  personaId  String    @map("persona_id")
+  contratoId String    @map("contrato_id")
   rol        String
-  activo     Boolean  @default(true)
-  fechaDesde DateTime @default(now()) @map("fecha_desde")
+  activo     Boolean   @default(true)
+  fechaDesde DateTime  @default(now()) @map("fecha_desde")
   fechaHasta DateTime? @map("fecha_hasta")
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
-  persona    Persona  @relation(fields: [personaId], references: [id], onDelete: Restrict)
-  contrato   Contrato @relation(fields: [contratoId], references: [id], onDelete: Restrict)
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+  persona    Persona   @relation(fields: [personaId], references: [id], onDelete: Restrict)
+  contrato   Contrato  @relation(fields: [contratoId], references: [id], onDelete: Restrict)
 
   @@unique([personaId, contratoId, rol])
   @@index([contratoId])
@@ -683,22 +710,22 @@ model HistoricoContrato {
 }
 
 model Tramite {
-  id               String              @id @default(cuid())
-  folio            String              @unique
-  contratoId       String?             @map("contrato_id")
-  personaId        String?             @map("persona_id")
+  id               String               @id @default(cuid())
+  folio            String               @unique
+  contratoId       String?              @map("contrato_id")
+  personaId        String?              @map("persona_id")
   tipo             String
-  estado           String              @default("Iniciado")
+  estado           String               @default("Iniciado")
   descripcion      String?
-  datosAdicionales Json?               @map("datos_adicionales")
-  aprobadoPor      String?             @map("aprobado_por")
-  fechaAprobacion  DateTime?           @map("fecha_aprobacion")
-  canal            String?             @default("presencial") // presencial | digital | hibrido
-  notificadoPor    String?             @map("notificado_por") // email | whatsapp | null
-  createdAt        DateTime            @default(now()) @map("created_at")
-  updatedAt        DateTime            @updatedAt @map("updated_at")
-  contrato         Contrato?           @relation(fields: [contratoId], references: [id], onDelete: SetNull)
-  persona          Persona?            @relation(fields: [personaId], references: [id], onDelete: SetNull)
+  datosAdicionales Json?                @map("datos_adicionales")
+  aprobadoPor      String?              @map("aprobado_por")
+  fechaAprobacion  DateTime?            @map("fecha_aprobacion")
+  canal            String?              @default("presencial") // presencial | digital | hibrido
+  notificadoPor    String?              @map("notificado_por") // email | whatsapp | null
+  createdAt        DateTime             @default(now()) @map("created_at")
+  updatedAt        DateTime             @updatedAt @map("updated_at")
+  contrato         Contrato?            @relation(fields: [contratoId], references: [id], onDelete: SetNull)
+  persona          Persona?             @relation(fields: [personaId], references: [id], onDelete: SetNull)
   documentos       Documento[]
   historial        HistoricoContrato[]
   seguimientos     SeguimientoTramite[]
@@ -724,29 +751,29 @@ model SeguimientoTramite {
 }
 
 model CatalogoTramite {
-  id                  String   @id @default(cuid())
-  tipo                String   @unique
-  descripcion         String
-  tipoFirma           String   @map("tipo_firma") // autografa | digital | ambas
-  documentosRequeridos Json    @map("documentos_requeridos")
-  activo              Boolean  @default(true)
-  createdAt           DateTime @default(now()) @map("created_at")
-  updatedAt           DateTime @updatedAt @map("updated_at")
+  id                   String   @id @default(cuid())
+  tipo                 String   @unique
+  descripcion          String
+  tipoFirma            String   @map("tipo_firma") // autografa | digital | ambas
+  documentosRequeridos Json     @map("documentos_requeridos")
+  activo               Boolean  @default(true)
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
 
   @@map("catalogo_tramites")
 }
 
 model Documento {
-  id        String   @id @default(cuid())
-  tramiteId String   @map("tramite_id")
-  nombre    String
-  tipo      String
-  url       String?
-  verificado Boolean @default(false)
-  notas     String?
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-  tramite   Tramite  @relation(fields: [tramiteId], references: [id], onDelete: Cascade)
+  id         String   @id @default(cuid())
+  tramiteId  String   @map("tramite_id")
+  nombre     String
+  tipo       String
+  url        String?
+  verificado Boolean  @default(false)
+  notas      String?
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+  tramite    Tramite  @relation(fields: [tramiteId], references: [id], onDelete: Cascade)
 
   @@index([tramiteId])
   @@map("documentos")
@@ -754,20 +781,20 @@ model Documento {
 
 // ---- Agora integration (mock) ----
 model AgoraTicket {
-  id           String   @id @default(cuid())
-  contratoId   String?  @map("contrato_id")
-  tramiteId    String?  @map("tramite_id")
-  quejaId      String?  @map("queja_id")
-  agoraRef     String?  @map("agora_ref")
-  titulo       String
-  descripcion  String
-  estado       String   @default("Abierto")
-  prioridad    String   @default("Media")
-  creadoPor    String   @map("creado_por")
-  datosEnvio   Json?    @map("datos_envio")
-  respuesta    Json?
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  id          String   @id @default(cuid())
+  contratoId  String?  @map("contrato_id")
+  tramiteId   String?  @map("tramite_id")
+  quejaId     String?  @map("queja_id")
+  agoraRef    String?  @map("agora_ref")
+  titulo      String
+  descripcion String
+  estado      String   @default("Abierto")
+  prioridad   String   @default("Media")
+  creadoPor   String   @map("creado_por")
+  datosEnvio  Json?    @map("datos_envio")
+  respuesta   Json?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
   @@index([contratoId])
   @@index([estado])
@@ -780,12 +807,12 @@ model SesionCaja {
   usuarioId     String     @map("usuario_id")
   apertura      DateTime   @default(now())
   cierre        DateTime?
-  montoInicial  Decimal    @default(0) @db.Decimal(10, 2) @map("monto_inicial")
-  totalCobrado  Decimal    @default(0) @db.Decimal(10, 2) @map("total_cobrado")
-  totalEfectivo Decimal    @default(0) @db.Decimal(10, 2) @map("total_efectivo")
-  totalTransf   Decimal    @default(0) @db.Decimal(10, 2) @map("total_transf")
-  totalTarjeta  Decimal    @default(0) @db.Decimal(10, 2) @map("total_tarjeta")
-  totalAnticipo Decimal    @default(0) @db.Decimal(10, 2) @map("total_anticipo")
+  montoInicial  Decimal    @default(0) @map("monto_inicial") @db.Decimal(10, 2)
+  totalCobrado  Decimal    @default(0) @map("total_cobrado") @db.Decimal(10, 2)
+  totalEfectivo Decimal    @default(0) @map("total_efectivo") @db.Decimal(10, 2)
+  totalTransf   Decimal    @default(0) @map("total_transf") @db.Decimal(10, 2)
+  totalTarjeta  Decimal    @default(0) @map("total_tarjeta") @db.Decimal(10, 2)
+  totalAnticipo Decimal    @default(0) @map("total_anticipo") @db.Decimal(10, 2)
   estado        String     @default("Abierta")
   resumen       Json?
   createdAt     DateTime   @default(now()) @map("created_at")
@@ -816,31 +843,34 @@ model Anticipo {
 }
 
 model Convenio {
-  id                    String   @id @default(cuid())
-  contratoId            String   @map("contrato_id")
-  tipo                  String   @default("Parcialidades")
-  numParcialidades      Int      @map("num_parcialidades")
-  montoParcialidad      Decimal  @db.Decimal(10, 2) @map("monto_parcialidad")
-  montoTotal            Decimal  @db.Decimal(10, 2) @map("monto_total")
-  montoPagado           Decimal  @default(0) @db.Decimal(10, 2) @map("monto_pagado")
-  porcentajeAnticipo    Decimal? @db.Decimal(5, 2) @map("porcentaje_anticipo")
-  montoAnticipo         Decimal? @db.Decimal(10, 2) @map("monto_anticipo")
-  anticipoPagado        Boolean  @default(false) @map("anticipo_pagado")
-  facturas              Json
-  datosConvenio         Json?    @map("datos_convenio") // nombre firmante, cargo, docs presentados
-  checklistInterna      Json?    @map("checklist_interna")
-  estado                String   @default("Activo")
-  parcialidadesRestantes Int     @default(0) @map("parcialidades_restantes")
-  saldoAFavor           Decimal  @default(0) @db.Decimal(10, 2) @map("saldo_a_favor")
-  fechaInicio           DateTime @default(now()) @map("fecha_inicio")
-  fechaVencimiento      DateTime? @map("fecha_vencimiento")
-  createdAt             DateTime @default(now()) @map("created_at")
-  updatedAt             DateTime @updatedAt @map("updated_at")
-  contrato              Contrato @relation(fields: [contratoId], references: [id], onDelete: Restrict)
-  pagos                 Pago[]
+  id                     String    @id @default(cuid())
+  contratoId             String    @map("contrato_id")
+  tipo                   String    @default("Parcialidades")
+  origenTipo             String?   @map("origen_tipo") // adeudo_vencido | corte | reconexion
+  numParcialidades       Int       @map("num_parcialidades")
+  montoParcialidad       Decimal   @map("monto_parcialidad") @db.Decimal(10, 2)
+  montoTotal             Decimal   @map("monto_total") @db.Decimal(10, 2)
+  montoPagado            Decimal   @default(0) @map("monto_pagado") @db.Decimal(10, 2)
+  porcentajeAnticipo     Decimal?  @map("porcentaje_anticipo") @db.Decimal(5, 2)
+  montoAnticipo          Decimal?  @map("monto_anticipo") @db.Decimal(10, 2)
+  anticipoPagado         Boolean   @default(false) @map("anticipo_pagado")
+  facturas               Json
+  facturaOrigenId        String?   @map("factura_origen_id")
+  datosConvenio          Json?     @map("datos_convenio")
+  checklistInterna       Json?     @map("checklist_interna")
+  estado                 String    @default("Activo")
+  parcialidadesRestantes Int       @default(0) @map("parcialidades_restantes")
+  saldoAFavor            Decimal   @default(0) @map("saldo_a_favor") @db.Decimal(10, 2)
+  fechaInicio            DateTime  @default(now()) @map("fecha_inicio")
+  fechaVencimiento       DateTime? @map("fecha_vencimiento")
+  createdAt              DateTime  @default(now()) @map("created_at")
+  updatedAt              DateTime  @updatedAt @map("updated_at")
+  contrato               Contrato  @relation(fields: [contratoId], references: [id], onDelete: Restrict)
+  pagos                  Pago[]
 
   @@index([contratoId])
   @@index([estado])
+  @@index([origenTipo])
   @@map("convenios")
 }
 
@@ -862,20 +892,20 @@ model MensajeRecibo {
 
 // ---- T09: Monitoreo y Conciliaciones ----
 model LogProceso {
-  id          String    @id @default(cuid())
-  tipo        String
-  subTipo     String?   @map("sub_tipo")
-  estado      String    @default("Iniciado")
-  inicio      DateTime  @default(now())
-  fin         DateTime?
-  duracionMs  Int?      @map("duracion_ms")
-  registros   Int       @default(0)
-  errores     Int       @default(0)
-  advertencias Int      @default(0)
-  detalle     Json?
-  errorMsg    String?   @map("error_msg")
-  usuarioId   String?   @map("usuario_id")
-  createdAt   DateTime  @default(now()) @map("created_at")
+  id           String    @id @default(cuid())
+  tipo         String
+  subTipo      String?   @map("sub_tipo")
+  estado       String    @default("Iniciado")
+  inicio       DateTime  @default(now())
+  fin          DateTime?
+  duracionMs   Int?      @map("duracion_ms")
+  registros    Int       @default(0)
+  errores      Int       @default(0)
+  advertencias Int       @default(0)
+  detalle      Json?
+  errorMsg     String?   @map("error_msg")
+  usuarioId    String?   @map("usuario_id")
+  createdAt    DateTime  @default(now()) @map("created_at")
 
   @@index([tipo])
   @@index([estado])
@@ -884,20 +914,23 @@ model LogProceso {
 }
 
 model ConciliacionReporte {
-  id              String   @id @default(cuid())
-  tipo            String
-  periodo         String
-  ejecutadoEn     DateTime @default(now()) @map("ejecutado_en")
-  totalSistemaA   Int      @map("total_sistema_a")
-  totalSistemaB   Int      @map("total_sistema_b")
-  coincidencias   Int
-  diferencias     Int
-  montoSistemaA   Decimal? @db.Decimal(14, 2) @map("monto_sistema_a")
-  montoSistemaB   Decimal? @db.Decimal(14, 2) @map("monto_sistema_b")
-  montoDiferencia Decimal? @db.Decimal(14, 2) @map("monto_diferencia")
-  detalles        Json?
-  estado          String   @default("Revisión")
-  createdAt       DateTime @default(now()) @map("created_at")
+  id                 String   @id @default(cuid())
+  tipo               String
+  periodo            String
+  ejecutadoEn        DateTime @default(now()) @map("ejecutado_en")
+  totalSistemaA      Int      @map("total_sistema_a")
+  totalSistemaB      Int      @map("total_sistema_b")
+  coincidencias      Int
+  diferencias        Int
+  montoSistemaA      Decimal? @map("monto_sistema_a") @db.Decimal(14, 2)
+  montoSistemaB      Decimal? @map("monto_sistema_b") @db.Decimal(14, 2)
+  montoDiferencia    Decimal? @map("monto_diferencia") @db.Decimal(14, 2)
+  detalles           Json?
+  estado             String   @default("Revisión")
+  contratosSinPunto  Int?     @map("contratos_sin_punto")
+  domiciliosSinINEGI Int?     @map("domicilios_sin_inegi")
+  tarifasVencidas    Int?     @map("tarifas_vencidas")
+  createdAt          DateTime @default(now()) @map("created_at")
 
   @@index([tipo])
   @@index([periodo])
@@ -906,16 +939,419 @@ model ConciliacionReporte {
 
 // ---- SIGE Hydra (relación contrato SIGE) ----
 model SigeHydra {
-  id          String    @id @default(cuid())
-  cnttnum     String    @unique @map("cnttnum")
-  cnttrefant  String    @map("cnttrefant")
-  contratoId  String?   @map("contrato_id")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
+  id         String   @id @default(cuid())
+  cnttnum    String   @unique @map("cnttnum")
+  cnttrefant String   @map("cnttrefant")
+  contratoId String?  @map("contrato_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
 
-  contrato    Contrato? @relation(fields: [contratoId], references: [id], onDelete: SetNull)
+  contrato Contrato? @relation(fields: [contratoId], references: [id], onDelete: SetNull)
 
   @@index([contratoId])
   @@index([cnttrefant])
   @@map("sige_hydra")
+}
+
+// ---- T10: Flujo de Contratación End-to-End ----
+model ProcesoContratacion {
+  id               String             @id @default(cuid())
+  contratoId       String?            @map("contrato_id")
+  tramiteId        String?            @map("tramite_id")
+  etapa            String             @default("solicitud") // solicitud | factibilidad | contrato | medidor | alta
+  estado           String             @default("en_progreso")
+  fechaInicio      DateTime           @default(now()) @map("fecha_inicio")
+  fechaFin         DateTime?          @map("fecha_fin")
+  plantillaId      String?            @map("plantilla_id")
+  creadoPor        String?            @map("creado_por")
+  datosAdicionales Json?              @map("datos_adicionales")
+  createdAt        DateTime           @default(now()) @map("created_at")
+  updatedAt        DateTime           @updatedAt @map("updated_at")
+  contrato         Contrato?          @relation(fields: [contratoId], references: [id], onDelete: SetNull)
+  plantilla        PlantillaContrato? @relation(fields: [plantillaId], references: [id], onDelete: SetNull)
+  hitos            HitoContratacion[]
+
+  @@index([contratoId])
+  @@index([etapa])
+  @@index([estado])
+  @@map("procesos_contratacion")
+}
+
+model HitoContratacion {
+  id         String              @id @default(cuid())
+  procesoId  String              @map("proceso_id")
+  etapa      String
+  estado     String              @default("pendiente") // pendiente | completado | omitido
+  nota       String?
+  usuario    String?
+  fechaCumpl DateTime?           @map("fecha_cumpl")
+  createdAt  DateTime            @default(now()) @map("created_at")
+  proceso    ProcesoContratacion @relation(fields: [procesoId], references: [id], onDelete: Cascade)
+
+  @@index([procesoId])
+  @@map("hitos_contratacion")
+}
+
+model PlantillaContrato {
+  id        String                @id @default(cuid())
+  nombre    String
+  version   String                @default("1.0")
+  contenido String                @db.Text
+  variables Json?
+  activo    Boolean               @default(true)
+  createdAt DateTime              @default(now()) @map("created_at")
+  updatedAt DateTime              @updatedAt @map("updated_at")
+  procesos  ProcesoContratacion[]
+
+  @@map("plantillas_contrato")
+}
+
+// ---- T11: Punto de Servicio y Modelo de Cortes ----
+model PuntoServicio {
+  id                   String                     @id @default(cuid())
+  codigo               String                     @unique
+  domicilioId          String?                    @map("domicilio_id")
+  tipoSuministroId     String?                    @map("tipo_suministro_id")
+  estructuraTecnicaId  String?                    @map("estructura_tecnica_id")
+  diametroToma         String?                    @map("diametro_toma")
+  materialTuberia      String?                    @map("material_tuberia")
+  profundidadToma      Decimal?                   @map("profundidad_toma") @db.Decimal(5, 2)
+  tieneValvula         Boolean                    @default(false) @map("tiene_valvula")
+  tieneCaja            Boolean                    @default(false) @map("tiene_caja")
+  gpsLat               Decimal?                   @map("gps_lat") @db.Decimal(10, 7)
+  gpsLng               Decimal?                   @map("gps_lng") @db.Decimal(10, 7)
+  estado               String                     @default("Activo")
+  cortable             Boolean                    @default(true)
+  motivoNoCortable     String?                    @map("motivo_no_cortable")
+  puntoServicioPadreId String?                    @map("punto_servicio_padre_id")
+  reparticionConsumo   Decimal?                   @map("reparticion_consumo") @db.Decimal(5, 2)
+  createdAt            DateTime                   @default(now()) @map("created_at")
+  updatedAt            DateTime                   @updatedAt @map("updated_at")
+  domicilio            Domicilio?                 @relation(fields: [domicilioId], references: [id], onDelete: SetNull)
+  tipoSuministro       CatalogoTipoSuministro?    @relation(fields: [tipoSuministroId], references: [id], onDelete: SetNull)
+  estructuraTecnica    CatalogoEstructuraTecnica? @relation(fields: [estructuraTecnicaId], references: [id], onDelete: SetNull)
+  puntoServicioPadre   PuntoServicio?             @relation("PuntoServicioHijos", fields: [puntoServicioPadreId], references: [id], onDelete: SetNull)
+  puntosServicioHijos  PuntoServicio[]            @relation("PuntoServicioHijos")
+  contratos            Contrato[]
+
+  @@index([domicilioId])
+  @@index([tipoSuministroId])
+  @@index([puntoServicioPadreId])
+  @@map("puntos_servicio")
+}
+
+model CatalogoTipoCorte {
+  id                String   @id @default(cuid())
+  codigo            String   @unique
+  descripcion       String
+  impacto           String? // suspensión_total | restricción_parcial | solo_registro
+  requiereCuadrilla Boolean  @default(false) @map("requiere_cuadrilla")
+  activo            Boolean  @default(true)
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+  ordenes           Orden[]
+
+  @@map("catalogo_tipos_corte")
+}
+
+model CatalogoTipoSuministro {
+  id          String          @id @default(cuid())
+  codigo      String          @unique
+  descripcion String
+  activo      Boolean         @default(true)
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @updatedAt @map("updated_at")
+  puntos      PuntoServicio[]
+
+  @@map("catalogo_tipos_suministro")
+}
+
+model CatalogoEstructuraTecnica {
+  id          String          @id @default(cuid())
+  codigo      String          @unique
+  descripcion String
+  activo      Boolean         @default(true)
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @updatedAt @map("updated_at")
+  puntos      PuntoServicio[]
+
+  @@map("catalogo_estructuras_tecnicas")
+}
+
+// ---- T12: Modelo de Domicilios Homologado INEGI ----
+model Domicilio {
+  id                   String                  @id @default(cuid())
+  calle                String
+  numExterior          String?                 @map("num_exterior")
+  numInterior          String?                 @map("num_interior")
+  coloniaINEGIId       String?                 @map("colonia_inegi_id")
+  codigoPostal         String?                 @map("codigo_postal")
+  localidadINEGIId     String?                 @map("localidad_inegi_id")
+  municipioINEGIId     String?                 @map("municipio_inegi_id")
+  estadoINEGIId        String?                 @map("estado_inegi_id")
+  entreCalle1          String?                 @map("entre_calle_1")
+  entreCalle2          String?                 @map("entre_calle_2")
+  referencia           String?
+  direccionConcatenada String?                 @map("direccion_concatenada")
+  gpsLat               Decimal?                @map("gps_lat") @db.Decimal(10, 7)
+  gpsLng               Decimal?                @map("gps_lng") @db.Decimal(10, 7)
+  validadoINEGI        Boolean                 @default(false) @map("validado_inegi")
+  createdAt            DateTime                @default(now()) @map("created_at")
+  updatedAt            DateTime                @updatedAt @map("updated_at")
+  coloniaINEGI         CatalogoColoniaINEGI?   @relation(fields: [coloniaINEGIId], references: [id], onDelete: SetNull)
+  localidadINEGI       CatalogoLocalidadINEGI? @relation(fields: [localidadINEGIId], references: [id], onDelete: SetNull)
+  municipioINEGI       CatalogoMunicipioINEGI? @relation(fields: [municipioINEGIId], references: [id], onDelete: SetNull)
+  estadoINEGI          CatalogoEstadoINEGI?    @relation(fields: [estadoINEGIId], references: [id], onDelete: SetNull)
+  contratos            Contrato[]
+  puntosServicio       PuntoServicio[]
+  personaLinks         DomicilioPersona[]
+
+  @@index([coloniaINEGIId])
+  @@index([codigoPostal])
+  @@index([municipioINEGIId])
+  @@map("domicilios")
+}
+
+model DomicilioPersona {
+  id          String    @id @default(cuid())
+  personaId   String    @map("persona_id")
+  domicilioId String    @map("domicilio_id")
+  tipo        String    @default("fiscal") // fiscal | servicio | correspondencia
+  principal   Boolean   @default(false)
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  persona     Persona   @relation(fields: [personaId], references: [id], onDelete: Cascade)
+  domicilio   Domicilio @relation(fields: [domicilioId], references: [id], onDelete: Cascade)
+
+  @@unique([personaId, domicilioId, tipo])
+  @@index([personaId])
+  @@index([domicilioId])
+  @@map("domicilios_persona")
+}
+
+model CatalogoEstadoINEGI {
+  id         String                   @id @default(cuid())
+  claveINEGI String                   @unique @map("clave_inegi")
+  nombre     String
+  activo     Boolean                  @default(true)
+  createdAt  DateTime                 @default(now()) @map("created_at")
+  updatedAt  DateTime                 @updatedAt @map("updated_at")
+  municipios CatalogoMunicipioINEGI[]
+  domicilios Domicilio[]
+
+  @@map("catalogo_estados_inegi")
+}
+
+model CatalogoMunicipioINEGI {
+  id          String                   @id @default(cuid())
+  estadoId    String                   @map("estado_id")
+  claveINEGI  String                   @unique @map("clave_inegi")
+  nombre      String
+  activo      Boolean                  @default(true)
+  createdAt   DateTime                 @default(now()) @map("created_at")
+  updatedAt   DateTime                 @updatedAt @map("updated_at")
+  estado      CatalogoEstadoINEGI      @relation(fields: [estadoId], references: [id], onDelete: Restrict)
+  localidades CatalogoLocalidadINEGI[]
+  colonias    CatalogoColoniaINEGI[]
+  domicilios  Domicilio[]
+
+  @@index([estadoId])
+  @@map("catalogo_municipios_inegi")
+}
+
+model CatalogoLocalidadINEGI {
+  id          String                 @id @default(cuid())
+  municipioId String                 @map("municipio_id")
+  claveINEGI  String                 @unique @map("clave_inegi")
+  nombre      String
+  activo      Boolean                @default(true)
+  createdAt   DateTime               @default(now()) @map("created_at")
+  updatedAt   DateTime               @updatedAt @map("updated_at")
+  municipio   CatalogoMunicipioINEGI @relation(fields: [municipioId], references: [id], onDelete: Restrict)
+  domicilios  Domicilio[]
+
+  @@index([municipioId])
+  @@map("catalogo_localidades_inegi")
+}
+
+model CatalogoColoniaINEGI {
+  id           String                 @id @default(cuid())
+  municipioId  String                 @map("municipio_id")
+  codigoPostal String                 @map("codigo_postal")
+  claveINEGI   String                 @unique @map("clave_inegi")
+  nombre       String
+  activo       Boolean                @default(true)
+  createdAt    DateTime               @default(now()) @map("created_at")
+  updatedAt    DateTime               @updatedAt @map("updated_at")
+  municipio    CatalogoMunicipioINEGI @relation(fields: [municipioId], references: [id], onDelete: Restrict)
+  domicilios   Domicilio[]
+
+  @@index([municipioId])
+  @@index([codigoPostal])
+  @@map("catalogo_colonias_inegi")
+}
+
+// ---- T13: Tipos de Contratación Parametrizados y Catálogos Funcionales ----
+model TipoContratacion {
+  id              String                               @id @default(cuid())
+  codigo          String                               @unique
+  nombre          String
+  descripcion     String?
+  requiereMedidor Boolean                              @default(true) @map("requiere_medidor")
+  activo          Boolean                              @default(true)
+  createdAt       DateTime                             @default(now()) @map("created_at")
+  updatedAt       DateTime                             @updatedAt @map("updated_at")
+  contratos       Contrato[]
+  conceptos       ConceptoCobroTipoContratacion[]
+  clausulas       ClausulaTipoContratacion[]
+  documentos      DocumentoRequeridoTipoContratacion[]
+
+  @@map("tipos_contratacion")
+}
+
+model ConceptoCobro {
+  id                String                          @id @default(cuid())
+  codigo            String                          @unique
+  nombre            String
+  tipo              String // fijo | variable | porcentual
+  montoBase         Decimal?                        @map("monto_base") @db.Decimal(10, 2)
+  ivaPct            Decimal                         @default(16) @map("iva_pct") @db.Decimal(5, 2)
+  activo            Boolean                         @default(true)
+  createdAt         DateTime                        @default(now()) @map("created_at")
+  updatedAt         DateTime                        @updatedAt @map("updated_at")
+  tiposContratacion ConceptoCobroTipoContratacion[]
+
+  @@map("conceptos_cobro")
+}
+
+model ConceptoCobroTipoContratacion {
+  id                 String           @id @default(cuid())
+  tipoContratacionId String           @map("tipo_contratacion_id")
+  conceptoCobroId    String           @map("concepto_cobro_id")
+  obligatorio        Boolean          @default(true)
+  orden              Int              @default(0)
+  createdAt          DateTime         @default(now()) @map("created_at")
+  tipoContratacion   TipoContratacion @relation(fields: [tipoContratacionId], references: [id], onDelete: Cascade)
+  conceptoCobro      ConceptoCobro    @relation(fields: [conceptoCobroId], references: [id], onDelete: Cascade)
+
+  @@unique([tipoContratacionId, conceptoCobroId])
+  @@map("conceptos_cobro_tipo_contratacion")
+}
+
+model ClausulaContractual {
+  id                String                     @id @default(cuid())
+  codigo            String                     @unique
+  titulo            String
+  contenido         String                     @db.Text
+  version           String                     @default("1.0")
+  activo            Boolean                    @default(true)
+  createdAt         DateTime                   @default(now()) @map("created_at")
+  updatedAt         DateTime                   @updatedAt @map("updated_at")
+  tiposContratacion ClausulaTipoContratacion[]
+
+  @@map("clausulas_contractuales")
+}
+
+model ClausulaTipoContratacion {
+  id                 String              @id @default(cuid())
+  tipoContratacionId String              @map("tipo_contratacion_id")
+  clausulaId         String              @map("clausula_id")
+  obligatorio        Boolean             @default(true)
+  orden              Int                 @default(0)
+  createdAt          DateTime            @default(now()) @map("created_at")
+  tipoContratacion   TipoContratacion    @relation(fields: [tipoContratacionId], references: [id], onDelete: Cascade)
+  clausula           ClausulaContractual @relation(fields: [clausulaId], references: [id], onDelete: Cascade)
+
+  @@unique([tipoContratacionId, clausulaId])
+  @@map("clausulas_tipo_contratacion")
+}
+
+model DocumentoRequeridoTipoContratacion {
+  id                 String           @id @default(cuid())
+  tipoContratacionId String           @map("tipo_contratacion_id")
+  nombreDocumento    String           @map("nombre_documento")
+  obligatorio        Boolean          @default(true)
+  descripcion        String?
+  createdAt          DateTime         @default(now()) @map("created_at")
+  tipoContratacion   TipoContratacion @relation(fields: [tipoContratacionId], references: [id], onDelete: Cascade)
+
+  @@index([tipoContratacionId])
+  @@map("documentos_requeridos_tipo_contratacion")
+}
+
+// ---- T14: Motor Tarifario ----
+model Tarifa {
+  id             String    @id @default(cuid())
+  codigo         String
+  nombre         String
+  tipoServicio   String    @map("tipo_servicio") // agua | saneamiento | alcantarillado
+  tipoCalculo    String    @map("tipo_calculo") // escalonado | fijo | variable
+  rangoMinM3     Int?      @map("rango_min_m3")
+  rangoMaxM3     Int?      @map("rango_max_m3")
+  precioUnitario Decimal?  @map("precio_unitario") @db.Decimal(10, 4)
+  cuotaFija      Decimal?  @map("cuota_fija") @db.Decimal(10, 2)
+  ivaPct         Decimal   @default(16) @map("iva_pct") @db.Decimal(5, 2)
+  vigenciaDesde  DateTime  @map("vigencia_desde")
+  vigenciaHasta  DateTime? @map("vigencia_hasta")
+  activo         Boolean   @default(true)
+  version        Int       @default(1)
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  @@index([codigo])
+  @@index([tipoServicio])
+  @@index([vigenciaDesde])
+  @@map("tarifas")
+}
+
+model CorreccionTarifaria {
+  id          String   @id @default(cuid())
+  tarifaId    String   @map("tarifa_id")
+  tipo        String // penalizacion | bonificacion | descuento | recargo
+  descripcion String
+  formula     String?
+  porcentaje  Decimal? @db.Decimal(5, 2)
+  montoFijo   Decimal? @map("monto_fijo") @db.Decimal(10, 2)
+  condiciones Json?
+  activo      Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([tarifaId])
+  @@index([tipo])
+  @@map("correcciones_tarifarias")
+}
+
+model AjusteTarifario {
+  id            String   @id @default(cuid())
+  contratoId    String   @map("contrato_id")
+  periodo       String
+  tipo          String // manual | automatico
+  concepto      String
+  montoOriginal Decimal  @map("monto_original") @db.Decimal(10, 2)
+  montoAjustado Decimal  @map("monto_ajustado") @db.Decimal(10, 2)
+  motivo        String
+  aprobadoPor   String?  @map("aprobado_por")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@index([contratoId])
+  @@index([periodo])
+  @@map("ajustes_tarifarios")
+}
+
+model ActualizacionTarifaria {
+  id               String   @id @default(cuid())
+  descripcion      String
+  fechaPublicacion DateTime @map("fecha_publicacion")
+  fechaAplicacion  DateTime @map("fecha_aplicacion")
+  fuenteOficial    String?  @map("fuente_oficial")
+  estado           String   @default("pendiente") // pendiente | aplicada | revertida
+  tarifasAfectadas Json?    @map("tarifas_afectadas")
+  aplicadoPor      String?  @map("aplicado_por")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  @@index([estado])
+  @@index([fechaAplicacion])
+  @@map("actualizaciones_tarifarias")
 }

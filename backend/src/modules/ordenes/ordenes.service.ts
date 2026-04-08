@@ -10,6 +10,7 @@ export class OrdenesService {
     tipo?: string;
     estado?: string;
     operadorId?: string;
+    subtipoCorteId?: string;
     desde?: string;
     hasta?: string;
     page?: number;
@@ -17,11 +18,12 @@ export class OrdenesService {
   }) {
     const page = params.page ?? 1;
     const limit = params.limit ?? 20;
-    const where: any = {
+    const where: Record<string, unknown> = {
       ...(params.contratoId && { contratoId: params.contratoId }),
       ...(params.tipo && { tipo: params.tipo }),
       ...(params.estado && { estado: params.estado }),
       ...(params.operadorId && { operadorId: params.operadorId }),
+      ...(params.subtipoCorteId && { subtipoCorteId: params.subtipoCorteId }),
       ...(params.desde &&
         params.hasta && {
           fechaProgramada: { gte: new Date(params.desde), lte: new Date(params.hasta) },
@@ -32,6 +34,7 @@ export class OrdenesService {
         where,
         include: {
           contrato: { select: { id: true, nombre: true, direccion: true, zonaId: true } },
+          subtipoCorte: { select: { id: true, codigo: true, descripcion: true, impacto: true } },
           seguimientos: { orderBy: { fecha: 'desc' }, take: 1 },
         },
         orderBy: { fechaSolicitud: 'desc' },
@@ -48,6 +51,7 @@ export class OrdenesService {
       where: { id },
       include: {
         contrato: { select: { id: true, nombre: true, direccion: true, estado: true, zonaId: true } },
+        subtipoCorte: { select: { id: true, codigo: true, descripcion: true, impacto: true, requiereCuadrilla: true } },
         seguimientos: { orderBy: { fecha: 'asc' } },
       },
     });
@@ -58,23 +62,42 @@ export class OrdenesService {
   async create(dto: {
     contratoId: string;
     tipo: string;
+    subtipoCorteId?: string;
     prioridad?: string;
     fechaProgramada?: string;
     operadorId?: string;
     notas?: string;
     externalRef?: string;
+    origenAutomatico?: boolean;
+    eventoOrigen?: string;
+    ubicacionCorte?: string;
+    condicionCortable?: boolean;
   }) {
+    // MOD-T03-2: subtipoCorteId obligatorio para tipo Corte
+    if (dto.tipo === 'Corte' && !dto.subtipoCorteId) {
+      throw new BadRequestException('subtipoCorteId es obligatorio cuando tipo es Corte');
+    }
+
     const orden = await this.prisma.orden.create({
       data: {
         contratoId: dto.contratoId,
         tipo: dto.tipo,
+        subtipoCorteId: dto.subtipoCorteId ?? null,
         prioridad: dto.prioridad ?? 'Normal',
         fechaProgramada: dto.fechaProgramada ? new Date(dto.fechaProgramada) : null,
         operadorId: dto.operadorId ?? null,
         notas: dto.notas ?? null,
         externalRef: dto.externalRef ?? null,
+        origenAutomatico: dto.origenAutomatico ?? false,
+        eventoOrigen: dto.eventoOrigen ?? null,
+        ubicacionCorte: dto.ubicacionCorte ?? null,
+        condicionCortable: dto.condicionCortable ?? null,
       },
-      include: { contrato: { select: { id: true, nombre: true } }, seguimientos: true },
+      include: {
+        contrato: { select: { id: true, nombre: true } },
+        subtipoCorte: { select: { id: true, codigo: true, descripcion: true } },
+        seguimientos: true,
+      },
     });
 
     if (dto.tipo === 'Reconexion' && dto.fechaProgramada) {
@@ -93,7 +116,7 @@ export class OrdenesService {
 
     if (estadoAnterior === nuevoEstado) throw new BadRequestException('El estado no cambia');
 
-    return this.prisma.orden.update({
+    const updated = await this.prisma.orden.update({
       where: { id },
       data: {
         estado: nuevoEstado,
@@ -109,6 +132,13 @@ export class OrdenesService {
       },
       include: { seguimientos: { orderBy: { fecha: 'desc' }, take: 1 } },
     });
+
+    // MOD-T03-1: auto-generar orden de medidor al ejecutar instalación de toma
+    if (nuevoEstado === 'Ejecutada' && orden.tipo === 'InstalacionToma') {
+      await this.autoGenerarOrdenMedidor(orden);
+    }
+
+    return updated;
   }
 
   async actualizarDatosCampo(id: string, datosCampo: object) {
@@ -134,7 +164,10 @@ export class OrdenesService {
   async getByContrato(contratoId: string) {
     return this.prisma.orden.findMany({
       where: { contratoId },
-      include: { seguimientos: { orderBy: { fecha: 'desc' }, take: 3 } },
+      include: {
+        subtipoCorte: { select: { id: true, codigo: true, descripcion: true } },
+        seguimientos: { orderBy: { fecha: 'desc' }, take: 3 },
+      },
       orderBy: { fechaSolicitud: 'desc' },
     });
   }
@@ -145,5 +178,24 @@ export class OrdenesService {
       this.prisma.orden.groupBy({ by: ['tipo'], _count: { id: true } }),
     ]);
     return { porEstado, porTipo };
+  }
+
+  // MOD-T03-1: generación automática de orden de medidor al completar instalación de toma
+  private async autoGenerarOrdenMedidor(orden: {
+    id: string;
+    contratoId: string;
+    operadorId: string | null;
+  }) {
+    await this.prisma.orden.create({
+      data: {
+        contratoId: orden.contratoId,
+        tipo: 'InstalacionMedidor',
+        prioridad: 'Normal',
+        operadorId: orden.operadorId,
+        notas: `Auto-generada al completar InstalacionToma ${orden.id}`,
+        origenAutomatico: true,
+        eventoOrigen: `InstalacionToma:${orden.id}`,
+      },
+    });
   }
 }
