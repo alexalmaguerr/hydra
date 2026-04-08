@@ -1,0 +1,6 @@
+0000;C.E.A. E. MONTES QRO;16Feb2026;16Feb2026;
+0001;1   ;Agua          -C.E.A;C.E.A. E. MONTES QRO;0       ;01002754166000000023100           ;      ;efectivo;ezeqmon-16Feb2026   ;231.00         ;16Feb2026;
+0001;2   ;Agua          -C.E.A;C.E.A. E. MONTES QRO;0       ;01005843099000000023200           ;      ;efectivo;ezeqmon-16Feb2026   ;232.00         ;16Feb2026;
+0001;3   ;Agua          -C.E.A;C.E.A. E. MONTES QRO;0       ;01004134417000000101300           ;      ;efectivo;ezeqmon-16Feb2026   ;1,013.00       ;16Feb2026;
+0001;4   ;Agua          -C.E.A;C.E.A. E. MONTES QRO;0       ;01005065008000000202500           ;      ;cargo   ;ezeqmon-16Feb2026   ;2,025.00       ;16Feb2026;
+9999;4   ;3,501.00            ;
