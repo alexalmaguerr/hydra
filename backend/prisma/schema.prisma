@@ -113,6 +113,7 @@ model Contrato {
   contacto                String
   estado                  String
   fecha                   String
+  fechaBaja               String?               @map("fecha_baja")
   bloqueadoJuridico       Boolean               @default(false) @map("bloqueado_juridico")
   medidorId               String?               @map("medidor_id")
   rutaId                  String?               @map("ruta_id")
@@ -120,6 +121,21 @@ model Contrato {
   domiciliado             Boolean               @default(false)
   fechaReconexionPrevista String?               @map("fecha_reconexion_prevista")
   ceaNumContrato          String?               @map("cea_num_contrato")
+  // Campos del contrato según PRD y CIG2018 (P1)
+  actividadId             String?               @map("actividad_id")
+  categoriaId             String?               @map("categoria_id")
+  referenciaContratoAnterior String?            @map("referencia_contrato_anterior")
+  observaciones           String?               @db.Text
+  tipoEnvioFactura        String?               @map("tipo_envio_factura") // PAPEL | PDF | PAPEL_PDF
+  indicadorEmisionRecibo  Boolean               @default(true)  @map("indicador_emision_recibo")
+  indicadorExentarFacturacion Boolean           @default(false) @map("indicador_exentar_facturacion")
+  indicadorContactoCorreo Boolean               @default(false) @map("indicador_contacto_correo")
+  cicloFacturacion        String?               @map("ciclo_facturacion") // ANUAL | MENSUAL | SEMESTRAL | TRIMESTRAL
+  superficiePredio        Decimal?              @map("superficie_predio")  @db.Decimal(10, 2)
+  superficieConstruida    Decimal?              @map("superficie_construida") @db.Decimal(10, 2)
+  mesesAdeudo             Int?                  @map("meses_adeudo")
+  unidadesServidas        Int?                  @map("unidades_servidas")
+  personasHabitanVivienda Int?                  @map("personas_habitan_vivienda")
   createdAt               DateTime              @default(now()) @map("created_at")
   updatedAt               DateTime              @updatedAt @map("updated_at")
   toma                    Toma?                 @relation(fields: [tomaId], references: [id], onDelete: SetNull)
@@ -128,6 +144,8 @@ model Contrato {
   tipoContratacion        TipoContratacion?     @relation(fields: [tipoContratacionId], references: [id], onDelete: SetNull)
   zona                    Zona?                 @relation(fields: [zonaId], references: [id], onDelete: SetNull)
   ruta                    Ruta?                 @relation(fields: [rutaId], references: [id], onDelete: SetNull)
+  actividad               CatalogoActividad?    @relation(fields: [actividadId], references: [id], onDelete: SetNull)
+  categoria               CatalogoCategoria?    @relation(fields: [categoriaId], references: [id], onDelete: SetNull)
   medidor                 Medidor?
   costosContrato          CostoContrato[]
   consumos                Consumo[]
@@ -150,6 +168,8 @@ model Contrato {
   @@index([rutaId])
   @@index([zonaId])
   @@index([medidorId])
+  @@index([actividadId])
+  @@index([categoriaId])
   @@map("contratos")
 }
 
@@ -1025,6 +1045,7 @@ model PuntoServicio {
   motivoNoCortable     String?                    @map("motivo_no_cortable")
   puntoServicioPadreId String?                    @map("punto_servicio_padre_id")
   reparticionConsumo   Decimal?                   @map("reparticion_consumo") @db.Decimal(5, 2)
+  tipoRelacionPadreId  String?                    @map("tipo_relacion_padre_id")
   zonaFacturacionId    String?                    @map("zona_facturacion_id")
   codigoRecorridoId    String?                    @map("codigo_recorrido_id")
   createdAt            DateTime                   @default(now()) @map("created_at")
@@ -1034,6 +1055,7 @@ model PuntoServicio {
   estructuraTecnica    CatalogoEstructuraTecnica? @relation(fields: [estructuraTecnicaId], references: [id], onDelete: SetNull)
   zonaFacturacion      CatalogoZonaFacturacion?   @relation(fields: [zonaFacturacionId], references: [id], onDelete: SetNull)
   codigoRecorrido      CatalogoCodigoRecorrido?   @relation(fields: [codigoRecorridoId], references: [id], onDelete: SetNull)
+  tipoRelacionPadre    CatalogoTipoRelacionPS?    @relation("TipoRelacionPS", fields: [tipoRelacionPadreId], references: [id], onDelete: SetNull)
   puntoServicioPadre   PuntoServicio?             @relation("PuntoServicioHijos", fields: [puntoServicioPadreId], references: [id], onDelete: SetNull)
   puntosServicioHijos  PuntoServicio[]            @relation("PuntoServicioHijos")
   contratos            Contrato[]
@@ -1043,6 +1065,7 @@ model PuntoServicio {
   @@index([puntoServicioPadreId])
   @@index([zonaFacturacionId])
   @@index([codigoRecorridoId])
+  @@index([tipoRelacionPadreId])
   @@map("puntos_servicio")
 }
 
@@ -1082,6 +1105,58 @@ model CatalogoEstructuraTecnica {
   puntos      PuntoServicio[]
 
   @@map("catalogo_estructuras_tecnicas")
+}
+
+// ---- Catálogos del Contrato (P1, P10 — datos reales de CIG2018) ----
+
+model CatalogoGrupoActividad {
+  id          String               @id @default(cuid())
+  codigo      String               @unique
+  descripcion String
+  activo      Boolean              @default(true)
+  createdAt   DateTime             @default(now()) @map("created_at")
+  actividades CatalogoActividad[]
+
+  @@map("catalogo_grupos_actividad")
+}
+
+model CatalogoActividad {
+  id         String                  @id @default(cuid())
+  codigo     String                  @unique
+  descripcion String
+  grupoId    String?                 @map("grupo_id")
+  activo     Boolean                 @default(true)
+  createdAt  DateTime                @default(now()) @map("created_at")
+  grupo      CatalogoGrupoActividad? @relation(fields: [grupoId], references: [id], onDelete: SetNull)
+  contratos  Contrato[]
+
+  @@index([grupoId])
+  @@map("catalogo_actividades")
+}
+
+model CatalogoCategoria {
+  id          String     @id @default(cuid())
+  codigo      String     @unique
+  descripcion String
+  activo      Boolean    @default(true)
+  createdAt   DateTime   @default(now()) @map("created_at")
+  contratos   Contrato[]
+
+  @@map("catalogo_categorias")
+}
+
+// Tipos de relación padre-hijo entre puntos de servicio (P10)
+model CatalogoTipoRelacionPS {
+  id              String          @id @default(cuid())
+  codigo          String          @unique
+  descripcion     String
+  metodo          String          // ajusteSinReparto | ajusteConRepartoPartesIguales | etc.
+  reparteConsumo  Boolean         @default(false) @map("reparte_consumo")
+  activo          Boolean         @default(true)
+  createdAt       DateTime        @default(now()) @map("created_at")
+  relaciones      PuntoServicio[] @relation("TipoRelacionPS")
+
+  @@map("catalogo_tipos_relacion_ps")
 }
 
 model CatalogoZonaFacturacion {
@@ -1224,18 +1299,27 @@ model CatalogoColoniaINEGI {
 
 // ---- T13: Tipos de Contratación Parametrizados y Catálogos Funcionales ----
 model TipoContratacion {
-  id              String                               @id @default(cuid())
-  codigo          String                               @unique
-  nombre          String
-  descripcion     String?
-  requiereMedidor Boolean                              @default(true) @map("requiere_medidor")
-  activo          Boolean                              @default(true)
-  createdAt       DateTime                             @default(now()) @map("created_at")
-  updatedAt       DateTime                             @updatedAt @map("updated_at")
-  contratos       Contrato[]
-  conceptos       ConceptoCobroTipoContratacion[]
-  clausulas       ClausulaTipoContratacion[]
-  documentos      DocumentoRequeridoTipoContratacion[]
+  id                        String                               @id @default(cuid())
+  codigo                    String                               @unique
+  nombre                    String
+  descripcion               String?
+  requiereMedidor           Boolean                              @default(true)  @map("requiere_medidor")
+  // Configuración del proceso de contratación (P1, P6 — de CIG2018)
+  claseProceso              String?                              @map("clase_proceso") // AN | CN | PB | BJ
+  esContratoFormal          Boolean                              @default(true) @map("es_contrato_formal")
+  requiereSolicitudPrevia   Boolean                              @default(false) @map("requiere_solicitud_previa")
+  diasCaducidadSolicitud    Int?                                 @map("dias_caducidad_solicitud")
+  organismoAprobacion       String?                              @map("organismo_aprobacion")
+  diasPlazoAprobacion       Int?                                 @map("dias_plazo_aprobacion")
+  periodicidadesPermitidas  String?                              @map("periodicidades_permitidas") // ANUAL,MENSUAL,SEMESTRAL,TRIMESTRAL
+  tiposClientePermitidos    String?                              @map("tipos_cliente_permitidos")  // EMP,GRUPO,MUNICIPAL,OFICIAL,PARTICULAR
+  activo                    Boolean                              @default(true)
+  createdAt                 DateTime                             @default(now()) @map("created_at")
+  updatedAt                 DateTime                             @updatedAt @map("updated_at")
+  contratos                 Contrato[]
+  conceptos                 ConceptoCobroTipoContratacion[]
+  clausulas                 ClausulaTipoContratacion[]
+  documentos                DocumentoRequeridoTipoContratacion[]
 
   @@map("tipos_contratacion")
 }

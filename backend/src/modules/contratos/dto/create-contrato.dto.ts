@@ -17,4 +17,20 @@ export class CreateContratoDto {
   domiciliado?: boolean;
   fechaReconexionPrevista?: string;
   ceaNumContrato?: string;
+  // P1 campos adicionales
+  fechaBaja?: string;
+  actividadId?: string;
+  categoriaId?: string;
+  referenciaContratoAnterior?: string;
+  observaciones?: string;
+  tipoEnvioFactura?: string;
+  indicadorEmisionRecibo?: boolean;
+  indicadorExentarFacturacion?: boolean;
+  indicadorContactoCorreo?: boolean;
+  cicloFacturacion?: string;
+  superficiePredio?: number;
+  superficieConstruida?: number;
+  mesesAdeudo?: number;
+  unidadesServidas?: number;
+  personasHabitanVivienda?: number;
 }

@@ -38,6 +38,22 @@ export class ContratosService {
       domicilioId?: string | null;
       puntoServicioId?: string | null;
       tipoContratacionId?: string | null;
+      // P1 campos adicionales
+      fechaBaja?: string | null;
+      actividadId?: string | null;
+      categoriaId?: string | null;
+      referenciaContratoAnterior?: string | null;
+      observaciones?: string | null;
+      tipoEnvioFactura?: string | null;
+      indicadorEmisionRecibo?: boolean;
+      indicadorExentarFacturacion?: boolean;
+      indicadorContactoCorreo?: boolean;
+      cicloFacturacion?: string | null;
+      superficiePredio?: number | null;
+      superficieConstruida?: number | null;
+      mesesAdeudo?: number | null;
+      unidadesServidas?: number | null;
+      personasHabitanVivienda?: number | null;
     },
   ) {
     await this.findOne(id);
@@ -55,6 +71,21 @@ export class ContratosService {
         ...(dto.domicilioId !== undefined && { domicilioId: dto.domicilioId }),
         ...(dto.puntoServicioId !== undefined && { puntoServicioId: dto.puntoServicioId }),
         ...(dto.tipoContratacionId !== undefined && { tipoContratacionId: dto.tipoContratacionId }),
+        ...(dto.fechaBaja !== undefined && { fechaBaja: dto.fechaBaja }),
+        ...(dto.actividadId !== undefined && { actividadId: dto.actividadId }),
+        ...(dto.categoriaId !== undefined && { categoriaId: dto.categoriaId }),
+        ...(dto.referenciaContratoAnterior !== undefined && { referenciaContratoAnterior: dto.referenciaContratoAnterior }),
+        ...(dto.observaciones !== undefined && { observaciones: dto.observaciones }),
+        ...(dto.tipoEnvioFactura !== undefined && { tipoEnvioFactura: dto.tipoEnvioFactura }),
+        ...(dto.indicadorEmisionRecibo !== undefined && { indicadorEmisionRecibo: dto.indicadorEmisionRecibo }),
+        ...(dto.indicadorExentarFacturacion !== undefined && { indicadorExentarFacturacion: dto.indicadorExentarFacturacion }),
+        ...(dto.indicadorContactoCorreo !== undefined && { indicadorContactoCorreo: dto.indicadorContactoCorreo }),
+        ...(dto.cicloFacturacion !== undefined && { cicloFacturacion: dto.cicloFacturacion }),
+        ...(dto.superficiePredio !== undefined && { superficiePredio: dto.superficiePredio }),
+        ...(dto.superficieConstruida !== undefined && { superficieConstruida: dto.superficieConstruida }),
+        ...(dto.mesesAdeudo !== undefined && { mesesAdeudo: dto.mesesAdeudo }),
+        ...(dto.unidadesServidas !== undefined && { unidadesServidas: dto.unidadesServidas }),
+        ...(dto.personasHabitanVivienda !== undefined && { personasHabitanVivienda: dto.personasHabitanVivienda }),
       },
     });
   }
@@ -264,6 +295,21 @@ export class ContratosService {
         domiciliado: dto.domiciliado ?? false,
         fechaReconexionPrevista: dto.fechaReconexionPrevista ?? null,
         ceaNumContrato: dto.ceaNumContrato ?? null,
+        fechaBaja: dto.fechaBaja ?? null,
+        actividadId: dto.actividadId ?? null,
+        categoriaId: dto.categoriaId ?? null,
+        referenciaContratoAnterior: dto.referenciaContratoAnterior ?? null,
+        observaciones: dto.observaciones ?? null,
+        tipoEnvioFactura: dto.tipoEnvioFactura ?? null,
+        indicadorEmisionRecibo: dto.indicadorEmisionRecibo ?? true,
+        indicadorExentarFacturacion: dto.indicadorExentarFacturacion ?? false,
+        indicadorContactoCorreo: dto.indicadorContactoCorreo ?? false,
+        cicloFacturacion: dto.cicloFacturacion ?? null,
+        superficiePredio: dto.superficiePredio ?? null,
+        superficieConstruida: dto.superficieConstruida ?? null,
+        mesesAdeudo: dto.mesesAdeudo ?? null,
+        unidadesServidas: dto.unidadesServidas ?? null,
+        personasHabitanVivienda: dto.personasHabitanVivienda ?? null,
       },
     });
   }

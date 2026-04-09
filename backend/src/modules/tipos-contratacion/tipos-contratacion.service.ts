@@ -11,6 +11,15 @@ interface CreateTipoContratacionDto {
   nombre: string;
   descripcion?: string;
   requiereMedidor?: boolean;
+  // P1/P6 configuración del proceso
+  claseProceso?: string;
+  esContratoFormal?: boolean;
+  requiereSolicitudPrevia?: boolean;
+  diasCaducidadSolicitud?: number;
+  organismoAprobacion?: string;
+  diasPlazoAprobacion?: number;
+  periodicidadesPermitidas?: string;
+  tiposClientePermitidos?: string;
 }
 
 interface UpdateTipoContratacionDto {
@@ -18,6 +27,15 @@ interface UpdateTipoContratacionDto {
   descripcion?: string;
   requiereMedidor?: boolean;
   activo?: boolean;
+  // P1/P6 configuración del proceso
+  claseProceso?: string | null;
+  esContratoFormal?: boolean;
+  requiereSolicitudPrevia?: boolean;
+  diasCaducidadSolicitud?: number | null;
+  organismoAprobacion?: string | null;
+  diasPlazoAprobacion?: number | null;
+  periodicidadesPermitidas?: string | null;
+  tiposClientePermitidos?: string | null;
 }
 
 @Injectable()
@@ -70,6 +88,14 @@ export class TiposContratacionService {
         nombre: dto.nombre,
         descripcion: dto.descripcion ?? null,
         requiereMedidor: dto.requiereMedidor ?? true,
+        claseProceso: dto.claseProceso ?? null,
+        esContratoFormal: dto.esContratoFormal ?? true,
+        requiereSolicitudPrevia: dto.requiereSolicitudPrevia ?? false,
+        diasCaducidadSolicitud: dto.diasCaducidadSolicitud ?? null,
+        organismoAprobacion: dto.organismoAprobacion ?? null,
+        diasPlazoAprobacion: dto.diasPlazoAprobacion ?? null,
+        periodicidadesPermitidas: dto.periodicidadesPermitidas ?? null,
+        tiposClientePermitidos: dto.tiposClientePermitidos ?? null,
       },
     });
   }
@@ -83,6 +109,14 @@ export class TiposContratacionService {
         ...(dto.descripcion !== undefined && { descripcion: dto.descripcion }),
         ...(dto.requiereMedidor !== undefined && { requiereMedidor: dto.requiereMedidor }),
         ...(dto.activo !== undefined && { activo: dto.activo }),
+        ...(dto.claseProceso !== undefined && { claseProceso: dto.claseProceso }),
+        ...(dto.esContratoFormal !== undefined && { esContratoFormal: dto.esContratoFormal }),
+        ...(dto.requiereSolicitudPrevia !== undefined && { requiereSolicitudPrevia: dto.requiereSolicitudPrevia }),
+        ...(dto.diasCaducidadSolicitud !== undefined && { diasCaducidadSolicitud: dto.diasCaducidadSolicitud }),
+        ...(dto.organismoAprobacion !== undefined && { organismoAprobacion: dto.organismoAprobacion }),
+        ...(dto.diasPlazoAprobacion !== undefined && { diasPlazoAprobacion: dto.diasPlazoAprobacion }),
+        ...(dto.periodicidadesPermitidas !== undefined && { periodicidadesPermitidas: dto.periodicidadesPermitidas }),
+        ...(dto.tiposClientePermitidos !== undefined && { tiposClientePermitidos: dto.tiposClientePermitidos }),
       },
     });
   }

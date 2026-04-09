@@ -574,11 +574,186 @@ async function seedCatalogosContratacion() {
   console.log('Cláusulas contractuales sembradas:', clausulas.map(c => c.codigo).join(', '));
 }
 
+async function seedCatalogosActividadRelacionPS() {
+  // ─── Grupos de Actividad (19 grupos CIG2018) ────────────────────────────────
+  const grupos = [
+    { id: 'GA01', codigo: 'AGRIC', descripcion: 'Agricultura' },
+    { id: 'GA02', codigo: 'GANAD', descripcion: 'Ganadería' },
+    { id: 'GA03', codigo: 'AGRO', descripcion: 'Agroindustria' },
+    { id: 'GA04', codigo: 'PESCA', descripcion: 'Pesca y acuicultura' },
+    { id: 'GA05', codigo: 'MINER', descripcion: 'Minería' },
+    { id: 'GA06', codigo: 'MANUF', descripcion: 'Manufactura e industria' },
+    { id: 'GA07', codigo: 'CONST', descripcion: 'Construcción' },
+    { id: 'GA08', codigo: 'COMERC', descripcion: 'Comercio al por mayor' },
+    { id: 'GA09', codigo: 'COMERCM', descripcion: 'Comercio al por menor' },
+    { id: 'GA10', codigo: 'TRANSP', descripcion: 'Transporte y almacenamiento' },
+    { id: 'GA11', codigo: 'HOSPED', descripcion: 'Hospedaje y alimentos' },
+    { id: 'GA12', codigo: 'SERV_PROF', descripcion: 'Servicios profesionales' },
+    { id: 'GA13', codigo: 'SERV_GOB', descripcion: 'Servicios gubernamentales' },
+    { id: 'GA14', codigo: 'EDUC', descripcion: 'Educación' },
+    { id: 'GA15', codigo: 'SALUD', descripcion: 'Salud y asistencia social' },
+    { id: 'GA16', codigo: 'RECREAC', descripcion: 'Recreación y cultura' },
+    { id: 'GA17', codigo: 'RELIG', descripcion: 'Religioso y social' },
+    { id: 'GA18', codigo: 'HAB_PRIVADA', descripcion: 'Habitacional privada' },
+    { id: 'GA19', codigo: 'USO_MIX', descripcion: 'Uso mixto' },
+  ];
+  for (const g of grupos) {
+    await (prisma as any).catalogoGrupoActividad.upsert({
+      where: { codigo: g.codigo },
+      update: { descripcion: g.descripcion },
+      create: g,
+    });
+  }
+  console.log('Grupos de actividad sembrados:', grupos.length);
+
+  // ─── Actividades principales (subset representativo CIG2018) ────────────────
+  const actividades = [
+    // Habitacional
+    { id: 'ACT001', codigo: 'HAB_UNIFAM', descripcion: 'Habitacional unifamiliar', grupoId: 'GA18' },
+    { id: 'ACT002', codigo: 'HAB_MULTIFAM', descripcion: 'Habitacional multifamiliar / condominio', grupoId: 'GA18' },
+    { id: 'ACT003', codigo: 'HAB_RURAL', descripcion: 'Habitacional rural', grupoId: 'GA18' },
+    { id: 'ACT004', codigo: 'HAB_SOCIAL', descripcion: 'Vivienda de interés social', grupoId: 'GA18' },
+    // Comercio
+    { id: 'ACT010', codigo: 'COM_TIENDA', descripcion: 'Tienda de abarrotes / miscelánea', grupoId: 'GA09' },
+    { id: 'ACT011', codigo: 'COM_FARMACIA', descripcion: 'Farmacia', grupoId: 'GA09' },
+    { id: 'ACT012', codigo: 'COM_REST', descripcion: 'Restaurante / fonda / comedor', grupoId: 'GA11' },
+    { id: 'ACT013', codigo: 'COM_HOTEL', descripcion: 'Hotel / motel / hostal', grupoId: 'GA11' },
+    { id: 'ACT014', codigo: 'COM_OFICINA', descripcion: 'Oficinas comerciales / despachos', grupoId: 'GA12' },
+    { id: 'ACT015', codigo: 'COM_PLAZA', descripcion: 'Plaza comercial / centro comercial', grupoId: 'GA08' },
+    { id: 'ACT016', codigo: 'COM_LAVAND', descripcion: 'Lavandería', grupoId: 'GA09' },
+    { id: 'ACT017', codigo: 'COM_SALON', descripcion: 'Salón de eventos / banquetes', grupoId: 'GA16' },
+    { id: 'ACT018', codigo: 'COM_ESTETICA', descripcion: 'Estética / salón de belleza', grupoId: 'GA09' },
+    { id: 'ACT019', codigo: 'COM_LAVADO', descripcion: 'Lavado de autos', grupoId: 'GA09' },
+    { id: 'ACT020', codigo: 'COM_GAS', descripcion: 'Gasolinera / estación de servicio', grupoId: 'GA09' },
+    // Industria
+    { id: 'ACT030', codigo: 'IND_ALIM', descripcion: 'Industria alimentaria', grupoId: 'GA06' },
+    { id: 'ACT031', codigo: 'IND_TEXTIL', descripcion: 'Industria textil', grupoId: 'GA06' },
+    { id: 'ACT032', codigo: 'IND_QUIM', descripcion: 'Industria química / farmacéutica', grupoId: 'GA06' },
+    { id: 'ACT033', codigo: 'IND_METAL', descripcion: 'Industria metalmecánica', grupoId: 'GA06' },
+    { id: 'ACT034', codigo: 'IND_AUTOM', descripcion: 'Automotriz / autopartes', grupoId: 'GA06' },
+    { id: 'ACT035', codigo: 'IND_PLASTICO', descripcion: 'Plásticos y hule', grupoId: 'GA06' },
+    { id: 'ACT036', codigo: 'IND_PAPEL', descripcion: 'Papel y cartón', grupoId: 'GA06' },
+    // Gobierno y servicios públicos
+    { id: 'ACT050', codigo: 'GOB_MPIO', descripcion: 'Presidencia / palacio municipal', grupoId: 'GA13' },
+    { id: 'ACT051', codigo: 'GOB_ESCUELA', descripcion: 'Escuela pública (SEP)', grupoId: 'GA14' },
+    { id: 'ACT052', codigo: 'GOB_HOSP', descripcion: 'Hospital / clínica pública (IMSS/ISSSTE)', grupoId: 'GA15' },
+    { id: 'ACT053', codigo: 'GOB_PARQUE', descripcion: 'Parque / área verde pública', grupoId: 'GA13' },
+    { id: 'ACT054', codigo: 'GOB_MERCADO', descripcion: 'Mercado público', grupoId: 'GA13' },
+    // Privados no lucrativos
+    { id: 'ACT060', codigo: 'PRIV_IGLESIA', descripcion: 'Iglesia / templo / capilla', grupoId: 'GA17' },
+    { id: 'ACT061', codigo: 'PRIV_ASOC', descripcion: 'Asociación civil / ONG', grupoId: 'GA17' },
+    { id: 'ACT062', codigo: 'PRIV_CLUB', descripcion: 'Club deportivo privado', grupoId: 'GA16' },
+    // Construcción
+    { id: 'ACT070', codigo: 'CONST_OBRA', descripcion: 'Obra en construcción / provisional', grupoId: 'GA07' },
+    // Agropecuario
+    { id: 'ACT080', codigo: 'AGRO_RIEGO', descripcion: 'Riego agrícola', grupoId: 'GA01' },
+    { id: 'ACT081', codigo: 'AGRO_GRANJA', descripcion: 'Granja / rancho ganadero', grupoId: 'GA02' },
+    // Mixto
+    { id: 'ACT090', codigo: 'MIX_COMHAB', descripcion: 'Uso mixto (comercio + habitacional)', grupoId: 'GA19' },
+  ];
+  for (const a of actividades) {
+    await (prisma as any).catalogoActividad.upsert({
+      where: { codigo: a.codigo },
+      update: { descripcion: a.descripcion, grupoId: a.grupoId },
+      create: a,
+    });
+  }
+  console.log('Actividades sembradas:', actividades.length);
+
+  // ─── Categorías de Contrato (21 categorías CIG2018) ─────────────────────────
+  const categorias = [
+    { id: 'CAT01', codigo: 'DOM_A', descripcion: 'Doméstico A (0–10 m³)' },
+    { id: 'CAT02', codigo: 'DOM_B', descripcion: 'Doméstico B (11–20 m³)' },
+    { id: 'CAT03', codigo: 'DOM_C', descripcion: 'Doméstico C (21–30 m³)' },
+    { id: 'CAT04', codigo: 'DOM_D', descripcion: 'Doméstico D (>30 m³)' },
+    { id: 'CAT05', codigo: 'COM_PEQ', descripcion: 'Comercial pequeño' },
+    { id: 'CAT06', codigo: 'COM_MED', descripcion: 'Comercial mediano' },
+    { id: 'CAT07', codigo: 'COM_GDE', descripcion: 'Comercial grande' },
+    { id: 'CAT08', codigo: 'IND_PEQ', descripcion: 'Industrial pequeño' },
+    { id: 'CAT09', codigo: 'IND_MED', descripcion: 'Industrial mediano' },
+    { id: 'CAT10', codigo: 'IND_GDE', descripcion: 'Industrial grande' },
+    { id: 'CAT11', codigo: 'GOB_FED', descripcion: 'Gobierno federal' },
+    { id: 'CAT12', codigo: 'GOB_ESTATAL', descripcion: 'Gobierno estatal' },
+    { id: 'CAT13', codigo: 'GOB_MPAL', descripcion: 'Gobierno municipal' },
+    { id: 'CAT14', codigo: 'SERV_PUB', descripcion: 'Servicio público (escuelas, hospitales)' },
+    { id: 'CAT15', codigo: 'SOCIAL', descripcion: 'Interés social (vivienda / subsidio)' },
+    { id: 'CAT16', codigo: 'RELIG', descripcion: 'Religioso / sin fines de lucro' },
+    { id: 'CAT17', codigo: 'AGRO', descripcion: 'Agropecuario / riego' },
+    { id: 'CAT18', codigo: 'CONST_PROV', descripcion: 'Construcción provisional' },
+    { id: 'CAT19', codigo: 'MIXTO', descripcion: 'Uso mixto' },
+    { id: 'CAT20', codigo: 'CONDOM', descripcion: 'Condominial / medidor maestro' },
+    { id: 'CAT21', codigo: 'ESPECIAL', descripcion: 'Tarifa especial / convenio' },
+  ];
+  for (const c of categorias) {
+    await (prisma as any).catalogoCategoria.upsert({
+      where: { codigo: c.codigo },
+      update: { descripcion: c.descripcion },
+      create: c,
+    });
+  }
+  console.log('Categorías de contrato sembradas:', categorias.length);
+
+  // ─── Tipos de Relación Padre-Hijo PS (P10 – 6 tipos CIG2018) ────────────────
+  const tiposRelacionPS = [
+    {
+      id: 'TRP01',
+      codigo: 'CONDOM_MAESTRO',
+      descripcion: 'Medidor maestro condominial',
+      metodo: 'proporcional',
+      reparteConsumo: true,
+    },
+    {
+      id: 'TRP02',
+      codigo: 'CONDOM_INDIVIDUAL',
+      descripcion: 'Unidad condominial individual',
+      metodo: 'individual',
+      reparteConsumo: false,
+    },
+    {
+      id: 'TRP03',
+      codigo: 'SUBMEDICION',
+      descripcion: 'Sub-medición (toma derivada)',
+      metodo: 'diferencia',
+      reparteConsumo: true,
+    },
+    {
+      id: 'TRP04',
+      codigo: 'RIEGO_COMUN',
+      descripcion: 'Área común de riego / jardín',
+      metodo: 'porcentual',
+      reparteConsumo: true,
+    },
+    {
+      id: 'TRP05',
+      codigo: 'USO_MIX_PADRE',
+      descripcion: 'Planta baja comercial (padre mixto)',
+      metodo: 'individual',
+      reparteConsumo: false,
+    },
+    {
+      id: 'TRP06',
+      codigo: 'USO_MIX_HIJO',
+      descripcion: 'Piso habitacional (hijo mixto)',
+      metodo: 'individual',
+      reparteConsumo: false,
+    },
+  ];
+  for (const t of tiposRelacionPS) {
+    await (prisma as any).catalogoTipoRelacionPS.upsert({
+      where: { codigo: t.codigo },
+      update: { descripcion: t.descripcion, metodo: t.metodo, reparteConsumo: t.reparteConsumo },
+      create: t,
+    });
+  }
+  console.log('Tipos de relación padre-hijo PS sembrados:', tiposRelacionPS.length);
+}
+
 main()
   .then(() => seedUser())
   .then(() => seedCatalogoTramites())
   .then(() => seedCatalogosOperativos())
   .then(() => seedCatalogosContratacion())
+  .then(() => seedCatalogosActividadRelacionPS())
   .catch((e) => {
     console.error(e);
     process.exit(1);
