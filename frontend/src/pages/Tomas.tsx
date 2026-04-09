@@ -27,7 +27,7 @@ const Tomas = () => {
         <Button onClick={() => setShowCreate(true)} disabled={finalizadas.length === 0}><Plus className="h-4 w-4 mr-1" /> Nueva toma</Button>
       </div>
 
-      <div className="rounded-lg border overflow-hidden">
+      <div className="table-container">
         <table className="data-table">
           <thead><tr><th>ID</th><th>Ubicación</th><th>Tipo</th><th>Estado</th></tr></thead>
           <tbody>

@@ -1,8 +1,10 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useData } from '@/context/DataContext';
+import { PageHeader } from '@/components/PageHeader';
+import { KpiCard } from '@/components/KpiCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Plus, GripVertical } from 'lucide-react';
+import { Plus, GripVertical, MapPin, Users } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
@@ -66,11 +68,42 @@ const Rutas = () => {
     moveContratoToRuta(contratoId, rutaId);
   }, [moveContratoToRuta]);
 
+  const contratosEnRutas = contratosVisibles.filter(c => c.rutaId);
+
   return (
     <div>
-      <div className="page-header">
-        <h1 className="page-title">Rutas y Lecturistas</h1>
-        <Button onClick={() => setShowCreate(true)}><Plus className="h-4 w-4 mr-1" /> Nueva ruta</Button>
+      <PageHeader
+        title="Rutas y Lecturistas"
+        subtitle="Gestión administrativa de recorridos y asignación de personal."
+        breadcrumbs={[{ label: 'Servicios' }, { label: 'Rutas' }]}
+        actions={
+          <Button className="bg-[#007BFF] hover:bg-blue-600 text-white" onClick={() => setShowCreate(true)}>
+            <Plus className="h-4 w-4 mr-1" /> Nueva ruta
+          </Button>
+        }
+      />
+
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+        <KpiCard
+          label="Total rutas"
+          value={rutasVisibles.length}
+          sub="En zonas asignadas"
+          accent="primary"
+          icon={MapPin}
+        />
+        <KpiCard
+          label="Contratos en ruta"
+          value={contratosEnRutas.length}
+          sub="Con recorrido asignado"
+          accent="success"
+          icon={Users}
+        />
+        <KpiCard
+          label="Sin ruta"
+          value={activos.length}
+          sub="Activos sin asignar"
+          accent={activos.length > 0 ? 'warning' : 'default'}
+        />
       </div>
 
       <p className="text-sm text-muted-foreground mb-4">Arrastra contratos a una ruta o a &quot;Sin ruta&quot; para asignar o quitar.</p>
@@ -106,7 +139,7 @@ const Rutas = () => {
           {rutasVisibles.map(r => (
             <div
               key={r.id}
-              className={`widget-card min-h-[120px] transition-colors ${dragOverId === r.id ? 'ring-2 ring-primary' : ''}`}
+              className={`bg-white rounded-xl border border-border/50 shadow-sm p-5 min-h-[120px] transition-colors ${dragOverId === r.id ? 'ring-2 ring-primary' : ''}`}
               onDragOver={(e) => onDragOver(e, r.id)}
               onDragLeave={onDragLeave}
               onDrop={(e) => onDrop(e, r.id)}

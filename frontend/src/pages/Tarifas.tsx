@@ -12,7 +12,7 @@ const Tarifas = () => {
       <div className="grid gap-6 lg:grid-cols-2">
         <div>
           <h3 className="section-title">Tarifas vigentes</h3>
-          <div className="rounded-lg border overflow-hidden">
+          <div className="table-container">
             <table className="data-table">
               <thead><tr><th>Tipo</th><th>Rango (m³)</th><th>$/m³</th><th>Cargo fijo</th></tr></thead>
               <tbody>

@@ -136,7 +136,7 @@ const Pagos = () => {
             </div>
           </div>
           <h3 className="section-title">Historial de pagos</h3>
-          <div className="rounded-lg border overflow-hidden">
+          <div className="table-container">
             <table className="data-table">
               <thead><tr><th>Contrato</th><th>Monto</th><th>Tipo</th><th>Fecha</th></tr></thead>
               <tbody>
@@ -155,7 +155,7 @@ const Pagos = () => {
 
         <TabsContent value="externos" className="space-y-4">
           <p className="text-sm text-muted-foreground">Pagos de recaudación externa (webservice) por conciliar. Confirma la sugerencia o busca el contrato/adeudo a conciliar.</p>
-          <div className="rounded-lg border overflow-hidden">
+          <div className="table-container">
             <table className="data-table">
               <thead>
                 <tr><th>Referencia</th><th>Monto</th><th>Tipo</th><th>Fecha</th><th>Sugerencia (AI)</th><th>Acciones</th></tr>
@@ -192,7 +192,7 @@ const Pagos = () => {
 
         <TabsContent value="aplicados" className="space-y-4">
           <p className="text-sm text-muted-foreground">Pagos nativos y Link de pago ya aplicados.</p>
-          <div className="rounded-lg border overflow-hidden">
+          <div className="table-container">
             <table className="data-table">
               <thead><tr><th>Contrato</th><th>Monto</th><th>Tipo</th><th>Fecha</th><th>Concepto</th></tr></thead>
               <tbody>

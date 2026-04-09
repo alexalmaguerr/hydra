@@ -27,7 +27,7 @@ const Construcciones = () => {
         <Button onClick={() => setShowCreate(true)} disabled={aprobadas.length === 0}><Plus className="h-4 w-4 mr-1" /> Nueva construcción</Button>
       </div>
 
-      <div className="rounded-lg border overflow-hidden">
+      <div className="table-container">
         <table className="data-table">
           <thead><tr><th>ID</th><th>Nombre</th><th>Ubicación</th><th>Estado</th><th>Acciones</th></tr></thead>
           <tbody>

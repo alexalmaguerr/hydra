@@ -5,7 +5,9 @@ import { fetchContratos, createContrato, updateContrato, hasApi, type CreateCont
 import StatusBadge from '@/components/StatusBadge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Plus, Eye, ChevronRight, Hash, User, Droplets, FileText } from 'lucide-react';
+import { Plus, Eye, ChevronRight, Hash, User, Droplets, FileText, SlidersHorizontal, Download, TrendingUp } from 'lucide-react';
+import { PageHeader } from '@/components/PageHeader';
+import { KpiCard } from '@/components/KpiCard';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -148,41 +150,77 @@ const Contratos = () => {
     return { pagadas, porCobrar, vencidas };
   }, [selected, timbrados, recibos, preFacturas, pagos]);
 
+  const activos = contratosVisibles.filter((c: { estado: string }) => c.estado === 'Activo').length;
+  const pendientesAlta = contratosVisibles.filter((c: { estado: string }) => c.estado === 'Pendiente de alta').length;
+  const suspendidos = contratosVisibles.filter((c: { estado: string }) => c.estado === 'Suspendido').length;
+
   return (
     <div>
-      <div className="page-header">
-        <h1 className="page-title">Contratos</h1>
-        <Button onClick={() => { setStep(1); setShowWizard(true); }} disabled={disponibles.length === 0}>
-          <Plus className="h-4 w-4 mr-1" /> Alto de contrato
-        </Button>
+      <PageHeader
+        title="Contratos"
+        subtitle="Gestión centralizada de contratos de servicio hidráulico."
+        breadcrumbs={[{ label: 'Servicios', href: '#' }, { label: 'Contratos' }]}
+        actions={
+          <Button
+            onClick={() => { setStep(1); setShowWizard(true); }}
+            disabled={disponibles.length === 0}
+            className="bg-[#007BFF] hover:bg-blue-600 text-white"
+          >
+            <Plus className="h-4 w-4 mr-1.5" /> Alta de contrato
+          </Button>
+        }
+      />
+
+      {/* KPI cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <KpiCard
+          label="Total contratos"
+          value={contratosVisibles.length.toLocaleString()}
+          sub={<span className="flex items-center gap-1 text-emerald-600"><TrendingUp className="w-3 h-3" /> En el sistema</span>}
+        />
+        <KpiCard label="Activos" value={activos} accent="success"
+          footer={<div className="w-full h-1.5 bg-muted rounded-full overflow-hidden"><div className="h-full bg-emerald-500 rounded-full" style={{ width: `${Math.min(100, (activos / Math.max(contratosVisibles.length, 1)) * 100)}%` }} /></div>}
+        />
+        <KpiCard label="Pendientes de alta" value={pendientesAlta} accent={pendientesAlta > 0 ? 'warning' : 'default'} />
+        <KpiCard label="Suspendidos" value={suspendidos} accent={suspendidos > 0 ? 'danger' : 'default'} />
       </div>
 
-      {/* Filters */}
-      <div className="flex gap-2 mb-4 flex-wrap">
-        {['Todos', 'Pendiente de alta', 'Activo', 'Suspendido', 'Cancelado'].map(f => (
-          <span key={f} className="status-badge status-neutral cursor-pointer hover:opacity-80">{f}</span>
-        ))}
+      {/* Toolbar */}
+      <div className="flex items-center gap-2 mb-4">
+        <Button variant="outline" size="sm"><SlidersHorizontal className="w-3.5 h-3.5 mr-1.5" /> Filtrar</Button>
+        <Button variant="ghost" size="sm" className="text-muted-foreground"><Download className="w-3.5 h-3.5 mr-1.5" /> Exportar CSV</Button>
+        <span className="ml-auto text-xs text-muted-foreground font-medium uppercase tracking-wide">
+          {contratosVisibles.length} contratos
+        </span>
       </div>
 
-      <div className="rounded-lg border overflow-hidden">
+      <div className="bg-white rounded-xl border border-border/50 overflow-hidden shadow-sm">
         {isLoading && useApi && (
-          <div className="p-4 text-center text-muted-foreground">Cargando contratos…</div>
+          <div className="p-6 text-center text-muted-foreground text-sm">Cargando contratos…</div>
         )}
-        <table className="data-table">
-          <thead><tr><th>ID</th><th>Titular</th><th>Tipo</th><th>Servicio</th><th>Estado</th><th>Fecha</th><th></th></tr></thead>
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="bg-muted/40">
+              {['ID', 'Titular', 'Tipo', 'Servicio', 'Estado', 'Fecha', ''].map((h) => (
+                <th key={h} className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-4 py-3">{h}</th>
+              ))}
+            </tr>
+          </thead>
           <tbody>
             {contratosVisibles.map((c: { id: string; nombre: string; tipoContrato: string; tipoServicio: string; estado: string; fecha: string }) => (
-              <tr key={c.id}>
-                <td className="font-mono text-xs">{c.id}</td>
-                <td>{c.nombre}</td>
-                <td>{c.tipoContrato}</td>
-                <td>{c.tipoServicio}</td>
-                <td><StatusBadge status={c.estado} /></td>
-                <td className="text-muted-foreground">{c.fecha}</td>
-                <td><Button variant="ghost" size="sm" onClick={() => setDetail(c.id)}><Eye className="h-4 w-4" /></Button></td>
+              <tr key={c.id} className="border-t border-border/50 hover:bg-muted/30 transition-colors">
+                <td className="px-4 py-3.5 font-mono text-xs text-[#007BFF] font-medium">{c.id}</td>
+                <td className="px-4 py-3.5 font-medium">{c.nombre}</td>
+                <td className="px-4 py-3.5 text-muted-foreground">{c.tipoContrato}</td>
+                <td className="px-4 py-3.5 text-muted-foreground">{c.tipoServicio}</td>
+                <td className="px-4 py-3.5"><StatusBadge status={c.estado} /></td>
+                <td className="px-4 py-3.5 text-muted-foreground">{c.fecha}</td>
+                <td className="px-4 py-3.5"><Button variant="ghost" size="sm" onClick={() => setDetail(c.id)}><Eye className="h-4 w-4" /></Button></td>
               </tr>
             ))}
-            {contratosVisibles.length === 0 && <tr><td colSpan={7} className="text-center text-muted-foreground py-8">No hay contratos</td></tr>}
+            {contratosVisibles.length === 0 && (
+              <tr><td colSpan={7} className="text-center text-muted-foreground py-12">No hay contratos</td></tr>
+            )}
           </tbody>
         </table>
       </div>
@@ -498,7 +536,7 @@ const Contratos = () => {
                       {todasFacturas.length === 0 ? (
                         <p className="text-sm text-muted-foreground text-center py-12">Sin facturas para este contrato.</p>
                       ) : (
-                        <div className="rounded-lg border overflow-hidden">
+                        <div className="table-container">
                           <table className="w-full text-xs">
                             <thead>
                               <tr className="bg-muted/50 border-b">

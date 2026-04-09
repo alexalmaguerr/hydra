@@ -1,9 +1,11 @@
 import { useState, useMemo } from 'react';
 import { useData } from '@/context/DataContext';
 import StatusBadge from '@/components/StatusBadge';
+import { PageHeader } from '@/components/PageHeader';
+import { KpiCard } from '@/components/KpiCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Plus, Package, Gauge } from 'lucide-react';
+import { Plus, Package, Gauge, SlidersHorizontal } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -75,18 +77,57 @@ const Medidores = () => {
     setShowAssign(false);
   };
 
+  const enReparacion = medidoresBodega.filter(m => m.estado === 'En reparación');
+
   return (
     <div>
-      <div className="page-header">
-        <h1 className="page-title">Inventario de Medidores</h1>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setShowAddBodega(true)}>
-            <Plus className="h-4 w-4 mr-1" /> Alta en bodega
-          </Button>
-          <Button onClick={() => setShowAssign(true)} disabled={disponiblesBodega.length === 0 || pendientes.length === 0}>
-            <Gauge className="h-4 w-4 mr-1" /> Asignar a contrato
-          </Button>
-        </div>
+      <PageHeader
+        title="Inventario de Medidores"
+        subtitle="Gestión centralizada de dispositivos de medición."
+        breadcrumbs={[{ label: 'Servicios' }, { label: 'Medidores' }]}
+        actions={
+          <>
+            <Button variant="outline" onClick={() => setShowAddBodega(true)}>
+              <Plus className="h-4 w-4 mr-1" /> Alta en bodega
+            </Button>
+            <Button
+              className="bg-[#007BFF] hover:bg-blue-600 text-white"
+              onClick={() => setShowAssign(true)}
+              disabled={disponiblesBodega.length === 0 || pendientes.length === 0}
+            >
+              <Gauge className="h-4 w-4 mr-1" /> Asignar a contrato
+            </Button>
+          </>
+        }
+      />
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <KpiCard
+          label="Total inventario"
+          value={medidores.length + medidoresBodega.length}
+          sub="Asignados + bodega"
+          accent="primary"
+          icon={Gauge}
+        />
+        <KpiCard
+          label="Asignados"
+          value={medidores.length}
+          sub="En uso en contratos"
+          accent="success"
+        />
+        <KpiCard
+          label="En bodega"
+          value={medidoresBodega.length}
+          sub={`${disponiblesBodega.length} disponibles`}
+          accent="default"
+          icon={Package}
+        />
+        <KpiCard
+          label="Pendientes de contrato"
+          value={pendientes.length}
+          sub="Contratos sin medidor"
+          accent={pendientes.length > 0 ? 'warning' : 'default'}
+        />
       </div>
 
       {pendientes.length > 0 && (
@@ -123,26 +164,41 @@ const Medidores = () => {
               </SelectContent>
             </Select>
             <Input placeholder="Filtrar por serie" className="w-48" value={filtroSerie} onChange={e => setFiltroSerie(e.target.value)} />
+            <div className="ml-auto flex gap-2">
+              <Button variant="outline" size="sm"><SlidersHorizontal className="h-4 w-4 mr-1" /> Filtrar</Button>
+              <Button variant="ghost" size="sm">Exportar</Button>
+            </div>
           </div>
-          <div className="rounded-lg border overflow-hidden">
-            <table className="data-table">
-              <thead><tr><th>ID</th><th>Serie</th><th>Contrato</th><th>Zona</th><th>Estado</th><th>Cobro diferido</th><th>Lectura inicial</th><th>Acciones</th></tr></thead>
+          <div className="bg-white rounded-xl border border-border/50 overflow-hidden shadow-sm">
+            <table className="w-full text-sm">
+              <thead>
+                <tr>
+                  <th className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-4 py-3 bg-muted/40">ID</th>
+                  <th className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-4 py-3 bg-muted/40">Serie</th>
+                  <th className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-4 py-3 bg-muted/40">Contrato</th>
+                  <th className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-4 py-3 bg-muted/40">Zona</th>
+                  <th className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-4 py-3 bg-muted/40">Estado</th>
+                  <th className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-4 py-3 bg-muted/40">Cobro diferido</th>
+                  <th className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-4 py-3 bg-muted/40">Lectura inicial</th>
+                  <th className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-4 py-3 bg-muted/40">Acciones</th>
+                </tr>
+              </thead>
               <tbody>
                 {medidoresFiltrados.map(m => {
                   const contrato = contratosVisibles.find(c => c.id === m.contratoId);
                   const zona = contrato?.zonaId ? zonas.find(z => z.id === contrato.zonaId) : null;
                   return (
-                    <tr key={m.id}>
-                      <td className="font-mono text-xs">{m.id}</td>
-                      <td>{m.serie}</td>
-                      <td className="font-mono text-xs">{m.contratoId}</td>
-                      <td className="text-sm">{zona?.nombre ?? '—'}</td>
-                      <td><StatusBadge status={m.estado} /></td>
-                      <td>{m.cobroDiferido ? 'Sí' : 'No'}</td>
-                      <td>{m.lecturaInicial}</td>
-                      <td>
+                    <tr key={m.id} className="border-t border-border/50 hover:bg-muted/30 transition-colors">
+                      <td className="px-4 py-3.5 font-mono text-xs text-[#007BFF] font-medium">{m.id}</td>
+                      <td className="px-4 py-3.5">{m.serie}</td>
+                      <td className="px-4 py-3.5 font-mono text-xs text-[#007BFF] font-medium">{m.contratoId}</td>
+                      <td className="px-4 py-3.5 text-sm">{zona?.nombre ?? '—'}</td>
+                      <td className="px-4 py-3.5"><StatusBadge status={m.estado} /></td>
+                      <td className="px-4 py-3.5">{m.cobroDiferido ? 'Sí' : 'No'}</td>
+                      <td className="px-4 py-3.5">{m.lecturaInicial}</td>
+                      <td className="px-4 py-3.5">
                         {m.estado === 'Activo' && <Button size="sm" variant="outline" onClick={() => updateMedidor(m.id, { estado: 'Inactivo' })}>Desactivar</Button>}
-                        {m.estado === 'Inactivo' && <Button size="sm" onClick={() => updateMedidor(m.id, { estado: 'Activo' })}>Activar</Button>}
+                        {m.estado === 'Inactivo' && <Button size="sm" className="bg-[#007BFF] hover:bg-blue-600 text-white" onClick={() => updateMedidor(m.id, { estado: 'Activo' })}>Activar</Button>}
                       </td>
                     </tr>
                   );
@@ -164,20 +220,32 @@ const Medidores = () => {
               </SelectContent>
             </Select>
             <Input placeholder="Filtrar por serie" className="w-48" value={filtroBodegaSerie} onChange={e => setFiltroBodegaSerie(e.target.value)} />
+            <div className="ml-auto flex gap-2">
+              <Button variant="outline" size="sm"><SlidersHorizontal className="h-4 w-4 mr-1" /> Filtrar</Button>
+              <Button variant="ghost" size="sm">Exportar</Button>
+            </div>
           </div>
-          <div className="rounded-lg border overflow-hidden">
-            <table className="data-table">
-              <thead><tr><th>ID</th><th>Serie</th><th>Zona</th><th>Estado</th><th>Acciones</th></tr></thead>
+          <div className="bg-white rounded-xl border border-border/50 overflow-hidden shadow-sm">
+            <table className="w-full text-sm">
+              <thead>
+                <tr>
+                  <th className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-4 py-3 bg-muted/40">ID</th>
+                  <th className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-4 py-3 bg-muted/40">Serie</th>
+                  <th className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-4 py-3 bg-muted/40">Zona</th>
+                  <th className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-4 py-3 bg-muted/40">Estado</th>
+                  <th className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-4 py-3 bg-muted/40">Acciones</th>
+                </tr>
+              </thead>
               <tbody>
                 {bodegaFiltrados.map(m => {
                   const zona = m.zonaId ? zonas.find(z => z.id === m.zonaId) : null;
                   return (
-                  <tr key={m.id}>
-                    <td className="font-mono text-xs">{m.id}</td>
-                    <td>{m.serie}</td>
-                    <td className="text-sm">{zona?.nombre ?? '—'}</td>
-                    <td><StatusBadge status={m.estado} /></td>
-                    <td>
+                  <tr key={m.id} className="border-t border-border/50 hover:bg-muted/30 transition-colors">
+                    <td className="px-4 py-3.5 font-mono text-xs text-[#007BFF] font-medium">{m.id}</td>
+                    <td className="px-4 py-3.5">{m.serie}</td>
+                    <td className="px-4 py-3.5 text-sm">{zona?.nombre ?? '—'}</td>
+                    <td className="px-4 py-3.5"><StatusBadge status={m.estado} /></td>
+                    <td className="px-4 py-3.5">
                       <Select value={m.estado} onValueChange={(v: 'Disponible' | 'En reparación') => updateMedidorBodega(m.id, { estado: v })}>
                         <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
                         <SelectContent>

@@ -3,6 +3,8 @@ import { useQuery } from '@tanstack/react-query';
 import { useData } from '@/context/DataContext';
 import { fetchLecturas, hasApi } from '@/api/lecturas';
 import StatusBadge from '@/components/StatusBadge';
+import { PageHeader } from '@/components/PageHeader';
+import { KpiCard } from '@/components/KpiCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -16,6 +18,7 @@ import {
   PaginationPrevious,
 } from '@/components/ui/pagination';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { SlidersHorizontal, CheckCircle2, XCircle, Clock } from 'lucide-react';
 
 const PAGE_SIZE = 20;
 const RANGO_MIN = 0;
@@ -149,10 +152,46 @@ const Lecturas = () => {
     return historialFiltrado.slice(start, start + PAGE_SIZE);
   }, [historialFiltrado, page]);
 
+  const totalValidas = lecturasVisibles.filter(l => l.estado === 'Válida').length;
+  const totalNoValidas = lecturasVisibles.filter(l => l.estado === 'No válida').length;
+  const totalPendientes = lecturasVisibles.filter(l => l.estado === 'Pendiente').length;
+
   return (
     <div>
-      <div className="page-header">
-        <h1 className="page-title">App de Lecturas</h1>
+      <PageHeader
+        title="App de Lecturas"
+        subtitle="Gestión centralizada de rutas, validación de consumos e historial de mediciones."
+        breadcrumbs={[{ label: 'Servicios' }, { label: 'Lecturas' }]}
+      />
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <KpiCard
+          label="Total lecturas"
+          value={lecturasVisibles.length}
+          sub="En zonas asignadas"
+          accent="primary"
+        />
+        <KpiCard
+          label="Válidas"
+          value={totalValidas}
+          sub={lecturasVisibles.length > 0 ? `${Math.round((totalValidas / lecturasVisibles.length) * 100)}% del total` : '—'}
+          accent="success"
+          icon={CheckCircle2}
+        />
+        <KpiCard
+          label="No válidas"
+          value={totalNoValidas}
+          sub="Requieren revisión"
+          accent={totalNoValidas > 0 ? 'danger' : 'default'}
+          icon={XCircle}
+        />
+        <KpiCard
+          label="Pendientes"
+          value={totalPendientes}
+          sub="Sin procesar"
+          accent={totalPendientes > 0 ? 'warning' : 'default'}
+          icon={Clock}
+        />
       </div>
 
       <Tabs defaultValue="captura" className="space-y-4">
@@ -164,8 +203,8 @@ const Lecturas = () => {
 
         <TabsContent value="captura" className="space-y-6">
           <div className="grid gap-6 lg:grid-cols-2">
-            <div className="widget-card">
-              <h3 className="section-title">Captura de lectura</h3>
+            <div className="bg-white rounded-xl border border-border/50 shadow-sm p-5">
+              <h3 className="text-sm font-semibold mb-3">Captura de lectura</h3>
               <div className="space-y-3">
             <Select
               value={selectedRuta}
@@ -199,7 +238,7 @@ const Lecturas = () => {
         </TabsContent>
 
         <TabsContent value="validaciones" className="space-y-6">
-          <h3 className="section-title">Lecturas por estado</h3>
+          <h3 className="text-sm font-semibold mb-1">Lecturas por estado</h3>
           <div className="h-64 w-full max-w-md">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={porEstado} margin={{ top: 8, right: 8, left: 8, bottom: 8 }}>
@@ -216,19 +255,28 @@ const Lecturas = () => {
             </ResponsiveContainer>
           </div>
 
-          <h3 className="section-title">Fuera de rango (mín/máx zona)</h3>
-          <div className="rounded-lg border overflow-hidden">
-            <table className="data-table">
-              <thead><tr><th>Contrato</th><th>Periodo</th><th>Consumo</th><th>Mín zona</th><th>Máx zona</th><th>Estado</th></tr></thead>
+          <h3 className="text-sm font-semibold mb-1">Fuera de rango (mín/máx zona)</h3>
+          <div className="bg-white rounded-xl border border-border/50 overflow-hidden shadow-sm">
+            <table className="w-full text-sm">
+              <thead>
+                <tr>
+                  <th className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-4 py-3 bg-muted/40">Contrato</th>
+                  <th className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-4 py-3 bg-muted/40">Periodo</th>
+                  <th className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-4 py-3 bg-muted/40">Consumo</th>
+                  <th className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-4 py-3 bg-muted/40">Mín zona</th>
+                  <th className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-4 py-3 bg-muted/40">Máx zona</th>
+                  <th className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-4 py-3 bg-muted/40">Estado</th>
+                </tr>
+              </thead>
               <tbody>
                 {fueraRango.slice(0, 50).map(l => (
-                  <tr key={l.id}>
-                    <td className="font-mono text-xs">{l.contratoId}</td>
-                    <td>{l.periodo}</td>
-                    <td className="font-semibold">{l.consumo} m³</td>
-                    <td>{l.lecturaMinZona ?? RANGO_MIN}</td>
-                    <td>{l.lecturaMaxZona ?? RANGO_MAX}</td>
-                    <td><StatusBadge status={l.estado} /></td>
+                  <tr key={l.id} className="border-t border-border/50 hover:bg-muted/30 transition-colors">
+                    <td className="px-4 py-3.5 font-mono text-xs text-[#007BFF] font-medium">{l.contratoId}</td>
+                    <td className="px-4 py-3.5">{l.periodo}</td>
+                    <td className="px-4 py-3.5 font-semibold">{l.consumo} m³</td>
+                    <td className="px-4 py-3.5">{l.lecturaMinZona ?? RANGO_MIN}</td>
+                    <td className="px-4 py-3.5">{l.lecturaMaxZona ?? RANGO_MAX}</td>
+                    <td className="px-4 py-3.5"><StatusBadge status={l.estado} /></td>
                   </tr>
                 ))}
                 {fueraRango.length === 0 && <tr><td colSpan={6} className="text-center text-muted-foreground py-4">Ninguna lectura fuera de rango</td></tr>}
@@ -236,19 +284,28 @@ const Lecturas = () => {
             </table>
           </div>
 
-          <h3 className="section-title">Lecturas no válidas (simulado mensual / mínimo zona)</h3>
-          <div className="rounded-lg border overflow-hidden">
-            <table className="data-table">
-              <thead><tr><th>Contrato</th><th>Periodo</th><th>Consumo</th><th>Simulado mensual</th><th>Motivo</th><th>Estado</th></tr></thead>
+          <h3 className="text-sm font-semibold mb-1">Lecturas no válidas (simulado mensual / mínimo zona)</h3>
+          <div className="bg-white rounded-xl border border-border/50 overflow-hidden shadow-sm">
+            <table className="w-full text-sm">
+              <thead>
+                <tr>
+                  <th className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-4 py-3 bg-muted/40">Contrato</th>
+                  <th className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-4 py-3 bg-muted/40">Periodo</th>
+                  <th className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-4 py-3 bg-muted/40">Consumo</th>
+                  <th className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-4 py-3 bg-muted/40">Simulado mensual</th>
+                  <th className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-4 py-3 bg-muted/40">Motivo</th>
+                  <th className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-4 py-3 bg-muted/40">Estado</th>
+                </tr>
+              </thead>
               <tbody>
                 {noValidasConSimulado.slice(0, 50).map(l => (
-                  <tr key={l.id}>
-                    <td className="font-mono text-xs">{l.contratoId}</td>
-                    <td>{l.periodo}</td>
-                    <td>{l.consumo} m³</td>
-                    <td>{l.simuladoMensual != null ? `${l.simuladoMensual} m³` : '—'}</td>
-                    <td className="text-xs">{l.motivoInvalidacion || l.incidencia || '—'}</td>
-                    <td><StatusBadge status={l.estado} /></td>
+                  <tr key={l.id} className="border-t border-border/50 hover:bg-muted/30 transition-colors">
+                    <td className="px-4 py-3.5 font-mono text-xs text-[#007BFF] font-medium">{l.contratoId}</td>
+                    <td className="px-4 py-3.5">{l.periodo}</td>
+                    <td className="px-4 py-3.5">{l.consumo} m³</td>
+                    <td className="px-4 py-3.5">{l.simuladoMensual != null ? `${l.simuladoMensual} m³` : '—'}</td>
+                    <td className="px-4 py-3.5 text-xs">{l.motivoInvalidacion || l.incidencia || '—'}</td>
+                    <td className="px-4 py-3.5"><StatusBadge status={l.estado} /></td>
                   </tr>
                 ))}
                 {noValidasConSimulado.length === 0 && <tr><td colSpan={6} className="text-center text-muted-foreground py-4">No hay lecturas no válidas</td></tr>}
@@ -291,24 +348,39 @@ const Lecturas = () => {
             </Select>
             <Input placeholder="Periodo (YYYY-MM)" className="w-32" value={filtroPeriodo} onChange={e => { setFiltroPeriodo(e.target.value); setPage(1); }} />
             <Input placeholder="Fecha" type="date" className="w-40" value={filtroFecha} onChange={e => { setFiltroFecha(e.target.value); setPage(1); }} />
+            <div className="ml-auto flex gap-2">
+              <Button variant="outline" size="sm"><SlidersHorizontal className="h-4 w-4 mr-1" /> Filtrar</Button>
+              <Button variant="ghost" size="sm">Exportar</Button>
+            </div>
           </div>
 
-          <div className="rounded-lg border overflow-hidden">
-            <table className="data-table">
-              <thead><tr><th>Contrato</th><th>Ruta</th><th>Anterior</th><th>Actual</th><th>Consumo</th><th>Estado</th><th>Periodo</th><th>Fecha</th></tr></thead>
+          <div className="bg-white rounded-xl border border-border/50 overflow-hidden shadow-sm">
+            <table className="w-full text-sm">
+              <thead>
+                <tr>
+                  <th className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-4 py-3 bg-muted/40">Contrato</th>
+                  <th className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-4 py-3 bg-muted/40">Ruta</th>
+                  <th className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-4 py-3 bg-muted/40">Anterior</th>
+                  <th className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-4 py-3 bg-muted/40">Actual</th>
+                  <th className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-4 py-3 bg-muted/40">Consumo</th>
+                  <th className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-4 py-3 bg-muted/40">Estado</th>
+                  <th className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-4 py-3 bg-muted/40">Periodo</th>
+                  <th className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-4 py-3 bg-muted/40">Fecha</th>
+                </tr>
+              </thead>
               <tbody>
                 {paginated.map(l => {
                   const r = rutasVisibles.find(x => x.id === l.rutaId) ?? rutas.find(x => x.id === l.rutaId);
                   return (
-                    <tr key={l.id}>
-                      <td className="font-mono text-xs">{l.contratoId}</td>
-                      <td className="text-xs">{r ? getZonaNombre(r.zonaId) : l.rutaId}</td>
-                      <td>{l.lecturaAnterior}</td>
-                      <td>{l.lecturaActual}</td>
-                      <td className="font-semibold">{l.consumo} m³</td>
-                      <td><StatusBadge status={l.estado} /></td>
-                      <td>{l.periodo}</td>
-                      <td className="text-muted-foreground">{l.fecha}</td>
+                    <tr key={l.id} className="border-t border-border/50 hover:bg-muted/30 transition-colors">
+                      <td className="px-4 py-3.5 font-mono text-xs text-[#007BFF] font-medium">{l.contratoId}</td>
+                      <td className="px-4 py-3.5 text-xs">{r ? getZonaNombre(r.zonaId) : l.rutaId}</td>
+                      <td className="px-4 py-3.5">{l.lecturaAnterior}</td>
+                      <td className="px-4 py-3.5">{l.lecturaActual}</td>
+                      <td className="px-4 py-3.5 font-semibold">{l.consumo} m³</td>
+                      <td className="px-4 py-3.5"><StatusBadge status={l.estado} /></td>
+                      <td className="px-4 py-3.5">{l.periodo}</td>
+                      <td className="px-4 py-3.5 text-muted-foreground">{l.fecha}</td>
                     </tr>
                   );
                 })}

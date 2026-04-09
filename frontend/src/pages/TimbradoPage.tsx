@@ -61,7 +61,7 @@ const TimbradoPage = () => {
         </div>
       )}
 
-      <div className="rounded-lg border overflow-hidden">
+      <div className="table-container">
         <table className="data-table">
           <thead><tr><th>ID</th><th>Pre-factura</th><th>Contrato</th><th>UUID</th><th>Estado</th><th>Error</th><th></th></tr></thead>
           <tbody>

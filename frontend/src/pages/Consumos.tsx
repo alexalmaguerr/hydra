@@ -57,7 +57,7 @@ const Consumos = () => {
       <div className="grid gap-6 lg:grid-cols-2">
         <div>
           <h3 className="section-title">Consumos confirmados</h3>
-          <div className="rounded-lg border overflow-hidden">
+          <div className="table-container">
             <table className="data-table">
               <thead><tr><th>Contrato</th><th>Tipo</th><th>m³</th><th>Periodo</th><th>Confirmado</th><th></th></tr></thead>
               <tbody>
