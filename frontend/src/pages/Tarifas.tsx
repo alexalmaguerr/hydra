@@ -75,7 +75,10 @@ const Tarifas = () => {
     try {
       if (useApi) {
         const res = await calcularMonto(simTipo, Number(simM3));
-        setSimResultado({ monto: res.total ?? res.monto, detalle: res.desglose ?? res.detalle ?? [] });
+        setSimResultado({
+          monto: res.total,
+          detalle: (res.desglose ?? []).map(d => ({ rango: d.rango, m3: d.m3, importe: d.subtotal })),
+        });
       } else {
         // fallback: cálculo simple con tarifas del context
         const tarifa = ctxTarifas.find(t => Number(simM3) >= t.rangoMin && Number(simM3) <= t.rangoMax);
@@ -148,10 +151,16 @@ const Tarifas = () => {
                 {tarifas.map(t => (
                   <tr key={t.id} className="border-t border-border/50 hover:bg-muted/30 transition-colors">
                     <td className="px-4 py-3.5 font-medium">{t.tipoServicio}</td>
-                    <td className="px-4 py-3.5 text-muted-foreground font-mono">{t.rangoMin} – {t.rangoMax === 999 || t.rangoMax >= 999 ? '∞' : t.rangoMax} m³</td>
-                    <td className="px-4 py-3.5 font-semibold text-[#003366]">${Number(t.precioPorM3).toFixed(2)}</td>
-                    <td className="px-4 py-3.5 text-muted-foreground">${Number(t.cargoFijo).toFixed(2)}</td>
-                    <td className="px-4 py-3.5 text-muted-foreground">{t.vigenciaDesde ?? '—'}</td>
+                    <td className="px-4 py-3.5 text-muted-foreground font-mono">
+                      {t.rangoMinM3 ?? 0} – {t.rangoMaxM3 == null || t.rangoMaxM3 >= 9999 ? '∞' : t.rangoMaxM3} m³
+                    </td>
+                    <td className="px-4 py-3.5 font-semibold text-[#003366]">
+                      {t.precioUnitario != null ? `$${Number(t.precioUnitario).toFixed(2)}` : '—'}
+                    </td>
+                    <td className="px-4 py-3.5 text-muted-foreground">
+                      {t.cuotaFija != null ? `$${Number(t.cuotaFija).toFixed(2)}` : '—'}
+                    </td>
+                    <td className="px-4 py-3.5 text-muted-foreground">{t.vigenciaDesde?.split('T')[0] ?? '—'}</td>
                     <td className="px-4 py-3.5"><StatusBadge status={t.activo ? 'Activo' : 'Inactivo'} /></td>
                   </tr>
                 ))}

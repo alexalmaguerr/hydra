@@ -2,11 +2,15 @@ import { apiRequest } from './client';
 
 export interface TarifaVigente {
   id: string;
+  codigo: string;
+  nombre: string;
   tipoServicio: string;
-  rangoMin: number;
-  rangoMax: number;
-  precioPorM3: number;
-  cargoFijo: number;
+  tipoCalculo: string;
+  rangoMinM3: number | null;
+  rangoMaxM3: number | null;
+  precioUnitario: number | null;
+  cuotaFija: number | null;
+  ivaPct: number;
   vigenciaDesde: string;
   vigenciaHasta: string | null;
   activo: boolean;
@@ -24,10 +28,11 @@ export interface ActualizacionTarifaria {
 }
 
 export interface CalculoMonto {
-  tipoServicio: string;
   consumoM3: number;
-  monto: number;
-  detalle: { rango: string; m3: number; importe: number }[];
+  subtotal: number;
+  iva: number;
+  total: number;
+  desglose: { rango: string; m3: number; precio: number; subtotal: number }[];
 }
 
 export const fetchTarifasVigentes = (tipoServicio?: string, fecha?: string) => {

@@ -748,12 +748,50 @@ async function seedCatalogosActividadRelacionPS() {
   console.log('Tipos de relación padre-hijo PS sembrados:', tiposRelacionPS.length);
 }
 
+async function seedTarifas() {
+  const vigenciaDesde = new Date('2026-01-01');
+
+  const tarifas = [
+    // AGUA doméstica — escalonada
+    { id: 'TAR01', codigo: 'AGUA-DOM-R1', nombre: 'Agua doméstica rango 1 (0-10 m³)', tipoServicio: 'AGUA', tipoCalculo: 'escalonado', rangoMinM3: 0, rangoMaxM3: 10, precioUnitario: 8.50, cuotaFija: null, ivaPct: 16 },
+    { id: 'TAR02', codigo: 'AGUA-DOM-R2', nombre: 'Agua doméstica rango 2 (11-20 m³)', tipoServicio: 'AGUA', tipoCalculo: 'escalonado', rangoMinM3: 10, rangoMaxM3: 20, precioUnitario: 12.80, cuotaFija: null, ivaPct: 16 },
+    { id: 'TAR03', codigo: 'AGUA-DOM-R3', nombre: 'Agua doméstica rango 3 (21-30 m³)', tipoServicio: 'AGUA', tipoCalculo: 'escalonado', rangoMinM3: 20, rangoMaxM3: 30, precioUnitario: 18.40, cuotaFija: null, ivaPct: 16 },
+    { id: 'TAR04', codigo: 'AGUA-DOM-R4', nombre: 'Agua doméstica rango 4 (>30 m³)', tipoServicio: 'AGUA', tipoCalculo: 'escalonado', rangoMinM3: 30, rangoMaxM3: null, precioUnitario: 26.90, cuotaFija: null, ivaPct: 16 },
+    // SANEAMIENTO — cargo fijo
+    { id: 'TAR05', codigo: 'SAN-FIJO', nombre: 'Saneamiento cargo fijo mensual', tipoServicio: 'SANEAMIENTO', tipoCalculo: 'fijo', rangoMinM3: null, rangoMaxM3: null, precioUnitario: null, cuotaFija: 45.00, ivaPct: 16 },
+    // ALCANTARILLADO — variable
+    { id: 'TAR06', codigo: 'ALC-VAR', nombre: 'Alcantarillado variable por m³', tipoServicio: 'ALCANTARILLADO', tipoCalculo: 'variable', rangoMinM3: 0, rangoMaxM3: null, precioUnitario: 4.20, cuotaFija: null, ivaPct: 16 },
+  ];
+
+  for (const t of tarifas) {
+    await prisma.tarifa.upsert({
+      where: { id: t.id },
+      update: { precioUnitario: t.precioUnitario, cuotaFija: t.cuotaFija, activo: true },
+      create: {
+        id: t.id,
+        codigo: t.codigo,
+        nombre: t.nombre,
+        tipoServicio: t.tipoServicio,
+        tipoCalculo: t.tipoCalculo,
+        rangoMinM3: t.rangoMinM3,
+        rangoMaxM3: t.rangoMaxM3,
+        precioUnitario: t.precioUnitario,
+        cuotaFija: t.cuotaFija,
+        ivaPct: t.ivaPct,
+        vigenciaDesde,
+      },
+    });
+  }
+  console.log('Tarifas sembradas:', tarifas.length);
+}
+
 main()
   .then(() => seedUser())
   .then(() => seedCatalogoTramites())
   .then(() => seedCatalogosOperativos())
   .then(() => seedCatalogosContratacion())
   .then(() => seedCatalogosActividadRelacionPS())
+  .then(() => seedTarifas())
   .catch((e) => {
     console.error(e);
     process.exit(1);
