@@ -182,7 +182,7 @@ isProject: false
   - Desglose en secciones o tabla:
     - **Pagadas**: facturas con pago(s) que cubren el total (usar datos de Pago/Recibo aplicados).
     - **Por cobrar**: facturas timbradas sin pagar o con saldo pendiente.
-    - **Vencidas**: facturas con fecha de vencimiento &lt; hoy y sin pagar (usar Recibo.fechaVencimiento y saldos).
+    - **Vencidas**: facturas con fecha de vencimiento < hoy y sin pagar (usar Recibo.fechaVencimiento y saldos).
   - Mostrar para cada ítem: periodo, UUID si aplica, monto, estado (pagada/por cobrar/vencida), saldo si hay parcialidad.
 
 ---

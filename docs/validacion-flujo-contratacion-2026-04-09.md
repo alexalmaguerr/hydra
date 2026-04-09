@@ -62,3 +62,4 @@ Documento de brechas entre el flujo operativo deseado (lista de pasos + notas SI
 - **Catálogos HTTP:** `GET /catalogos/actividades`, `grupos-actividad`, `categorias`, `tipos-relacion-ps` (alineados con `frontend/src/api/catalogos.ts`).
 - **Duplicidad orden medidor:** la orden de medidor por etapa de proceso fue retirada en favor del flujo por órdenes de campo; en `OrdenesService` se evita duplicar `InstalacionMedidor` pendiente/en proceso.
 - **Frontend:** wizard con opciones fiscales y de órdenes; `StatusBadge` y búsqueda en atención reconocen **Pendiente de toma** / **Pendiente de zona**; KPI “Pendientes en campo”.
+- **UI posterior:** pestaña **Texto contrato** en el detalle del contrato (`Contratos.tsx`) que consume `GET /contratos/:id/texto-contrato`; asistente de alta con selects opcionales de **tipo de contratación** (catálogo) y **punto de servicio** (`GET /puntos-servicio`, `GET /tipos-contratacion`).
