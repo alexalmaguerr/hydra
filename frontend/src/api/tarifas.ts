@@ -14,11 +14,12 @@ export interface TarifaVigente {
 
 export interface ActualizacionTarifaria {
   id: string;
-  nombre: string;
-  factorAjuste: number;
+  descripcion: string;
+  fechaPublicacion: string;
   fechaAplicacion: string;
   fuenteOficial: string | null;
   estado: string;
+  aplicadoPor: string | null;
   createdAt: string;
 }
 
@@ -41,11 +42,11 @@ export const calcularMonto = (tipoServicio: string, consumoM3: number) =>
   apiRequest<CalculoMonto>(`/tarifas/calcular?tipoServicio=${tipoServicio}&consumoM3=${consumoM3}`);
 
 export const fetchActualizaciones = () =>
-  apiRequest<ActualizacionTarifaria[]>('/tarifas/actualizaciones');
+  apiRequest<ActualizacionTarifaria[]>('/tarifas/actualizaciones/lista');
 
 export const crearActualizacion = (dto: {
-  nombre: string;
-  factorAjuste: number;
+  descripcion: string;
+  fechaPublicacion: string;
   fechaAplicacion: string;
   fuenteOficial?: string;
 }) =>
@@ -57,4 +58,5 @@ export const crearActualizacion = (dto: {
 export const aplicarActualizacion = (id: string) =>
   apiRequest<ActualizacionTarifaria>(`/tarifas/actualizaciones/${id}/aplicar`, {
     method: 'POST',
+    body: JSON.stringify({ aplicadoPor: 'SISTEMA' }),
   });

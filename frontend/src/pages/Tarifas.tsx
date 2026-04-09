@@ -36,7 +36,7 @@ const Tarifas = () => {
 
   // Nueva actualización
   const [showNuevaAct, setShowNuevaAct] = useState(false);
-  const [actForm, setActForm] = useState({ nombre: '', factorAjuste: '1.04', fechaAplicacion: '', fuenteOficial: '' });
+  const [actForm, setActForm] = useState({ descripcion: '', fechaPublicacion: '', fechaAplicacion: '', fuenteOficial: '' });
 
   const { data: tarifasApi = [] } = useQuery({
     queryKey: ['tarifas-vigentes'],
@@ -55,7 +55,7 @@ const Tarifas = () => {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['tarifas-actualizaciones'] });
       setShowNuevaAct(false);
-      setActForm({ nombre: '', factorAjuste: '1.04', fechaAplicacion: '', fuenteOficial: '' });
+      setActForm({ descripcion: '', fechaPublicacion: '', fechaAplicacion: '', fuenteOficial: '' });
       toast({ title: 'Actualización creada', description: 'Lista para aplicar cuando sea necesario.' });
     },
   });
@@ -75,13 +75,19 @@ const Tarifas = () => {
     try {
       if (useApi) {
         const res = await calcularMonto(simTipo, Number(simM3));
-        setSimResultado({ monto: res.monto, detalle: res.detalle ?? [] });
+        setSimResultado({ monto: res.total ?? res.monto, detalle: res.desglose ?? res.detalle ?? [] });
       } else {
         // fallback: cálculo simple con tarifas del context
         const tarifa = ctxTarifas.find(t => Number(simM3) >= t.rangoMin && Number(simM3) <= t.rangoMax);
         const monto = tarifa ? tarifa.cargoFijo + Number(simM3) * tarifa.precioPorM3 : 0;
         setSimResultado({ monto, detalle: [] });
       }
+    } catch (err: any) {
+      toast({
+        title: 'Sin tarifas configuradas',
+        description: `No hay tarifas vigentes para el servicio "${simTipo}". Crea tarifas primero desde la pestaña Vigentes.`,
+        variant: 'destructive',
+      });
     } finally {
       setSimLoading(false);
     }
@@ -93,9 +99,7 @@ const Tarifas = () => {
     vigenciaDesde: '2026-01-01', vigenciaHasta: null, activo: true,
   }));
 
-  const pctFactor = actualizaciones[0]
-    ? `+${((actualizaciones[0].factorAjuste - 1) * 100).toFixed(0)}%`
-    : '—';
+  const ultimaAct = actualizaciones[0];
 
   return (
     <div>
@@ -115,9 +119,9 @@ const Tarifas = () => {
         <KpiCard label="Descuentos vigentes" value={descuentos.filter(d => d.activo).length} accent="success" />
         <KpiCard
           label="Última actualización"
-          value={actualizaciones[0] ? pctFactor : '—'}
-          sub={actualizaciones[0]?.nombre ?? 'Sin actualizaciones'}
-          accent={actualizaciones.length > 0 ? 'primary' : 'default'}
+          value={ultimaAct ? ultimaAct.estado : '—'}
+          sub={ultimaAct?.descripcion ?? 'Sin actualizaciones'}
+          accent={ultimaAct?.estado === 'aplicada' ? 'success' : actualizaciones.length > 0 ? 'warning' : 'default'}
         />
       </div>
 
@@ -247,7 +251,7 @@ const Tarifas = () => {
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-muted/40">
-                  {['Nombre', 'Factor ajuste', 'Fecha aplicación', 'Fuente oficial', 'Estado', 'Acción'].map(h => (
+                  {['Descripción', 'F. Publicación', 'F. Aplicación', 'Fuente oficial', 'Estado', 'Acción'].map(h => (
                     <th key={h} className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-4 py-3">{h}</th>
                   ))}
                 </tr>
@@ -255,12 +259,8 @@ const Tarifas = () => {
               <tbody>
                 {actualizaciones.map(a => (
                   <tr key={a.id} className="border-t border-border/50 hover:bg-muted/30 transition-colors">
-                    <td className="px-4 py-3.5 font-medium">{a.nombre}</td>
-                    <td className="px-4 py-3.5 font-mono">
-                      <span className={`font-semibold ${a.factorAjuste > 1 ? 'text-amber-600' : 'text-emerald-600'}`}>
-                        ×{a.factorAjuste} ({a.factorAjuste > 1 ? '+' : ''}{((a.factorAjuste - 1) * 100).toFixed(1)}%)
-                      </span>
-                    </td>
+                    <td className="px-4 py-3.5 font-medium">{a.descripcion}</td>
+                    <td className="px-4 py-3.5 text-muted-foreground">{a.fechaPublicacion?.split('T')[0] ?? '—'}</td>
                     <td className="px-4 py-3.5 text-muted-foreground">{a.fechaAplicacion?.split('T')[0]}</td>
                     <td className="px-4 py-3.5 text-muted-foreground">{a.fuenteOficial ?? '—'}</td>
                     <td className="px-4 py-3.5"><StatusBadge status={a.estado === 'aplicada' ? 'Aprobada' : a.estado === 'pendiente' ? 'Pendiente' : a.estado} /></td>
@@ -315,17 +315,12 @@ const Tarifas = () => {
           <DialogHeader><DialogTitle>Nueva actualización tarifaria</DialogTitle></DialogHeader>
           <div className="space-y-3 mt-2">
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Nombre / descripción</label>
-              <Input placeholder="Ej. Actualización Q2 2026" value={actForm.nombre} onChange={e => setActForm({ ...actForm, nombre: e.target.value })} />
+              <label className="text-xs text-muted-foreground mb-1 block">Descripción</label>
+              <Input placeholder="Ej. Actualización Q2 2026" value={actForm.descripcion} onChange={e => setActForm({ ...actForm, descripcion: e.target.value })} />
             </div>
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Factor de ajuste (1.04 = +4%)</label>
-              <Input type="number" step="0.01" min="0.01" value={actForm.factorAjuste} onChange={e => setActForm({ ...actForm, factorAjuste: e.target.value })} />
-              {actForm.factorAjuste && (
-                <p className="text-xs text-[#007BFF] mt-1">
-                  = {actForm.factorAjuste > '1' ? '+' : ''}{((Number(actForm.factorAjuste) - 1) * 100).toFixed(1)}% sobre todas las tarifas
-                </p>
-              )}
+              <label className="text-xs text-muted-foreground mb-1 block">Fecha de publicación</label>
+              <Input type="date" value={actForm.fechaPublicacion} onChange={e => setActForm({ ...actForm, fechaPublicacion: e.target.value })} />
             </div>
             <div>
               <label className="text-xs text-muted-foreground mb-1 block">Fecha de aplicación</label>
@@ -337,10 +332,10 @@ const Tarifas = () => {
             </div>
             <Button
               className="w-full bg-[#007BFF] hover:bg-blue-600 text-white mt-2"
-              disabled={!actForm.nombre || !actForm.factorAjuste || !actForm.fechaAplicacion || crearMut.isPending}
+              disabled={!actForm.descripcion || !actForm.fechaPublicacion || !actForm.fechaAplicacion || crearMut.isPending}
               onClick={() => crearMut.mutate({
-                nombre: actForm.nombre,
-                factorAjuste: Number(actForm.factorAjuste),
+                descripcion: actForm.descripcion,
+                fechaPublicacion: actForm.fechaPublicacion,
                 fechaAplicacion: actForm.fechaAplicacion,
                 fuenteOficial: actForm.fuenteOficial || undefined,
               })}
