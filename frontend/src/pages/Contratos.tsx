@@ -2,10 +2,17 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useData } from '@/context/DataContext';
 import { fetchContratos, createContrato, updateContrato, hasApi, type CreateContratoDto } from '@/api/contratos';
+import {
+  fetchProcesos,
+  crearProceso,
+  avanzarEtapa,
+  cancelarProceso,
+  type ProcesoContratacion,
+} from '@/api/procesos-contratacion';
 import StatusBadge from '@/components/StatusBadge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Plus, Eye, ChevronRight, Hash, User, Droplets, FileText, SlidersHorizontal, Download, TrendingUp } from 'lucide-react';
+import { Plus, Eye, ChevronRight, Hash, User, Droplets, FileText, SlidersHorizontal, Download, TrendingUp, GitBranch } from 'lucide-react';
 import { PageHeader } from '@/components/PageHeader';
 import { KpiCard } from '@/components/KpiCard';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -425,6 +432,7 @@ const Contratos = () => {
                         { value: 'servicio',    icon: Droplets,    label: 'Servicio' },
                         { value: 'facturacion', icon: FileText,    label: 'Facturación' },
                         { value: 'historico',   icon: ChevronRight,label: 'Histórico' },
+                        { value: 'procesos',    icon: GitBranch,   label: 'Procesos' },
                       ] as const).map(({ value, icon: Icon, label }) => (
                         <TabsTrigger
                           key={value}
@@ -603,6 +611,11 @@ const Contratos = () => {
                       </table>
                     </TabsContent>
 
+                    {/* ── Procesos de contratación ── */}
+                    <TabsContent value="procesos" className="mt-0">
+                      <ProcesosTab contratoId={selected.id} useApi={useApi} />
+                    </TabsContent>
+
                   </div>
                 </Tabs>
 
@@ -614,5 +627,225 @@ const Contratos = () => {
     </div>
   );
 };
+
+// ── ProcesosTab ─────────────────────────────────────────────────────────────
+
+const ETAPAS = [
+  'solicitud',
+  'verificacion_tecnica',
+  'aprobacion',
+  'firma',
+  'activacion',
+];
+
+function etapaLabel(e: string) {
+  const labels: Record<string, string> = {
+    solicitud: 'Solicitud',
+    verificacion_tecnica: 'Verificación técnica',
+    aprobacion: 'Aprobación',
+    firma: 'Firma',
+    activacion: 'Activación',
+  };
+  return labels[e] ?? e;
+}
+
+function ProcesosTab({ contratoId, useApi }: { contratoId: string; useApi: boolean }) {
+  const queryClient = useQueryClient();
+  const [cancelMotivo, setCancelMotivo] = useState('');
+  const [cancelId, setCancelId] = useState<string | null>(null);
+
+  const { data: procesos = [], isLoading } = useQuery({
+    queryKey: ['procesos', contratoId],
+    queryFn: () => fetchProcesos(contratoId),
+    enabled: useApi,
+  });
+
+  const crearMut = useMutation({
+    mutationFn: () => crearProceso({ contratoId }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['procesos', contratoId] }),
+  });
+
+  const avanzarMut = useMutation({
+    mutationFn: (id: string) => avanzarEtapa(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['procesos', contratoId] }),
+  });
+
+  const cancelarMut = useMutation({
+    mutationFn: ({ id, motivo }: { id: string; motivo: string }) => cancelarProceso(id, motivo),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['procesos', contratoId] });
+      setCancelId(null);
+      setCancelMotivo('');
+    },
+  });
+
+  // Fallback mock when no API
+  const displayProcesos: ProcesoContratacion[] = useApi
+    ? procesos
+    : [
+        {
+          id: 'proc-mock-1',
+          contratoId,
+          tipoContratacionId: null,
+          etapaActual: 'verificacion_tecnica',
+          estado: 'en_curso',
+          creadoPor: 'SISTEMA',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          historial: [
+            { id: 'h1', procesoId: 'proc-mock-1', etapa: 'solicitud', estado: 'completada', nota: 'Solicitud recibida', fechaInicio: new Date().toISOString(), fechaFin: new Date().toISOString() },
+            { id: 'h2', procesoId: 'proc-mock-1', etapa: 'verificacion_tecnica', estado: 'en_curso', nota: null, fechaInicio: new Date().toISOString(), fechaFin: null },
+          ],
+        },
+      ];
+
+  if (!useApi && displayProcesos.length === 0) {
+    return (
+      <div className="text-center py-12 text-sm text-muted-foreground">
+        No hay procesos de contratación para este contrato.
+        <br />
+        <Button size="sm" className="mt-3" onClick={() => crearMut.mutate()}>
+          <Plus className="w-3.5 h-3.5 mr-1.5" /> Iniciar proceso
+        </Button>
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return <p className="text-sm text-muted-foreground text-center py-8">Cargando procesos…</p>;
+  }
+
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-muted-foreground">{displayProcesos.length} proceso(s) registrado(s)</p>
+        {useApi && (
+          <Button size="sm" variant="outline" onClick={() => crearMut.mutate()} disabled={crearMut.isPending}>
+            <Plus className="w-3.5 h-3.5 mr-1.5" /> Nuevo proceso
+          </Button>
+        )}
+      </div>
+
+      {displayProcesos.map((proceso) => {
+        const etapaIdx = ETAPAS.indexOf(proceso.etapaActual);
+        const isCancelado = proceso.estado === 'cancelado';
+        const isCompletado = proceso.estado === 'completado';
+
+        return (
+          <div key={proceso.id} className="rounded-xl border border-border/50 overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-3.5 bg-muted/20 border-b">
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-xs text-muted-foreground">{proceso.id.slice(0, 8)}…</span>
+                <StatusBadge status={
+                  isCancelado ? 'Cancelado' :
+                  isCompletado ? 'Activo' :
+                  'Pendiente de alta'
+                } />
+              </div>
+              <div className="flex items-center gap-2">
+                {!isCancelado && !isCompletado && (
+                  <>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => avanzarMut.mutate(proceso.id)}
+                      disabled={avanzarMut.isPending || etapaIdx >= ETAPAS.length - 1}
+                    >
+                      Avanzar etapa
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-destructive hover:text-destructive"
+                      onClick={() => setCancelId(proceso.id)}
+                    >
+                      Cancelar
+                    </Button>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Stepper */}
+            <div className="px-5 py-4">
+              <div className="flex items-center gap-0">
+                {ETAPAS.map((etapa, i) => {
+                  const done = i < etapaIdx;
+                  const active = i === etapaIdx && !isCancelado;
+                  return (
+                    <React.Fragment key={etapa}>
+                      <div className="flex flex-col items-center gap-1 min-w-0">
+                        <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-colors ${
+                          isCancelado && i <= etapaIdx ? 'border-red-300 bg-red-50 text-red-400' :
+                          done ? 'border-emerald-500 bg-emerald-500 text-white' :
+                          active ? 'border-[#007BFF] bg-[#007BFF] text-white' :
+                          'border-border bg-muted text-muted-foreground'
+                        }`}>
+                          {done ? '✓' : i + 1}
+                        </div>
+                        <span className={`text-[10px] text-center leading-tight max-w-[60px] ${active ? 'font-semibold text-[#007BFF]' : done ? 'text-emerald-600' : 'text-muted-foreground'}`}>
+                          {etapaLabel(etapa)}
+                        </span>
+                      </div>
+                      {i < ETAPAS.length - 1 && (
+                        <div className={`flex-1 h-0.5 mx-1 mb-4 rounded-full ${done ? 'bg-emerald-400' : 'bg-border'}`} />
+                      )}
+                    </React.Fragment>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Historial */}
+            {proceso.historial && proceso.historial.length > 0 && (
+              <div className="border-t px-5 py-3">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">Historial de etapas</p>
+                <div className="space-y-1.5">
+                  {proceso.historial.map((h) => (
+                    <div key={h.id} className="flex items-start gap-2.5 text-xs">
+                      <div className={`w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 ${h.estado === 'completada' ? 'bg-emerald-500' : h.estado === 'en_curso' ? 'bg-blue-500' : 'bg-muted-foreground'}`} />
+                      <div className="flex-1">
+                        <span className="font-medium">{etapaLabel(h.etapa)}</span>
+                        {h.nota && <span className="text-muted-foreground ml-1.5">— {h.nota}</span>}
+                      </div>
+                      <span className="text-muted-foreground tabular-nums shrink-0">
+                        {new Date(h.fechaInicio).toLocaleDateString('es-MX')}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
+
+      {/* Cancel dialog */}
+      {cancelId && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm space-y-4">
+            <h3 className="font-semibold">Cancelar proceso</h3>
+            <Input
+              placeholder="Motivo de cancelación"
+              value={cancelMotivo}
+              onChange={(e) => setCancelMotivo(e.target.value)}
+            />
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => { setCancelId(null); setCancelMotivo(''); }}>Cancelar</Button>
+              <Button
+                variant="destructive"
+                disabled={!cancelMotivo.trim() || cancelarMut.isPending}
+                onClick={() => cancelarMut.mutate({ id: cancelId, motivo: cancelMotivo })}
+              >
+                Confirmar
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default Contratos;

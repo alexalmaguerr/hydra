@@ -15,6 +15,9 @@ dist-ssr
 .env.*
 !.env.example
 
+# Local docs (no subir al repo)
+DEMO_WALKTHROUGH.md
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

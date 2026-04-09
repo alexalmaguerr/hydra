@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 
 // Secuencia oficial de etapas del flujo de contratación (req PRD #1, #6)
@@ -74,7 +75,7 @@ export class ProcesosContratacionService {
         estado: 'en_progreso',
         plantillaId: dto.plantillaId ?? null,
         creadoPor: dto.creadoPor ?? null,
-        datosAdicionales: dto.datosAdicionales ?? null,
+        datosAdicionales: dto.datosAdicionales ?? Prisma.DbNull,
       },
     });
 
@@ -197,7 +198,7 @@ export class ProcesosContratacionService {
         nombre: dto.nombre,
         version: dto.version ?? '1.0',
         contenido: dto.contenido,
-        variables: dto.variables ?? null,
+        variables: dto.variables ?? Prisma.DbNull,
       },
     });
   }

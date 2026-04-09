@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
@@ -176,7 +177,7 @@ export class TarifasService {
         formula: dto.formula ?? null,
         porcentaje: dto.porcentaje ?? null,
         montoFijo: dto.montoFijo ?? null,
-        condiciones: dto.condiciones ?? null,
+        condiciones: dto.condiciones ?? Prisma.DbNull,
       },
     });
   }
@@ -240,7 +241,7 @@ export class TarifasService {
         fechaPublicacion: new Date(dto.fechaPublicacion),
         fechaAplicacion: new Date(dto.fechaAplicacion),
         fuenteOficial: dto.fuenteOficial ?? null,
-        tarifasAfectadas: dto.tarifasAfectadas ?? null,
+        tarifasAfectadas: dto.tarifasAfectadas ?? Prisma.DbNull,
         estado: 'pendiente',
       },
     });

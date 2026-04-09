@@ -20,6 +20,7 @@ import {
   ClipboardList,
   Handshake,
   Activity,
+  Database,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -186,6 +187,14 @@ export const APP_ROUTES: AppRouteConfig[] = [
     icon: Activity,
     allowedRoles: ['SUPER_ADMIN', 'ADMIN'],
     group: 'Operaciones',
+  },
+  // Configuración
+  {
+    path: 'catalogos',
+    label: 'Catálogos CIG2018',
+    icon: Database,
+    allowedRoles: ['SUPER_ADMIN', 'ADMIN'],
+    group: 'Configuración',
   },
 ];
 
