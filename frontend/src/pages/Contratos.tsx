@@ -679,41 +679,49 @@ function ProcesosTab({ contratoId, useApi }: { contratoId: string; useApi: boole
     },
   });
 
-  // Fallback mock when no API
-  const displayProcesos: ProcesoContratacion[] = useApi
-    ? procesos
-    : [
-        {
-          id: 'proc-mock-1',
-          contratoId,
-          tipoContratacionId: null,
-          etapaActual: 'verificacion_tecnica',
-          estado: 'en_curso',
-          creadoPor: 'SISTEMA',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          historial: [
-            { id: 'h1', procesoId: 'proc-mock-1', etapa: 'solicitud', estado: 'completada', nota: 'Solicitud recibida', fechaInicio: new Date().toISOString(), fechaFin: new Date().toISOString() },
-            { id: 'h2', procesoId: 'proc-mock-1', etapa: 'verificacion_tecnica', estado: 'en_curso', nota: null, fechaInicio: new Date().toISOString(), fechaFin: null },
-          ],
-        },
-      ];
-
-  if (!useApi && displayProcesos.length === 0) {
-    return (
-      <div className="text-center py-12 text-sm text-muted-foreground">
-        No hay procesos de contratación para este contrato.
-        <br />
-        <Button size="sm" className="mt-3" onClick={() => crearMut.mutate()}>
-          <Plus className="w-3.5 h-3.5 mr-1.5" /> Iniciar proceso
-        </Button>
-      </div>
-    );
-  }
+  const MOCK_PROCESO: ProcesoContratacion = {
+    id: 'proc-mock-1',
+    contratoId,
+    tipoContratacionId: null,
+    etapaActual: 'verificacion_tecnica',
+    estado: 'en_curso',
+    creadoPor: 'SISTEMA',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    historial: [
+      { id: 'h1', procesoId: 'proc-mock-1', etapa: 'solicitud', estado: 'completada', nota: 'Solicitud recibida', fechaInicio: new Date().toISOString(), fechaFin: new Date().toISOString() },
+      { id: 'h2', procesoId: 'proc-mock-1', etapa: 'verificacion_tecnica', estado: 'en_curso', nota: null, fechaInicio: new Date().toISOString(), fechaFin: null },
+    ],
+  };
 
   if (isLoading) {
     return <p className="text-sm text-muted-foreground text-center py-8">Cargando procesos…</p>;
   }
+
+  // Empty state — both when API has no data and when no API
+  if (procesos.length === 0 && !isLoading) {
+    return (
+      <div className="text-center py-14 text-sm text-muted-foreground space-y-3">
+        <GitBranch className="w-10 h-10 mx-auto opacity-20" />
+        <p className="font-medium">Sin procesos de contratación</p>
+        <p className="text-xs max-w-xs mx-auto">
+          Este contrato aún no tiene un proceso formal iniciado. Puedes iniciar uno para dar seguimiento a las etapas de alta.
+        </p>
+        <Button size="sm" className="bg-[#007BFF] hover:bg-blue-600 text-white mt-2"
+          onClick={() => useApi ? crearMut.mutate() : undefined}
+          disabled={crearMut.isPending}
+        >
+          <Plus className="w-3.5 h-3.5 mr-1.5" />
+          {crearMut.isPending ? 'Iniciando…' : 'Iniciar proceso'}
+        </Button>
+        {!useApi && (
+          <p className="text-[11px] text-muted-foreground/60 pt-1">Vista previa (sin API conectada)</p>
+        )}
+      </div>
+    );
+  }
+
+  const displayProcesos = useApi ? procesos : [MOCK_PROCESO];
 
   return (
     <div className="space-y-5">
