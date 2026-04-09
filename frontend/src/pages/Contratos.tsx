@@ -679,10 +679,11 @@ function ProcesosTab({ contratoId, useApi }: { contratoId: string; useApi: boole
   const [cancelMotivo, setCancelMotivo] = useState('');
   const [cancelId, setCancelId] = useState<string | null>(null);
 
-  const { data: procesos = [], isLoading } = useQuery({
+  const { data: procesos = [], isLoading, isError, error } = useQuery({
     queryKey: ['procesos', contratoId],
     queryFn: () => fetchProcesos(contratoId),
     enabled: useApi,
+    retry: 1,
   });
 
   const crearMut = useMutation({
@@ -723,8 +724,17 @@ function ProcesosTab({ contratoId, useApi }: { contratoId: string; useApi: boole
     return <p className="text-sm text-muted-foreground text-center py-8">Cargando procesos…</p>;
   }
 
+  if (isError) {
+    return (
+      <div className="text-center py-14 space-y-2">
+        <p className="text-sm font-medium text-destructive">Error al cargar procesos</p>
+        <p className="text-xs text-muted-foreground">{(error as Error)?.message ?? 'Error desconocido'}</p>
+      </div>
+    );
+  }
+
   // Empty state — both when API has no data and when no API
-  if (procesos.length === 0 && !isLoading) {
+  if (procesos.length === 0) {
     return (
       <div className="text-center py-14 text-sm text-muted-foreground space-y-3">
         <GitBranch className="w-10 h-10 mx-auto opacity-20" />
