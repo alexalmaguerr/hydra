@@ -1,0 +1,234 @@
+import React, { useCallback, useMemo } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { Check } from 'lucide-react';
+import { createContrato, type CreateContratoDto } from '@/api/contratos';
+import { toast } from '@/components/ui/sonner';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+import { WIZARD_STEPS, useWizardState, type WizardData } from './hooks/useWizardState';
+import { useTipoContratacionConfig } from './hooks/useTipoContratacionConfig';
+import PasoServicioPoint from './steps/PasoServicioPoint';
+import PasoPersonas from './steps/PasoPersonas';
+import PasoConfigContrato from './steps/PasoConfigContrato';
+import PasoVariables from './steps/PasoVariables';
+import PasoDocumentos from './steps/PasoDocumentos';
+import PasoFacturacion from './steps/PasoFacturacion';
+import PasoOrdenes from './steps/PasoOrdenes';
+import PasoResumen from './steps/PasoResumen';
+import PasoConfirmacion from './steps/PasoConfirmacion';
+
+export interface WizardContratacionProps {
+  onComplete: () => void;
+  onCancel: () => void;
+}
+
+function buildCreateContratoDto(data: WizardData): CreateContratoDto {
+  const fecha = new Date().toISOString().split('T')[0];
+  const prop = data.propietario;
+  const dto: CreateContratoDto = {
+    puntoServicioId: data.puntoServicioId || undefined,
+    actividadId: data.actividadId || undefined,
+    tipoContratacionId: data.tipoContratacionId || undefined,
+    referenciaContratoAnterior: data.referenciaContratoAnterior?.trim() || undefined,
+    tipoContrato: '',
+    tipoServicio: '',
+    nombre: prop?.nombre?.trim() ?? '',
+    rfc: prop?.rfc?.trim() ?? '',
+    direccion: '',
+    contacto: prop?.telefono?.trim() || prop?.email?.trim() || '',
+    estado: 'Pendiente de alta',
+    fecha,
+    variablesCapturadas: Object.keys(data.variablesCapturadas).length ? { ...data.variablesCapturadas } : undefined,
+    documentosRecibidos: data.documentosRecibidos.length
+      ? Array.from(new Set(data.documentosRecibidos.map((d) => d.trim()).filter((d) => d.length > 0)))
+      : undefined,
+    generarOrdenInstalacionToma: data.generarOrdenInstalacionToma || undefined,
+    generarOrdenInstalacionMedidor:
+      !data.generarOrdenInstalacionToma && data.generarOrdenInstalacionMedidor ? true : undefined,
+    conceptosOverride: data.conceptosOverride?.length ? data.conceptosOverride : undefined,
+  };
+
+  const pf = data.personaFiscal;
+  if (pf && (pf.nombre?.trim() || pf.rfc?.trim() || pf.personaId)) {
+    dto.personaFiscal = {
+      personaId: pf.personaId,
+      nombre: pf.nombre?.trim() || undefined,
+      rfc: pf.rfc?.trim() || undefined,
+      curp: pf.curp?.trim() || undefined,
+      email: pf.email?.trim() || undefined,
+      telefono: pf.telefono?.trim() || undefined,
+      razonSocial: pf.razonSocial?.trim() || undefined,
+      regimenFiscal: pf.regimenFiscal?.trim() || undefined,
+    };
+  }
+
+  const pc = data.personaContacto;
+  if (pc && (pc.nombre?.trim() || pc.rfc?.trim() || pc.personaId)) {
+    dto.personaContacto = {
+      personaId: pc.personaId,
+      nombre: pc.nombre?.trim() || undefined,
+      rfc: pc.rfc?.trim() || undefined,
+      curp: pc.curp?.trim() || undefined,
+      email: pc.email?.trim() || undefined,
+      telefono: pc.telefono?.trim() || undefined,
+      razonSocial: pc.razonSocial?.trim() || undefined,
+      regimenFiscal: pc.regimenFiscal?.trim() || undefined,
+    };
+  }
+
+  if (prop?.razonSocial?.trim()) dto.razonSocial = prop.razonSocial.trim();
+  if (prop?.regimenFiscal?.trim()) dto.regimenFiscal = prop.regimenFiscal.trim();
+
+  return dto;
+}
+
+function canCreateContract(data: WizardData): boolean {
+  return (
+    !!data.puntoServicioId?.trim() &&
+    !!(data.propietario?.nombre?.trim() || data.propietario?.personaId) &&
+    !!(data.personaFiscal?.nombre?.trim() || data.personaFiscal?.rfc?.trim() || data.personaFiscal?.personaId) &&
+    !!data.tipoContratacionId?.trim()
+  );
+}
+
+const stepComponents = [
+  PasoServicioPoint,
+  PasoPersonas,
+  PasoConfigContrato,
+  PasoVariables,
+  PasoDocumentos,
+  PasoFacturacion,
+  PasoOrdenes,
+  PasoResumen,
+  PasoConfirmacion,
+] as const;
+
+export function WizardContratacion({ onComplete, onCancel }: WizardContratacionProps) {
+  const queryClient = useQueryClient();
+  const {
+    currentStep,
+    data,
+    updateData,
+    next,
+    prev,
+    canGoNext,
+    isLastStep,
+    isFirstStep,
+  } = useWizardState();
+
+  const { data: config } = useTipoContratacionConfig(data.tipoContratacionId);
+
+  const createMutation = useMutation({
+    mutationFn: (dto: CreateContratoDto) => createContrato(dto),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['contratos'] });
+      toast.success('Contrato creado', { description: 'El contrato se registró correctamente.' });
+      onComplete();
+    },
+    onError: (err: unknown) => {
+      const message = err instanceof Error ? err.message : 'No se pudo crear el contrato.';
+      toast.error('Error al crear contrato', { description: message });
+    },
+  });
+
+  const StepView = stepComponents[currentStep];
+
+  const stepProps = useMemo(
+    () => ({
+      data,
+      updateData,
+      config: config ?? undefined,
+    }),
+    [data, updateData, config],
+  );
+
+  const handlePrimary = useCallback(() => {
+    if (isLastStep) {
+      if (!canCreateContract(data)) {
+        toast.error('Datos incompletos', {
+          description: 'Complete punto de servicio, personas y tipo de contratación antes de crear el contrato.',
+        });
+        return;
+      }
+      createMutation.mutate(buildCreateContratoDto(data));
+      return;
+    }
+    next();
+  }, [isLastStep, data, next, createMutation]);
+
+  const primaryDisabled =
+    isLastStep
+      ? !canCreateContract(data) || createMutation.isPending
+      : !canGoNext || createMutation.isPending;
+
+  const primaryLabel = isLastStep
+    ? createMutation.isPending
+      ? 'Creando…'
+      : 'Crear Contrato'
+    : 'Siguiente';
+
+  return (
+    <div className="flex flex-col gap-6">
+      <nav aria-label="Progreso del asistente de contratación" className="w-full overflow-x-auto pb-2">
+        <ol className="flex min-w-[640px] items-center sm:min-w-0">
+          {WIZARD_STEPS.map((step, i) => {
+            const done = i < currentStep;
+            const active = i === currentStep;
+            const segmentDone = i < currentStep;
+            return (
+              <React.Fragment key={step.key}>
+                <li className="flex flex-col items-center gap-1">
+                  <div
+                    className={cn(
+                      'flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 text-xs font-semibold transition-colors',
+                      done && 'border-emerald-600 bg-emerald-600 text-white',
+                      active && !done && 'border-blue-600 bg-blue-600 text-white',
+                      !active && !done && 'border-muted-foreground/35 bg-muted text-muted-foreground',
+                    )}
+                    aria-current={active ? 'step' : undefined}
+                  >
+                    {done ? <Check className="h-4 w-4" strokeWidth={3} aria-hidden /> : <span>{i + 1}</span>}
+                  </div>
+                  <span
+                    className={cn(
+                      'hidden max-w-[4.5rem] truncate text-center text-[10px] leading-tight sm:block',
+                      active ? 'font-medium text-foreground' : 'text-muted-foreground',
+                    )}
+                  >
+                    {step.label}
+                  </span>
+                </li>
+                {i < WIZARD_STEPS.length - 1 ? (
+                  <div
+                    className={cn('mx-1 h-0.5 min-w-[12px] flex-1', segmentDone ? 'bg-emerald-600' : 'bg-border')}
+                    aria-hidden
+                  />
+                ) : null}
+              </React.Fragment>
+            );
+          })}
+        </ol>
+      </nav>
+
+      <div className="min-h-[200px] rounded-lg border bg-card p-4 shadow-sm">
+        <StepView {...stepProps} />
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-4">
+        <Button type="button" variant="ghost" onClick={onCancel} disabled={createMutation.isPending}>
+          Cancelar
+        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" variant="outline" onClick={prev} disabled={isFirstStep || createMutation.isPending}>
+            Anterior
+          </Button>
+          <Button type="button" onClick={handlePrimary} disabled={primaryDisabled}>
+            {primaryLabel}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default WizardContratacion;

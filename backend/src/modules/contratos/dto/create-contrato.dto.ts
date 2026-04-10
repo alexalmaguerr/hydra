@@ -21,6 +21,11 @@ export class PersonaRelacionContratoDto {
   @IsOptional() @IsString() regimenFiscal?: string;
 }
 
+export class ConceptoOverrideDto {
+  @IsString() conceptoCobroId: string;
+  @IsNumber() cantidad: number;
+}
+
 export class CreateContratoDto {
   @IsOptional() @IsString() tomaId?: string;
   @IsOptional() @IsString() puntoServicioId?: string;
@@ -95,4 +100,15 @@ export class CreateContratoDto {
   @ValidateNested()
   @Type(() => PersonaRelacionContratoDto)
   personaContacto?: PersonaRelacionContratoDto;
+
+  /** Variables dinámicas capturadas durante el wizard (superficie, unidades, etc.). */
+  @IsOptional()
+  variablesCapturadas?: Record<string, string | number | boolean>;
+
+  /** Override de cantidades por concepto desde el wizard paso 6. */
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ConceptoOverrideDto)
+  conceptosOverride?: ConceptoOverrideDto[];
 }

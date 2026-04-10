@@ -138,6 +138,10 @@ export class TiposContratacionService {
         documentos: {
           orderBy: [{ obligatorio: 'desc' }, { createdAt: 'asc' }],
         },
+        variables: {
+          include: { tipoVariable: true },
+          orderBy: { orden: 'asc' },
+        },
       },
     });
     if (!tipo) throw new NotFoundException(`TipoContratacion '${id}' no encontrado`);

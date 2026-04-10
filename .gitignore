@@ -28,3 +28,5 @@ DEMO_WALKTHROUGH.md
 *.njsproj
 *.sln
 *.sw?
+_DocumentacIon_Interna_Sistema_Anterior/*
+scripts/*

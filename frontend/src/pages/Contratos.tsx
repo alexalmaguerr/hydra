@@ -3,25 +3,18 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useData } from '@/context/DataContext';
 import {
   fetchContratos,
-  createContrato,
   updateContrato,
   fetchTextoContratoPreview,
   getContratoPdfUrl,
   crearFacturaContratacion,
   hasApi,
-  type CreateContratoDto,
 } from '@/api/contratos';
 import { toast } from '@/components/ui/sonner';
-import { wizardRequierePlantillaConChecklist } from '@/lib/contrato-wizard-validation';
-import { fetchTipoContratacionConfiguracion, fetchTiposContratacion } from '@/api/tipos-contratacion';
-import { fetchPuntosServicio } from '@/api/puntos-servicio';
-import { fetchActividades } from '@/api/catalogos';
 import {
   fetchProcesos,
   crearProceso,
   avanzarEtapa,
   cancelarProceso,
-  fetchPlantillasContrato,
   type ProcesoContratacion,
 } from '@/api/procesos-contratacion';
 import StatusBadge from '@/components/StatusBadge';
@@ -31,11 +24,11 @@ import { Plus, Eye, ChevronRight, Hash, User, Droplets, FileText, SlidersHorizon
 import { PageHeader } from '@/components/PageHeader';
 import { KpiCard } from '@/components/KpiCard';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { useSearchParams } from 'react-router-dom';
 import { Check, Pencil } from 'lucide-react';
+import { WizardContratacion } from '@/components/contratacion/WizardContratacion';
 
 /** Inline editable field for linking/updating the CEA contract number */
 function CeaNumInput({ contratoId, initial, onSaved }: { contratoId: string; initial: string; onSaved: (v: string) => void }) {
@@ -149,12 +142,10 @@ function ContratoTextoPreviewPanel({
 }
 
 const Contratos = () => {
-  const queryClient = useQueryClient();
   const useApi = hasApi();
-  const { contratos: contextContratos, tomas, addContrato, allowedZonaIds, timbrados, recibos, preFacturas, pagos } = useData();
+  const { contratos: contextContratos, allowedZonaIds, timbrados, recibos, preFacturas, pagos } = useData();
 
   const [showWizard, setShowWizard] = useState(false);
-  const [step, setStep] = useState(1);
   const [detail, setDetail] = useState<string | null>(null);
   const [searchParams] = useSearchParams();
 
@@ -162,38 +153,6 @@ const Contratos = () => {
     queryKey: ['contratos'],
     queryFn: fetchContratos,
     enabled: useApi,
-  });
-  const createMutation = useMutation({
-    mutationFn: (dto: CreateContratoDto) => createContrato(dto),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['contratos'] }),
-  });
-
-  const { data: tiposWizardResp } = useQuery({
-    queryKey: ['tipos-contratacion', 'wizard-list'],
-    queryFn: fetchTiposContratacion,
-    enabled: useApi && showWizard,
-  });
-  const tiposWizard = useMemo(
-    () => (tiposWizardResp?.data ?? []).filter((t) => t.activo),
-    [tiposWizardResp],
-  );
-
-  const { data: puntosWizardResp } = useQuery({
-    queryKey: ['puntos-servicio', 'wizard-list'],
-    queryFn: () => fetchPuntosServicio({ limit: 200 }),
-    enabled: useApi && showWizard,
-  });
-  const puntosWizard = puntosWizardResp?.data ?? [];
-
-  const { data: actividadesWizard = [] } = useQuery({
-    queryKey: ['catalogos', 'actividades', 'wizard-list'],
-    queryFn: fetchActividades,
-    enabled: useApi && showWizard,
-  });
-  const { data: plantillasWizard = [] } = useQuery({
-    queryKey: ['procesos-contratacion', 'plantillas-wizard'],
-    queryFn: () => fetchPlantillasContrato(true),
-    enabled: useApi && showWizard,
   });
 
   const contratos = useApi
@@ -204,194 +163,9 @@ const Contratos = () => {
     [contratos, allowedZonaIds]
   );
 
-  const emptyWizardForm = () => ({
-    tomaId: '',
-    tipoContrato: '' as string,
-    tipoServicio: '' as string,
-    actividadId: '',
-    referenciaContratoAnterior: '',
-    nombre: '',
-    rfc: '',
-    direccion: '',
-    contacto: '',
-    razonSocial: '',
-    regimenFiscal: '',
-    superficiePredio: '',
-    superficieConstruida: '',
-    unidadesServidas: '',
-    personasHabitanVivienda: '',
-    documentosRecibidos: [] as string[],
-    generarOrdenInstalacionToma: false,
-    generarOrdenInstalacionMedidor: false,
-    generarFacturaContratacion: false,
-    omitirRegistroPersonaTitular: false,
-    tipoContratacionId: '',
-    puntoServicioId: '',
-    iniciarProcesoContratacion: true,
-    plantillaProcesoId: '',
-    fiscalNombre: '',
-    fiscalRfc: '',
-    fiscalCurp: '',
-    fiscalEmail: '',
-    fiscalTelefono: '',
-    contactoNombre: '',
-    contactoRfc: '',
-    contactoEmail: '',
-    contactoTelefono: '',
-  });
-
-  const [form, setForm] = useState(emptyWizardForm);
-
-  const { data: tipoConfigWizard } = useQuery({
-    queryKey: ['tipos-contratacion', form.tipoContratacionId, 'configuracion'],
-    queryFn: () => fetchTipoContratacionConfiguracion(form.tipoContratacionId),
-    enabled: useApi && showWizard && !!form.tipoContratacionId,
-  });
-  const documentosRequeridosWizard = useMemo(
-    () => tipoConfigWizard?.documentos ?? [],
-    [tipoConfigWizard?.documentos],
-  );
-  const requiredDocs = useMemo(
-    () =>
-      documentosRequeridosWizard
-        .filter((d) => d.obligatorio)
-        .map((d) => d.nombreDocumento.trim())
-        .filter((n) => n.length > 0),
-    [documentosRequeridosWizard],
-  );
-
   useEffect(() => {
     if (searchParams.get('new') === '1') setShowWizard(true);
   }, [searchParams]);
-
-  const disponibles = tomas.filter(t => t.estado === 'Disponible');
-  const contratoIdsVisibles = useMemo(() => new Set(contratosVisibles.map(c => c.id)), [contratosVisibles]);
-
-  const handleCreate = () => {
-    if (
-      useApi &&
-      wizardRequierePlantillaConChecklist({
-        iniciarProcesoContratacion: form.iniciarProcesoContratacion,
-        documentosRecibidos: form.documentosRecibidos,
-        plantillaProcesoId: form.plantillaProcesoId,
-      })
-    ) {
-      toast.error('Plantilla requerida', {
-        description:
-          'Si inicia el proceso de contratación y marcó documentos en el checklist, elija una plantilla.',
-      });
-      return;
-    }
-    const fecha = new Date().toISOString().split('T')[0];
-    const parseNum = (value: string): number | undefined => {
-      const t = value.trim();
-      if (!t) return undefined;
-      const n = Number(t);
-      return Number.isFinite(n) ? n : undefined;
-    };
-    const payload: CreateContratoDto = {
-      tomaId: form.tomaId || undefined,
-      tipoContratacionId: form.tipoContratacionId || undefined,
-      puntoServicioId: form.puntoServicioId || undefined,
-      actividadId: form.actividadId || undefined,
-      referenciaContratoAnterior: form.referenciaContratoAnterior.trim() || undefined,
-      tipoContrato: form.tipoContrato,
-      tipoServicio: form.tipoServicio,
-      nombre: form.nombre,
-      rfc: form.rfc,
-      direccion: form.direccion,
-      contacto: form.contacto,
-      estado: 'Pendiente de alta',
-      fecha,
-      generarOrdenInstalacionToma: form.generarOrdenInstalacionToma || undefined,
-      generarOrdenInstalacionMedidor:
-        !form.generarOrdenInstalacionToma && form.generarOrdenInstalacionMedidor
-          ? true
-          : undefined,
-      generarFacturaContratacion: form.generarFacturaContratacion || undefined,
-      omitirRegistroPersonaTitular: form.omitirRegistroPersonaTitular || undefined,
-      superficiePredio: parseNum(form.superficiePredio),
-      superficieConstruida: parseNum(form.superficieConstruida),
-      unidadesServidas: parseNum(form.unidadesServidas),
-      personasHabitanVivienda: parseNum(form.personasHabitanVivienda),
-      documentosRecibidos: form.documentosRecibidos.length
-        ? Array.from(
-            new Set(
-              form.documentosRecibidos
-                .map((d) => d.trim())
-                .filter((d) => d.length > 0),
-            ),
-          )
-        : undefined,
-    };
-    const fiscalNombre = form.fiscalNombre.trim();
-    const fiscalRfc = form.fiscalRfc.trim();
-    if (fiscalNombre || fiscalRfc) {
-      payload.personaFiscal = {
-        nombre: fiscalNombre || undefined,
-        rfc: fiscalRfc || undefined,
-        curp: form.fiscalCurp.trim() || undefined,
-        email: form.fiscalEmail.trim() || undefined,
-        telefono: form.fiscalTelefono.trim() || undefined,
-      };
-    }
-    const contactoNombre = form.contactoNombre.trim();
-    const contactoRfc = form.contactoRfc.trim();
-    if (contactoNombre || contactoRfc) {
-      payload.personaContacto = {
-        nombre: contactoNombre || undefined,
-        rfc: contactoRfc || undefined,
-        email: form.contactoEmail.trim() || undefined,
-        telefono: form.contactoTelefono.trim() || undefined,
-      };
-    }
-    if (form.razonSocial.trim()) payload.razonSocial = form.razonSocial.trim();
-    if (form.regimenFiscal.trim()) payload.regimenFiscal = form.regimenFiscal.trim();
-    if (
-      form.documentosRecibidos.length > 0 &&
-      form.iniciarProcesoContratacion &&
-      form.plantillaProcesoId
-    ) {
-      payload.plantillaContratacionId = form.plantillaProcesoId;
-    }
-    if (useApi) {
-      createMutation.mutate(payload, {
-        onSuccess: async (created) => {
-          if (created.procesoGestionadoEnAlta) {
-            void queryClient.invalidateQueries({ queryKey: ['procesos', created.id] });
-          }
-          if (
-            form.iniciarProcesoContratacion &&
-            !created.procesoGestionadoEnAlta
-          ) {
-            try {
-              await crearProceso({
-                contratoId: created.id,
-                tipoContratacionId: form.tipoContratacionId || undefined,
-                plantillaId: form.plantillaProcesoId || undefined,
-                creadoPor: 'operador',
-              });
-              void queryClient.invalidateQueries({ queryKey: ['procesos', created.id] });
-            } catch (err) {
-              const msg =
-                err instanceof Error ? err.message : 'Error al iniciar el proceso de contratación';
-              toast.error('Contrato creado, pero falló el proceso', {
-                description: msg,
-              });
-            }
-          }
-          setForm(emptyWizardForm());
-          setStep(1);
-          setShowWizard(false);
-        },
-      });
-    } else {
-      addContrato(payload);
-      setForm(emptyWizardForm());
-      setStep(1);
-      setShowWizard(false);
-    }
-  };
 
   const selected = contratosVisibles.find(c => c.id === detail);
 
@@ -432,7 +206,6 @@ const Contratos = () => {
     (c: { estado: string }) => c.estado === 'Pendiente de toma' || c.estado === 'Pendiente de zona',
   ).length;
   const suspendidos = contratosVisibles.filter((c: { estado: string }) => c.estado === 'Suspendido').length;
-  const missingRequiredDocs = requiredDocs.filter((d) => !form.documentosRecibidos.includes(d));
 
   return (
     <div>
@@ -442,8 +215,7 @@ const Contratos = () => {
         breadcrumbs={[{ label: 'Servicios', href: '#' }, { label: 'Contratos' }]}
         actions={
           <Button
-            onClick={() => { setStep(1); setShowWizard(true); }}
-            disabled={disponibles.length === 0}
+            onClick={() => setShowWizard(true)}
             className="bg-[#007BFF] hover:bg-blue-600 text-white"
           >
             <Plus className="h-4 w-4 mr-1.5" /> Alta de contrato
@@ -506,418 +278,19 @@ const Contratos = () => {
         </table>
       </div>
 
-      {/* Wizard */}
+      {/* Wizard de contratación (9 pasos) */}
       <Dialog open={showWizard} onOpenChange={setShowWizard}>
-        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Alta de Contrato — Paso {step} de 3</DialogTitle>
+            <DialogTitle>Alta de Contrato</DialogTitle>
             <DialogDescription>
-              Asistente para registrar un nuevo contrato de servicio en tres pasos.
+              Asistente guiado para registrar un nuevo contrato de servicio.
             </DialogDescription>
           </DialogHeader>
-          
-          {/* Step indicators */}
-          <div className="flex items-center gap-2 mb-4">
-            {[1, 2, 3].map(s => (
-              <div key={s} className={`flex items-center gap-1 ${s <= step ? 'text-primary' : 'text-muted-foreground'}`}>
-                <div className={`h-8 w-8 rounded-full flex items-center justify-center text-sm font-bold ${s <= step ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>{s}</div>
-                <span className="text-xs hidden sm:inline">{s === 1 ? 'Selección' : s === 2 ? 'Datos' : 'Confirmar'}</span>
-                {s < 3 && <ChevronRight className="h-4 w-4" />}
-              </div>
-            ))}
-          </div>
-
-          {step === 1 && (
-            <div className="space-y-3">
-              <Select value={form.tomaId} onValueChange={v => setForm({ ...form, tomaId: v })}>
-                <SelectTrigger><SelectValue placeholder="Seleccionar toma disponible" /></SelectTrigger>
-                <SelectContent>{disponibles.map(t => <SelectItem key={t.id} value={t.id}>{t.id} - {t.ubicacion} ({t.tipo})</SelectItem>)}</SelectContent>
-              </Select>
-              <Select value={form.tipoContrato} onValueChange={v => setForm({ ...form, tipoContrato: v as string })}>
-                <SelectTrigger><SelectValue placeholder="Tipo de contrato" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Agua">Agua</SelectItem>
-                  <SelectItem value="Saneamiento">Saneamiento</SelectItem>
-                  <SelectItem value="Alcantarillado">Alcantarillado</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={form.tipoServicio} onValueChange={v => setForm({ ...form, tipoServicio: v as string })}>
-                <SelectTrigger><SelectValue placeholder="Tipo de servicio" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Doméstico">Doméstico</SelectItem>
-                  <SelectItem value="Comercial">Comercial</SelectItem>
-                  <SelectItem value="Industrial">Industrial</SelectItem>
-                </SelectContent>
-              </Select>
-              {useApi && (
-                <>
-                  {tiposWizard.length > 0 ? (
-                    <Select
-                      value={form.tipoContratacionId || '__none__'}
-                      onValueChange={(v) =>
-                        setForm({ ...form, tipoContratacionId: v === '__none__' ? '' : v })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Tipo de contratación (catálogo, opcional)" />
-                      </SelectTrigger>
-                      <SelectContent className="max-h-60">
-                        <SelectItem value="__none__">Sin tipo (catálogo)</SelectItem>
-                        {tiposWizard.map((t) => (
-                          <SelectItem key={t.id} value={t.id}>
-                            {t.codigo} — {t.nombre}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <p className="text-xs text-muted-foreground">No hay tipos de contratación activos en catálogo.</p>
-                  )}
-                  {puntosWizard.length > 0 ? (
-                    <Select
-                      value={form.puntoServicioId || '__none__'}
-                      onValueChange={(v) =>
-                        setForm({ ...form, puntoServicioId: v === '__none__' ? '' : v })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Punto de servicio (opcional)" />
-                      </SelectTrigger>
-                      <SelectContent className="max-h-60">
-                        <SelectItem value="__none__">Sin punto de servicio</SelectItem>
-                        {puntosWizard.map((p) => (
-                          <SelectItem key={p.id} value={p.id}>
-                            {p.codigo}
-                            {p.domicilio?.calle ? ` · ${p.domicilio.calle}` : ''}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <p className="text-xs text-muted-foreground">No hay puntos de servicio listados (revisa permisos o datos).</p>
-                  )}
-                  {actividadesWizard.length > 0 ? (
-                    <Select
-                      value={form.actividadId || '__none__'}
-                      onValueChange={(v) =>
-                        setForm({ ...form, actividadId: v === '__none__' ? '' : v })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Actividad (opcional)" />
-                      </SelectTrigger>
-                      <SelectContent className="max-h-60">
-                        <SelectItem value="__none__">Sin actividad</SelectItem>
-                        {actividadesWizard.map((a) => (
-                          <SelectItem key={a.id} value={a.id}>
-                            {a.codigo} — {a.descripcion}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : null}
-                  {plantillasWizard.length > 0 ? (
-                    <Select
-                      value={form.plantillaProcesoId || '__none__'}
-                      onValueChange={(v) =>
-                        setForm({ ...form, plantillaProcesoId: v === '__none__' ? '' : v })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Plantilla para proceso (opcional)" />
-                      </SelectTrigger>
-                      <SelectContent className="max-h-60">
-                        <SelectItem value="__none__">Sin plantilla</SelectItem>
-                        {plantillasWizard.map((p) => (
-                          <SelectItem key={p.id} value={p.id}>
-                            {p.nombre} v{p.version}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : null}
-                </>
-              )}
-              <Input
-                placeholder="Contrato padre (opcional)"
-                value={form.referenciaContratoAnterior}
-                onChange={(e) => setForm({ ...form, referenciaContratoAnterior: e.target.value })}
-              />
-              <Button onClick={() => setStep(2)} disabled={!form.tomaId || !form.tipoContrato || !form.tipoServicio} className="w-full">Siguiente</Button>
-            </div>
-          )}
-
-          {step === 2 && (
-            <div className="space-y-3">
-              <Input placeholder="Nombre completo" value={form.nombre} onChange={e => setForm({ ...form, nombre: e.target.value })} />
-              <Input placeholder="RFC" value={form.rfc} onChange={e => setForm({ ...form, rfc: e.target.value })} />
-              <Input placeholder="Dirección" value={form.direccion} onChange={e => setForm({ ...form, direccion: e.target.value })} />
-              <Input placeholder="Contacto (teléfono)" value={form.contacto} onChange={e => setForm({ ...form, contacto: e.target.value })} />
-              <Input placeholder="Razón social (opcional, moral)" value={form.razonSocial} onChange={e => setForm({ ...form, razonSocial: e.target.value })} />
-              <Input placeholder="Régimen fiscal (opcional)" value={form.regimenFiscal} onChange={e => setForm({ ...form, regimenFiscal: e.target.value })} />
-              <div className="grid grid-cols-2 gap-2">
-                <Input
-                  type="number"
-                  placeholder="Superficie predio (m²)"
-                  value={form.superficiePredio}
-                  onChange={(e) => setForm({ ...form, superficiePredio: e.target.value })}
-                />
-                <Input
-                  type="number"
-                  placeholder="Superficie construcción (m²)"
-                  value={form.superficieConstruida}
-                  onChange={(e) => setForm({ ...form, superficieConstruida: e.target.value })}
-                />
-                <Input
-                  type="number"
-                  placeholder="Unidades de servicio"
-                  value={form.unidadesServidas}
-                  onChange={(e) => setForm({ ...form, unidadesServidas: e.target.value })}
-                />
-                <Input
-                  type="number"
-                  placeholder="Personas en vivienda"
-                  value={form.personasHabitanVivienda}
-                  onChange={(e) => setForm({ ...form, personasHabitanVivienda: e.target.value })}
-                />
-              </div>
-              {useApi && form.tipoContratacionId && documentosRequeridosWizard.length > 0 && (
-                <div className="space-y-2 pt-2 border-t border-border">
-                  <p className="text-sm font-medium">Documentos recibidos para contratación</p>
-                  {documentosRequeridosWizard.map((doc) => {
-                    const docKey = doc.nombreDocumento.trim();
-                    const checked =
-                      docKey.length > 0 && form.documentosRecibidos.includes(docKey);
-                    return (
-                      <label key={doc.id} className="flex items-start gap-2 text-sm cursor-pointer">
-                        <input
-                          type="checkbox"
-                          className="mt-0.5"
-                          disabled={!docKey}
-                          checked={checked}
-                          onChange={(e) => {
-                            if (!docKey) return;
-                            setForm((prev) => ({
-                              ...prev,
-                              documentosRecibidos: e.target.checked
-                                ? Array.from(new Set([...prev.documentosRecibidos, docKey]))
-                                : prev.documentosRecibidos.filter((d) => d !== docKey),
-                            }));
-                          }}
-                        />
-                        <span>
-                          {doc.nombreDocumento}
-                          {doc.obligatorio ? <span className="text-destructive"> *</span> : null}
-                          {doc.descripcion ? (
-                            <span className="text-xs text-muted-foreground block">{doc.descripcion}</span>
-                          ) : null}
-                        </span>
-                      </label>
-                    );
-                  })}
-                  {missingRequiredDocs.length > 0 ? (
-                    <p className="text-xs text-destructive">
-                      Faltan documentos obligatorios: {missingRequiredDocs.join(', ')}
-                    </p>
-                  ) : null}
-                </div>
-              )}
-              <div className="space-y-2 pt-2 border-t border-border">
-                <label className="flex items-start gap-2 text-sm cursor-pointer">
-                  <input
-                    type="checkbox"
-                    className="mt-0.5"
-                    checked={form.generarOrdenInstalacionToma}
-                    onChange={(e) =>
-                      setForm({
-                        ...form,
-                        generarOrdenInstalacionToma: e.target.checked,
-                        generarOrdenInstalacionMedidor: e.target.checked ? false : form.generarOrdenInstalacionMedidor,
-                      })
-                    }
-                  />
-                  <span>Generar orden de instalación de toma (estado: Pendiente de toma)</span>
-                </label>
-                <label className="flex items-start gap-2 text-sm cursor-pointer">
-                  <input
-                    type="checkbox"
-                    className="mt-0.5"
-                    disabled={form.generarOrdenInstalacionToma}
-                    checked={form.generarOrdenInstalacionMedidor}
-                    onChange={(e) => setForm({ ...form, generarOrdenInstalacionMedidor: e.target.checked })}
-                  />
-                  <span>Generar orden de medidor sin toma previa (estado: Pendiente de zona)</span>
-                </label>
-                {import.meta.env.VITE_FEATURE_FACTURACION_CONTRATACION === 'true' && (
-                  <label className="flex items-start gap-2 text-sm cursor-pointer">
-                    <input
-                      type="checkbox"
-                      className="mt-0.5"
-                      checked={form.generarFacturaContratacion}
-                      onChange={(e) => setForm({ ...form, generarFacturaContratacion: e.target.checked })}
-                    />
-                    <span>Generar factura de contratación al crear (conceptos del tipo)</span>
-                  </label>
-                )}
-                <label className="flex items-start gap-2 text-sm cursor-pointer">
-                  <input
-                    type="checkbox"
-                    className="mt-0.5"
-                    checked={form.iniciarProcesoContratacion}
-                    onChange={(e) => setForm({ ...form, iniciarProcesoContratacion: e.target.checked })}
-                  />
-                  <span>Iniciar proceso de contratación automáticamente al crear</span>
-                </label>
-                <label className="flex items-start gap-2 text-sm cursor-pointer">
-                  <input
-                    type="checkbox"
-                    className="mt-0.5"
-                    checked={form.omitirRegistroPersonaTitular}
-                    onChange={(e) => setForm({ ...form, omitirRegistroPersonaTitular: e.target.checked })}
-                  />
-                  <span>Omitir registro de persona titular en directorio</span>
-                </label>
-              </div>
-              <div className="pt-2 border-t border-border space-y-2">
-                <p className="text-sm font-medium">Persona fiscal (opcional)</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <Input placeholder="Nombre fiscal" value={form.fiscalNombre} onChange={e => setForm({ ...form, fiscalNombre: e.target.value })} />
-                  <Input placeholder="RFC fiscal" value={form.fiscalRfc} onChange={e => setForm({ ...form, fiscalRfc: e.target.value })} />
-                  <Input placeholder="CURP fiscal" value={form.fiscalCurp} onChange={e => setForm({ ...form, fiscalCurp: e.target.value })} />
-                  <Input placeholder="Email fiscal" value={form.fiscalEmail} onChange={e => setForm({ ...form, fiscalEmail: e.target.value })} />
-                  <Input placeholder="Teléfono fiscal" value={form.fiscalTelefono} onChange={e => setForm({ ...form, fiscalTelefono: e.target.value })} />
-                </div>
-                <p className="text-xs text-muted-foreground">Si capturas persona fiscal nueva, usa al menos nombre y RFC.</p>
-              </div>
-              <div className="pt-2 border-t border-border space-y-2">
-                <p className="text-sm font-medium">Persona contacto (opcional)</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <Input placeholder="Nombre contacto" value={form.contactoNombre} onChange={e => setForm({ ...form, contactoNombre: e.target.value })} />
-                  <Input placeholder="RFC contacto" value={form.contactoRfc} onChange={e => setForm({ ...form, contactoRfc: e.target.value })} />
-                  <Input placeholder="Email contacto" value={form.contactoEmail} onChange={e => setForm({ ...form, contactoEmail: e.target.value })} />
-                  <Input placeholder="Teléfono contacto" value={form.contactoTelefono} onChange={e => setForm({ ...form, contactoTelefono: e.target.value })} />
-                </div>
-                <p className="text-xs text-muted-foreground">Si capturas contacto nuevo, usa al menos nombre y RFC para registrarlo en directorio.</p>
-              </div>
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={() => setStep(1)} className="flex-1">Atrás</Button>
-                <Button
-                  onClick={() => setStep(3)}
-                  disabled={
-                    !form.nombre ||
-                    !form.rfc ||
-                    missingRequiredDocs.length > 0 ||
-                    ((form.fiscalNombre.trim() || form.fiscalRfc.trim()) &&
-                      (!form.fiscalNombre.trim() || !form.fiscalRfc.trim())) ||
-                    ((form.contactoNombre.trim() || form.contactoRfc.trim()) &&
-                      (!form.contactoNombre.trim() || !form.contactoRfc.trim()))
-                  }
-                  className="flex-1"
-                >
-                  Siguiente
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {step === 3 && (
-            <div className="space-y-4">
-              <div className="rounded-lg bg-muted p-4 text-sm space-y-2">
-                <h4 className="font-semibold">Resumen del contrato</h4>
-                <div className="grid grid-cols-2 gap-2">
-                  <div><span className="text-muted-foreground">Toma:</span> {form.tomaId}</div>
-                  <div><span className="text-muted-foreground">Contrato:</span> {form.tipoContrato}</div>
-                  <div><span className="text-muted-foreground">Servicio:</span> {form.tipoServicio}</div>
-                  <div><span className="text-muted-foreground">Titular:</span> {form.nombre}</div>
-                  <div><span className="text-muted-foreground">RFC:</span> {form.rfc}</div>
-                  {form.referenciaContratoAnterior ? (
-                    <div><span className="text-muted-foreground">Contrato padre:</span> {form.referenciaContratoAnterior}</div>
-                  ) : null}
-                  <div><span className="text-muted-foreground">Dirección:</span> {form.direccion}</div>
-                  <div><span className="text-muted-foreground">Contacto:</span> {form.contacto}</div>
-                  {form.superficiePredio && <div><span className="text-muted-foreground">Sup. predio:</span> {form.superficiePredio} m²</div>}
-                  {form.superficieConstruida && <div><span className="text-muted-foreground">Sup. construcción:</span> {form.superficieConstruida} m²</div>}
-                  {form.unidadesServidas && <div><span className="text-muted-foreground">Unidades:</span> {form.unidadesServidas}</div>}
-                  {form.personasHabitanVivienda && <div><span className="text-muted-foreground">Personas vivienda:</span> {form.personasHabitanVivienda}</div>}
-                  {(form.razonSocial || form.regimenFiscal) && (
-                    <>
-                      <div><span className="text-muted-foreground">Razón social:</span> {form.razonSocial || '—'}</div>
-                      <div><span className="text-muted-foreground">Régimen:</span> {form.regimenFiscal || '—'}</div>
-                    </>
-                  )}
-                  {useApi && form.tipoContratacionId ? (
-                    <div className="col-span-2">
-                      <span className="text-muted-foreground">Tipo contratación:</span>{' '}
-                      {(() => {
-                        const t = tiposWizard.find((x) => x.id === form.tipoContratacionId);
-                        return t ? `${t.codigo} — ${t.nombre}` : form.tipoContratacionId;
-                      })()}
-                    </div>
-                  ) : null}
-                  {useApi && form.puntoServicioId ? (
-                    <div className="col-span-2">
-                      <span className="text-muted-foreground">Punto de servicio:</span>{' '}
-                      {puntosWizard.find((p) => p.id === form.puntoServicioId)?.codigo ?? form.puntoServicioId}
-                    </div>
-                  ) : null}
-                  {useApi && form.actividadId ? (
-                    <div className="col-span-2">
-                      <span className="text-muted-foreground">Actividad:</span>{' '}
-                      {actividadesWizard.find((a) => a.id === form.actividadId)?.descripcion ?? form.actividadId}
-                    </div>
-                  ) : null}
-                  {useApi && form.iniciarProcesoContratacion ? (
-                    <div className="col-span-2">
-                      <span className="text-muted-foreground">Proceso automático:</span>{' '}
-                      {form.plantillaProcesoId
-                        ? `Sí, con plantilla ${
-                            plantillasWizard.find((p) => p.id === form.plantillaProcesoId)?.nombre ??
-                            form.plantillaProcesoId
-                          }`
-                        : 'Sí, sin plantilla'}
-                    </div>
-                  ) : (
-                    <div className="col-span-2">
-                      <span className="text-muted-foreground">Proceso automático:</span> No
-                    </div>
-                  )}
-                  {(form.fiscalNombre || form.fiscalRfc) ? (
-                    <div className="col-span-2">
-                      <span className="text-muted-foreground">Persona fiscal:</span>{' '}
-                      {form.fiscalNombre || '—'}{form.fiscalRfc ? ` (${form.fiscalRfc})` : ''}
-                    </div>
-                  ) : null}
-                  {(form.contactoNombre || form.contactoRfc) ? (
-                    <div className="col-span-2">
-                      <span className="text-muted-foreground">Persona contacto:</span>{' '}
-                      {form.contactoNombre || '—'}{form.contactoRfc ? ` (${form.contactoRfc})` : ''}
-                    </div>
-                  ) : null}
-                  {form.documentosRecibidos.length > 0 ? (
-                    <div className="col-span-2">
-                      <span className="text-muted-foreground">Documentos recibidos:</span>{' '}
-                      {form.documentosRecibidos.join(', ')}
-                    </div>
-                  ) : null}
-                  <div className="col-span-2 text-xs text-muted-foreground">
-                    {form.generarOrdenInstalacionToma && '• Orden de toma al crear'}
-                    {form.generarOrdenInstalacionMedidor && !form.generarOrdenInstalacionToma && '• Orden de medidor al crear'}
-                    {form.generarFacturaContratacion && ' • Factura de contratación al crear'}
-                    {form.omitirRegistroPersonaTitular && ' • Sin persona en directorio'}
-                  </div>
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={() => setStep(2)} className="flex-1">Atrás</Button>
-                <Button onClick={handleCreate} className="flex-1" disabled={useApi && createMutation.isPending}>
-                  {useApi && createMutation.isPending ? 'Creando…' : 'Crear contrato'}
-                </Button>
-              </div>
-              {useApi && createMutation.isError && (
-                <p className="text-sm text-destructive">{createMutation.error?.message ?? 'Error al crear contrato'}</p>
-              )}
-            </div>
-          )}
+          <WizardContratacion
+            onComplete={() => setShowWizard(false)}
+            onCancel={() => setShowWizard(false)}
+          />
         </DialogContent>
       </Dialog>
 

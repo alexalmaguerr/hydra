@@ -48,6 +48,20 @@ export interface TipoContratacionConfiguracion extends TipoContratacion {
     };
   }>;
   documentos: DocumentoRequeridoTipoContratacion[];
+  variables: Array<{
+    id: string;
+    obligatorio: boolean;
+    orden: number;
+    valorDefecto?: string | null;
+    tipoVariable: {
+      id: string;
+      codigo: string;
+      nombre: string;
+      tipoDato: string;
+      valoresPosibles?: unknown;
+      unidad?: string | null;
+    };
+  }>;
 }
 
 export interface UpdateTipoContratacionDto {

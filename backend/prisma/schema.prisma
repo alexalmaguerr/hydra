@@ -163,7 +163,9 @@ model Contrato {
   convenios               Convenio[]
   anticipos               Anticipo[]
   sigeHydraCasos          SigeHydra[]
+  variablesCapturadas     Json?                 @map("variables_capturadas")
   procesosContratacion    ProcesoContratacion[]
+  conceptosContrato       ContratoConcepto[]
 
   @@index([tomaId])
   @@index([puntoServicioId])
@@ -189,6 +191,28 @@ model CostoContrato {
 
   @@index([contratoId])
   @@map("costos_contrato")
+}
+
+model ContratoConcepto {
+  id                 String        @id @default(cuid())
+  contratoId         String        @map("contrato_id")
+  conceptoCobroId    String        @map("concepto_cobro_id")
+  nombre             String
+  tipo               String
+  cantidad           Decimal       @default(1) @db.Decimal(10, 4)
+  precioBase         Decimal       @default(0) @map("precio_base") @db.Decimal(10, 2)
+  precioProporcional Decimal       @default(0) @map("precio_proporcional") @db.Decimal(10, 4)
+  importe            Decimal       @db.Decimal(10, 2)
+  ivaPct             Decimal       @default(16) @map("iva_pct") @db.Decimal(5, 2)
+  ivaImporte         Decimal       @default(0) @map("iva_importe") @db.Decimal(10, 2)
+  obligatorio        Boolean       @default(true)
+  orden              Int           @default(0)
+  createdAt          DateTime      @default(now()) @map("created_at")
+  contrato           Contrato      @relation(fields: [contratoId], references: [id], onDelete: Cascade)
+  conceptoCobro      ConceptoCobro @relation(fields: [conceptoCobroId], references: [id])
+
+  @@index([contratoId])
+  @@map("contrato_conceptos")
 }
 
 model Medidor {
@@ -1383,6 +1407,7 @@ model ConceptoCobro {
   createdAt         DateTime                        @default(now()) @map("created_at")
   updatedAt         DateTime                        @updatedAt @map("updated_at")
   tiposContratacion ConceptoCobroTipoContratacion[]
+  contratosConcepto ContratoConcepto[]
 
   @@index([origen])
   @@map("conceptos_cobro")

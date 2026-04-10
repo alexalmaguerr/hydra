@@ -78,6 +78,8 @@ export interface CreateContratoDto {
   omitirRegistroPersonaTitular?: boolean;
   /** Con checklist en alta: opcional, enlaza plantilla al proceso creado en el mismo POST. */
   plantillaContratacionId?: string;
+  variablesCapturadas?: Record<string, string | number | boolean>;
+  conceptosOverride?: { conceptoCobroId: string; cantidad: number }[];
 }
 
 /** Respuesta de POST /contratos (incluye metadatos de proceso en la misma alta). */
@@ -167,6 +169,39 @@ export interface FacturaContratacionDto {
 export async function crearFacturaContratacion(id: string): Promise<FacturaContratacionDto> {
   return apiRequest<FacturaContratacionDto>(`/contratos/${id}/factura-contratacion`, {
     method: 'POST',
+  });
+}
+
+// ── Billing preview ──────────────────────────────────────────────────────────
+
+export interface BillingLineItem {
+  conceptoCobroId: string;
+  nombre: string;
+  tipo: string;
+  cantidad: number;
+  precioBase: number;
+  precioProporcional: number;
+  importe: number;
+  ivaPct: number;
+  ivaImporte: number;
+  obligatorio: boolean;
+  orden: number;
+}
+
+export interface BillingPreview {
+  items: BillingLineItem[];
+  subtotal: number;
+  totalIva: number;
+  total: number;
+}
+
+export async function previewFacturacion(
+  tipoContratacionId: string,
+  variables: Record<string, string | number | boolean>,
+): Promise<BillingPreview> {
+  return apiRequest<BillingPreview>('/contratos/preview-facturacion', {
+    method: 'POST',
+    body: JSON.stringify({ tipoContratacionId, variables }),
   });
 }
 

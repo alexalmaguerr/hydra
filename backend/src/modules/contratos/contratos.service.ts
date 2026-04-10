@@ -7,6 +7,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { CreateContratoDto } from './dto/create-contrato.dto';
 import { Prisma, type PrismaClient } from '@prisma/client';
 import { crearHitoInicialSolicitudCompletado } from '../procesos-contratacion/hito-inicial.util';
+import { BillingEngineService } from './billing-engine.service';
 
 function isFeatureEnabled(flag: string): boolean {
   return process.env[flag]?.toLowerCase() === 'true';
@@ -79,7 +80,10 @@ const ESTADOS_BAJA = ['BajaTemp', 'BajaDef', 'Baja Temporal', 'Baja Definitiva']
 
 @Injectable()
 export class ContratosService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly billingEngine: BillingEngineService,
+  ) {}
 
   async findAll() {
     return this.prisma.contrato.findMany({ orderBy: { createdAt: 'desc' } });
@@ -649,6 +653,7 @@ export class ContratosService {
           mesesAdeudo: dto.mesesAdeudo ?? null,
           unidadesServidas: dto.unidadesServidas ?? null,
           personasHabitanVivienda: dto.personasHabitanVivienda ?? null,
+          variablesCapturadas: dto.variablesCapturadas ?? Prisma.JsonNull,
         },
       });
 
@@ -810,6 +815,8 @@ export class ContratosService {
           contrato.id,
           tipoContratacionId,
           contrato.fecha,
+          (dto.variablesCapturadas as Record<string, string | number | boolean>) ?? {},
+          dto.conceptosOverride,
         );
       }
 
@@ -1048,46 +1055,77 @@ export class ContratosService {
     contratoId: string,
     tipoContratacionId: string,
     fecha: string,
+    variables: Record<string, string | number | boolean> = {},
+    conceptosOverride?: { conceptoCobroId: string; cantidad: number }[],
   ): Promise<{
     timbradoId: string;
     costos: { concepto: string; monto: number }[];
     total: number;
   }> {
-    const conceptos = await tx.conceptoCobroTipoContratacion.findMany({
-      where: { tipoContratacionId },
-      include: { conceptoCobro: true },
-    });
+    const preview = await this.billingEngine.calcular(tipoContratacionId, variables);
+    const overrideMap = new Map(
+      (conceptosOverride ?? []).map((o) => [o.conceptoCobroId, o.cantidad]),
+    );
 
-    const lineas = conceptos.map((c) => ({
-      concepto: c.conceptoCobro.nombre,
-      monto: Number(c.conceptoCobro.montoBase ?? 0),
-    }));
-    const total = lineas.reduce((s, l) => s + l.monto, 0);
+    let subtotal = 0;
+    let totalIva = 0;
+
+    for (const item of preview.items) {
+      const qty = overrideMap.get(item.conceptoCobroId) ?? item.cantidad;
+      const importe = item.tipo === 'fijo'
+        ? item.importe
+        : Math.round((qty * item.precioProporcional + item.precioBase) * 100) / 100;
+      const iva = Math.round(importe * (item.ivaPct / 100) * 100) / 100;
+
+      await tx.contratoConcepto.create({
+        data: {
+          contratoId,
+          conceptoCobroId: item.conceptoCobroId,
+          nombre: item.nombre,
+          tipo: item.tipo,
+          cantidad: qty,
+          precioBase: item.precioBase,
+          precioProporcional: item.precioProporcional,
+          importe,
+          ivaPct: item.ivaPct,
+          ivaImporte: iva,
+          obligatorio: item.obligatorio,
+          orden: item.orden,
+        },
+      });
+
+      await tx.costoContrato.create({
+        data: {
+          contratoId,
+          concepto: item.nombre,
+          monto: importe,
+        },
+      });
+
+      subtotal += importe;
+      totalIva += iva;
+    }
+
+    const total = Math.round((subtotal + totalIva) * 100) / 100;
 
     const timbrado = await tx.timbrado.create({
       data: {
         contratoId,
         estado: 'Pendiente',
         periodo: fecha,
-        subtotal: total,
-        iva: 0,
+        subtotal,
+        iva: totalIva,
         total,
         fechaEmision: fecha,
         fechaVencimiento: fecha,
       },
     });
 
-    for (const linea of lineas) {
-      await tx.costoContrato.create({
-        data: {
-          contratoId,
-          concepto: linea.concepto,
-          monto: linea.monto,
-        },
-      });
-    }
-
-    return { timbradoId: timbrado.id, costos: lineas, total };
+    return {
+      timbradoId: timbrado.id,
+      costos: preview.items.map((i) => ({ concepto: i.nombre, monto: i.importe })),
+      total,
+    };
   }
 
   private wrapTextoHtml(body: string, nombre: string, fecha: string): string {

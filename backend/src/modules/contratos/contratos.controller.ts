@@ -16,6 +16,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { ContratosService } from './contratos.service';
 import { CreateContratoDto } from './dto/create-contrato.dto';
 import { TiposContratacionService } from '../tipos-contratacion/tipos-contratacion.service';
+import { BillingEngineService } from './billing-engine.service';
 
 class UpdateContratoDto {
   ceaNumContrato?: string | null;
@@ -54,6 +55,7 @@ export class ContratosController {
   constructor(
     private readonly contratosService: ContratosService,
     private readonly tiposContratacionService: TiposContratacionService,
+    private readonly billingEngine: BillingEngineService,
   ) {}
 
   // IMPORTANT: static routes declared BEFORE /:id
@@ -105,6 +107,13 @@ export class ContratosController {
   @Post(':id/factura-contratacion')
   crearFacturaContratacion(@Param('id') id: string) {
     return this.contratosService.crearFacturaContratacion(id);
+  }
+
+  @Post('preview-facturacion')
+  previewFacturacion(
+    @Body() body: { tipoContratacionId: string; variables: Record<string, string | number | boolean> },
+  ) {
+    return this.billingEngine.calcular(body.tipoContratacionId, body.variables ?? {});
   }
 
   @Get(':id')
