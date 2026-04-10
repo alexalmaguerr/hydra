@@ -25,7 +25,12 @@ function labelVariables(
   key: string,
 ): string {
   const vars = config?.variables ?? [];
-  const found = vars.find((v) => v.id === key || v.tipoVariable?.id === key);
+  const found = vars.find(
+    (v) =>
+      v.id === key ||
+      v.tipoVariable?.id === key ||
+      v.tipoVariable?.codigo === key,
+  );
   if (found?.tipoVariable?.nombre) return found.tipoVariable.nombre;
   if (found?.tipoVariable?.codigo) return found.tipoVariable.codigo;
   return key;

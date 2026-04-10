@@ -87,7 +87,8 @@ function canCreateContract(data: WizardData): boolean {
     !!data.puntoServicioId?.trim() &&
     !!(data.propietario?.nombre?.trim() || data.propietario?.personaId) &&
     !!(data.personaFiscal?.nombre?.trim() || data.personaFiscal?.rfc?.trim() || data.personaFiscal?.personaId) &&
-    !!data.tipoContratacionId?.trim()
+    !!data.tipoContratacionId?.trim() &&
+    !!data.actividadId?.trim()
   );
 }
 

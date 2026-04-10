@@ -87,7 +87,10 @@ function computeCanGoNext(step: number, data: WizardData): boolean {
     case 1:
       return hasPropietarioBasico(data.propietario) && hasPersonaFiscalBasico(data.personaFiscal);
     case 2:
-      return !!data.tipoContratacionId?.trim();
+      return (
+        !!data.tipoContratacionId?.trim() &&
+        !!data.actividadId?.trim()
+      );
     case 3:
     case 4:
     case 5:
