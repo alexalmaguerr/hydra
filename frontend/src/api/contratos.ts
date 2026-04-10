@@ -74,6 +74,7 @@ export interface CreateContratoDto {
   regimenFiscal?: string;
   generarOrdenInstalacionToma?: boolean;
   generarOrdenInstalacionMedidor?: boolean;
+  generarFacturaContratacion?: boolean;
   omitirRegistroPersonaTitular?: boolean;
   /** Con checklist en alta: opcional, enlaza plantilla al proceso creado en el mismo POST. */
   plantillaContratacionId?: string;
@@ -150,6 +151,23 @@ export interface TextoContratoPreviewDto {
 
 export async function fetchTextoContratoPreview(id: string): Promise<TextoContratoPreviewDto> {
   return apiRequest<TextoContratoPreviewDto>(`/contratos/${id}/texto-contrato`);
+}
+
+export function getContratoPdfUrl(id: string): string {
+  const base = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3001';
+  return `${base}/contratos/${id}/contrato-pdf`;
+}
+
+export interface FacturaContratacionDto {
+  timbradoId: string;
+  costos: { concepto: string; monto: number }[];
+  total: number;
+}
+
+export async function crearFacturaContratacion(id: string): Promise<FacturaContratacionDto> {
+  return apiRequest<FacturaContratacionDto>(`/contratos/${id}/factura-contratacion`, {
+    method: 'POST',
+  });
 }
 
 export { hasApi };
