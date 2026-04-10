@@ -1,8 +1,15 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { ValidationPipe } from '@nestjs/common';
+import { Logger, ValidationPipe } from '@nestjs/common';
+
+/** Comma-separated env values, trimmed and de-duplicated (e.g. multiple prod/staging URLs). */
+function parseOriginList(value: string | undefined): string[] {
+  if (!value?.trim()) return [];
+  return [...new Set(value.split(',').map((s) => s.trim()).filter(Boolean))];
+}
 
 async function bootstrap() {
+  const logger = new Logger('Bootstrap');
   const app = await NestFactory.create(AppModule);
   app.setGlobalPrefix('api');
 
@@ -13,18 +20,18 @@ async function bootstrap() {
 
   const port = process.env.PORT ?? 3001;
 
-  // T17: Separate CORS origins for internal app and customer portal.
-  // Set CORS_INTERNAL_ORIGIN for the backoffice and CORS_PORTAL_ORIGIN for the portal.
-  // CORS_ORIGIN is the legacy fallback for single-origin deployments.
-  const internalOrigin = process.env.CORS_INTERNAL_ORIGIN;
-  const portalOrigin = process.env.CORS_PORTAL_ORIGIN;
-  const legacyOrigin = process.env.CORS_ORIGIN ?? 'http://localhost:8080';
+  // T17: Internal app + portal + legacy single-origin. All vars support comma-separated lists.
+  // CORS_ORIGIN is always merged when set (not only when internal/portal are empty), so
+  // production can set e.g. CORS_INTERNAL_ORIGIN + CORS_ORIGIN without dropping the latter.
+  const DEFAULT_DEV_ORIGIN = 'http://localhost:8080';
+  const fromInternal = parseOriginList(process.env.CORS_INTERNAL_ORIGIN);
+  const fromPortal = parseOriginList(process.env.CORS_PORTAL_ORIGIN);
+  const fromLegacy = parseOriginList(process.env.CORS_ORIGIN);
 
-  const allowedOrigins: string[] = [
-    ...(internalOrigin ? [internalOrigin] : []),
-    ...(portalOrigin ? [portalOrigin] : []),
-    ...(!internalOrigin && !portalOrigin ? [legacyOrigin] : []),
-  ];
+  let allowedOrigins = [...new Set([...fromInternal, ...fromPortal, ...fromLegacy])];
+  if (allowedOrigins.length === 0) {
+    allowedOrigins = [DEFAULT_DEV_ORIGIN];
+  }
 
   app.enableCors({
     origin: (origin, callback) => {
@@ -32,11 +39,14 @@ async function bootstrap() {
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
-        callback(new Error(`CORS: origin '${origin}' not allowed`));
+        logger.warn(`CORS denied: origin '${origin}' not in allowlist`);
+        // Use (null, false) per cors package contract; Error breaks preflight handling for some clients.
+        callback(null, false);
       }
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With'],
   });
 
   await app.listen(port, '0.0.0.0');

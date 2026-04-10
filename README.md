@@ -78,7 +78,8 @@ This repo is a monorepo with `frontend/` and `backend/`. Create **three** App Se
 
 - `DATABASE_URL` — PostgreSQL connection string (Easypanel DB or external).
 - `JWT_SECRET` — Secret for JWT signing.
-- `CORS_ORIGIN` — Allowed origin (e.g. `https://app.ctcf.example.com`).
+- `CORS_ORIGIN` — Allowed browser origin(s) for the SPA. Use comma-separated values for several domains (e.g. `https://hydra.humansoftware.mx` or staging + production).
+- Optional: `CORS_INTERNAL_ORIGIN` / `CORS_PORTAL_ORIGIN` — same comma-separated format; merged with `CORS_ORIGIN`. If **no** CORS env vars are set, the API defaults to `http://localhost:8080` only.
 
 After first deploy, run migrations and seed from the api container (or a one-off):
 
