@@ -65,6 +65,8 @@ export class CreateContratoDto {
   @IsOptional() @IsBoolean() generarOrdenInstalacionToma?: boolean;
   /** Si true (y no hay orden de toma), orden InstalacionMedidor y estado Pendiente de zona. */
   @IsOptional() @IsBoolean() generarOrdenInstalacionMedidor?: boolean;
+  /** Generar factura de contratación con los conceptos del tipo (requiere FEATURE_FACTURACION_CONTRATACION=true). */
+  @IsOptional() @IsBoolean() generarFacturaContratacion?: boolean;
   /** Omitir creación de Persona + rol PROPIETARIO (solo datos planos en contrato). */
   @IsOptional() @IsBoolean() omitirRegistroPersonaTitular?: boolean;
 

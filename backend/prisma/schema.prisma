@@ -139,6 +139,7 @@ model Contrato {
   mesesAdeudo             Int?                  @map("meses_adeudo")
   unidadesServidas        Int?                  @map("unidades_servidas")
   personasHabitanVivienda Int?                  @map("personas_habitan_vivienda")
+  textoContratoSnapshot   String?               @map("texto_contrato_snapshot") @db.Text
   createdAt               DateTime              @default(now()) @map("created_at")
   updatedAt               DateTime              @updatedAt @map("updated_at")
   toma                    Toma?                 @relation(fields: [tomaId], references: [id], onDelete: SetNull)

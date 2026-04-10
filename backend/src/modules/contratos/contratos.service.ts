@@ -8,6 +8,10 @@ import { CreateContratoDto } from './dto/create-contrato.dto';
 import { Prisma, type PrismaClient } from '@prisma/client';
 import { crearHitoInicialSolicitudCompletado } from '../procesos-contratacion/hito-inicial.util';
 
+function isFeatureEnabled(flag: string): boolean {
+  return process.env[flag]?.toLowerCase() === 'true';
+}
+
 type PersonaRelacionInput = {
   personaId?: string;
   nombre?: string;
@@ -773,9 +777,46 @@ export class ContratosService {
         procesoGestionadoEnAlta = true;
       }
 
+      // ── Snapshot del texto contractual al momento del alta ──
+      const snapshot = await this.buildTextoSnapshot(tx, contrato.id, {
+        nombre: contrato.nombre,
+        rfc: contrato.rfc,
+        direccion: contrato.direccion ?? '',
+        contacto: contrato.contacto ?? '',
+        razonSocial: contrato.razonSocial,
+        regimenFiscal: contrato.regimenFiscal,
+        fecha: contrato.fecha,
+      }, tipoContratacionId);
+      if (snapshot) {
+        await tx.contrato.update({
+          where: { id: contrato.id },
+          data: { textoContratoSnapshot: snapshot },
+        });
+      }
+
+      // ── Factura de contratación (detrás de feature flag) ──
+      let facturaContratacion: {
+        timbradoId: string;
+        costos: { concepto: string; monto: number }[];
+        total: number;
+      } | null = null;
+      if (
+        dto.generarFacturaContratacion &&
+        isFeatureEnabled('FEATURE_FACTURACION_CONTRATACION') &&
+        tipoContratacionId
+      ) {
+        facturaContratacion = await this.crearFacturaContratacionTx(
+          tx,
+          contrato.id,
+          tipoContratacionId,
+          contrato.fecha,
+        );
+      }
+
       return {
         ...contrato,
         procesoGestionadoEnAlta,
+        ...(facturaContratacion ? { facturaContratacion } : {}),
       };
     });
   }
@@ -912,5 +953,169 @@ export class ContratosService {
     }
 
     return { texto, fuente, contratoId: c.id };
+  }
+
+  /** Genera el HTML del contrato para impresión/PDF (usa snapshot si existe). */
+  async getContratoPdf(contratoId: string): Promise<string> {
+    const c = await this.prisma.contrato.findUnique({
+      where: { id: contratoId },
+    });
+    if (!c) throw new NotFoundException('Contrato no encontrado');
+
+    let body: string;
+    if (c.textoContratoSnapshot) {
+      body = c.textoContratoSnapshot;
+    } else {
+      const preview = await this.getTextoContratoPreview(contratoId);
+      body = preview.texto;
+    }
+
+    return this.wrapTextoHtml(body, c.nombre, c.fecha);
+  }
+
+  /** Genera la factura de contratación para un contrato ya existente (endpoint standalone). */
+  async crearFacturaContratacion(
+    contratoId: string,
+  ): Promise<{
+    timbradoId: string;
+    costos: { concepto: string; monto: number }[];
+    total: number;
+  }> {
+    if (!isFeatureEnabled('FEATURE_FACTURACION_CONTRATACION')) {
+      throw new BadRequestException(
+        'Feature FEATURE_FACTURACION_CONTRATACION no habilitada',
+      );
+    }
+    const c = await this.prisma.contrato.findUnique({
+      where: { id: contratoId },
+      select: { id: true, tipoContratacionId: true, fecha: true },
+    });
+    if (!c) throw new NotFoundException('Contrato no encontrado');
+    if (!c.tipoContratacionId) {
+      throw new BadRequestException(
+        'Contrato sin tipo de contratación asignado',
+      );
+    }
+    return this.prisma.$transaction((tx) =>
+      this.crearFacturaContratacionTx(
+        tx,
+        c.id,
+        c.tipoContratacionId!,
+        c.fecha,
+      ),
+    );
+  }
+
+  // ─── Private helpers ───────────────────────────────────────────────
+
+  private async buildTextoSnapshot(
+    tx: Omit<PrismaClient, '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'>,
+    contratoId: string,
+    vars: Record<string, string | null>,
+    tipoContratacionId: string | null | undefined,
+  ): Promise<string | null> {
+    const proceso = await tx.procesoContratacion.findFirst({
+      where: { contratoId },
+      orderBy: { createdAt: 'desc' },
+      include: { plantilla: true },
+    });
+
+    let base = (proceso?.plantilla?.contenido ?? '').trim();
+    if (!base && tipoContratacionId) {
+      const tipo = await tx.tipoContratacion.findUnique({
+        where: { id: tipoContratacionId },
+        include: {
+          clausulas: {
+            orderBy: { orden: 'asc' },
+            include: { clausula: true },
+          },
+        },
+      });
+      base =
+        tipo?.clausulas?.map((r) => r.clausula.contenido).join('\n\n') ?? '';
+    }
+    if (!base) return null;
+
+    let texto = base;
+    for (const [k, v] of Object.entries(vars)) {
+      texto = texto.split(`{{${k}}}`).join(v ?? '');
+    }
+    return texto;
+  }
+
+  private async crearFacturaContratacionTx(
+    tx: Omit<PrismaClient, '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'>,
+    contratoId: string,
+    tipoContratacionId: string,
+    fecha: string,
+  ): Promise<{
+    timbradoId: string;
+    costos: { concepto: string; monto: number }[];
+    total: number;
+  }> {
+    const conceptos = await tx.conceptoCobroTipoContratacion.findMany({
+      where: { tipoContratacionId },
+      include: { conceptoCobro: true },
+    });
+
+    const lineas = conceptos.map((c) => ({
+      concepto: c.conceptoCobro.nombre,
+      monto: Number(c.conceptoCobro.montoBase ?? 0),
+    }));
+    const total = lineas.reduce((s, l) => s + l.monto, 0);
+
+    const timbrado = await tx.timbrado.create({
+      data: {
+        contratoId,
+        estado: 'Pendiente',
+        periodo: fecha,
+        subtotal: total,
+        iva: 0,
+        total,
+        fechaEmision: fecha,
+        fechaVencimiento: fecha,
+      },
+    });
+
+    for (const linea of lineas) {
+      await tx.costoContrato.create({
+        data: {
+          contratoId,
+          concepto: linea.concepto,
+          monto: linea.monto,
+        },
+      });
+    }
+
+    return { timbradoId: timbrado.id, costos: lineas, total };
+  }
+
+  private wrapTextoHtml(body: string, nombre: string, fecha: string): string {
+    const escaped = body
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/\n/g, '<br/>');
+
+    return `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Contrato – ${nombre}</title>
+  <style>
+    @page { size: letter; margin: 2cm; }
+    body { font-family: 'Times New Roman', serif; font-size: 12pt; line-height: 1.6; color: #000; }
+    h1 { text-align: center; font-size: 16pt; margin-bottom: 0.5em; }
+    .meta { text-align: right; font-size: 10pt; color: #555; margin-bottom: 2em; }
+    .body-text { text-align: justify; }
+    @media print { body { margin: 0; } }
+  </style>
+</head>
+<body>
+  <h1>Contrato de Servicio</h1>
+  <div class="meta">Fecha: ${fecha}</div>
+  <div class="body-text">${escaped}</div>
+</body>
+</html>`;
   }
 }

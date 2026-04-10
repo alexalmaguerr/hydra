@@ -6,6 +6,8 @@ import {
   createContrato,
   updateContrato,
   fetchTextoContratoPreview,
+  getContratoPdfUrl,
+  crearFacturaContratacion,
   hasApi,
   type CreateContratoDto,
 } from '@/api/contratos';
@@ -221,6 +223,7 @@ const Contratos = () => {
     documentosRecibidos: [] as string[],
     generarOrdenInstalacionToma: false,
     generarOrdenInstalacionMedidor: false,
+    generarFacturaContratacion: false,
     omitirRegistroPersonaTitular: false,
     tipoContratacionId: '',
     puntoServicioId: '',
@@ -305,6 +308,7 @@ const Contratos = () => {
         !form.generarOrdenInstalacionToma && form.generarOrdenInstalacionMedidor
           ? true
           : undefined,
+      generarFacturaContratacion: form.generarFacturaContratacion || undefined,
       omitirRegistroPersonaTitular: form.omitirRegistroPersonaTitular || undefined,
       superficiePredio: parseNum(form.superficiePredio),
       superficieConstruida: parseNum(form.superficieConstruida),
@@ -744,6 +748,17 @@ const Contratos = () => {
                   />
                   <span>Generar orden de medidor sin toma previa (estado: Pendiente de zona)</span>
                 </label>
+                {import.meta.env.VITE_FEATURE_FACTURACION_CONTRATACION === 'true' && (
+                  <label className="flex items-start gap-2 text-sm cursor-pointer">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5"
+                      checked={form.generarFacturaContratacion}
+                      onChange={(e) => setForm({ ...form, generarFacturaContratacion: e.target.checked })}
+                    />
+                    <span>Generar factura de contratación al crear (conceptos del tipo)</span>
+                  </label>
+                )}
                 <label className="flex items-start gap-2 text-sm cursor-pointer">
                   <input
                     type="checkbox"
@@ -887,6 +902,7 @@ const Contratos = () => {
                   <div className="col-span-2 text-xs text-muted-foreground">
                     {form.generarOrdenInstalacionToma && '• Orden de toma al crear'}
                     {form.generarOrdenInstalacionMedidor && !form.generarOrdenInstalacionToma && '• Orden de medidor al crear'}
+                    {form.generarFacturaContratacion && ' • Factura de contratación al crear'}
                     {form.omitirRegistroPersonaTitular && ' • Sin persona en directorio'}
                   </div>
                 </div>
@@ -1156,9 +1172,21 @@ const Contratos = () => {
                     {/* ── Vista previa texto contractual ── */}
                     <TabsContent value="texto-contrato" className="mt-0 space-y-3">
                       <div>
-                        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-                          Vista previa (plantilla o cláusulas)
-                        </h3>
+                        <div className="flex items-center justify-between mb-2">
+                          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                            Vista previa (plantilla o cláusulas)
+                          </h3>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              const url = getContratoPdfUrl(selected.id);
+                              window.open(url, '_blank');
+                            }}
+                          >
+                            <Download className="h-3.5 w-3.5 mr-1" /> Imprimir / PDF
+                          </Button>
+                        </div>
                         <p className="text-sm text-muted-foreground mb-3">
                           Texto generado con variables del contrato (nombre, RFC, dirección, etc.). No sustituye al PDF firmado.
                         </p>
@@ -1168,6 +1196,25 @@ const Contratos = () => {
 
                     {/* ── Facturación ── */}
                     <TabsContent value="facturacion" className="mt-0">
+                      {import.meta.env.VITE_FEATURE_FACTURACION_CONTRATACION === 'true' && (
+                        <div className="flex justify-end mb-3">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={async () => {
+                              try {
+                                const res = await crearFacturaContratacion(selected.id);
+                                toast.success(`Factura de contratación generada: $${res.total.toFixed(2)}`);
+                                queryClient.invalidateQueries({ queryKey: ['contratos'] });
+                              } catch (err: any) {
+                                toast.error(err?.message ?? 'Error al generar factura de contratación');
+                              }
+                            }}
+                          >
+                            <FileText className="h-3.5 w-3.5 mr-1" /> Facturar contratación
+                          </Button>
+                        </div>
+                      )}
                       {todasFacturas.length === 0 ? (
                         <p className="text-sm text-muted-foreground text-center py-12">Sin facturas para este contrato.</p>
                       ) : (

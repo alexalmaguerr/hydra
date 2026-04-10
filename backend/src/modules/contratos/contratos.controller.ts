@@ -6,10 +6,12 @@ import {
   Body,
   Param,
   Query,
+  Res,
   UseGuards,
   ParseIntPipe,
   DefaultValuePipe,
 } from '@nestjs/common';
+import { Response } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { ContratosService } from './contratos.service';
 import { CreateContratoDto } from './dto/create-contrato.dto';
@@ -91,6 +93,18 @@ export class ContratosController {
   @Get(':id/texto-contrato')
   getTextoContratoPreview(@Param('id') id: string) {
     return this.contratosService.getTextoContratoPreview(id);
+  }
+
+  @Get(':id/contrato-pdf')
+  async getContratoPdf(@Param('id') id: string, @Res() res: Response) {
+    const html = await this.contratosService.getContratoPdf(id);
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(html);
+  }
+
+  @Post(':id/factura-contratacion')
+  crearFacturaContratacion(@Param('id') id: string) {
+    return this.contratosService.crearFacturaContratacion(id);
   }
 
   @Get(':id')

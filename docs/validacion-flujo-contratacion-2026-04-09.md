@@ -23,14 +23,14 @@ Documento de brechas entre el flujo operativo deseado (lista de pasos + notas SI
 | 5. Tipo de contratación | Parcial | `tipoContratacionId` y catálogos; wizard usa `tipoContrato`/`tipoServicio` como strings genéricos (Agua/Doméstico, etc.), no catálogo `TipoContratacion`. |
 | 6. Superficie, unidades, personas | Parcial | Campos en `Contrato` (`superficiePredio`, `superficieConstruida`, `unidadesServidas`, `personasHabitanVivienda`); no en wizard. |
 | 7. Documentos recibidos | Parcial | `DocumentoRequeridoTipoContratacion` define requisitos; `Documento` está ligado a `Tramite`, no a un checklist de contratación en el alta. |
-| 8. Factura contratación timbrada + convenio | Parcial | `Timbrado`, `Recibo`, `Convenio` existen; el timbrado típico está asociado a `Consumo` en el modelo. Falta definir/implementar el camino explícito “factura única de contratación” y su convenio en el flujo de alta. |
+| 8. Factura contratación timbrada + convenio | Implementado (flag) | `POST /contratos/:id/factura-contratacion` genera `Timbrado` sin consumo + `CostoContrato` con conceptos del tipo; controlado por `FEATURE_FACTURACION_CONTRATACION`. Checkbox en wizard. |
 | 9. Orden instalación toma | Parcial | `Orden.tipo` admite valores como `InstalacionToma`; no se genera desde el wizard ni regla única documentada en contrato. |
 | 10. Orden instalación medidor | Parcial | Se puede crear manualmente; **auto:** al marcar orden `InstalacionToma` como `Ejecutada` (`OrdenesService.updateEstado`). |
 | 11. Estados pendiente toma / pendiente zona | Faltante | El alta pone `estado: 'Pendiente de alta'` (`Contratos.tsx`). No hay estados nominales “pendiente de toma” / “pendiente de zona” ni transiciones automáticas al crear órdenes. |
-| 12. Imprimir contrato (titular) | Faltante | `PlantillaContrato` + CRUD bajo `procesos-contratacion/plantillas/*`; no hay generación PDF/imprimir en frontend revisado. |
+| 12. Imprimir contrato (titular) | Implementado | `GET /contratos/:id/contrato-pdf` devuelve HTML imprimible (usa snapshot o preview); botón "Imprimir / PDF" en tab Texto contrato. |
 | 13. Asignar zona + código recorrido → Alta | Parcial | `zonaId`, `rutaId` en `Contrato`; asignación manual. **No** hay regla automática “al asignar ruta → estado Activo”. |
 | Al atender orden toma → auto orden medidor + pendiente zona | Parcial | Auto orden medidor: **sí** en `ordenes.service.ts`. Cambio de estado contrato a “pendiente de zona”: **no** en el mismo flujo. |
-| Reimprimir con mismas cláusulas contratadas | Faltante | Las cláusulas vienen del catálogo vía `TipoContratacion`; no hay versión/snapshot del texto aceptado al firmar, por lo que histórico vs plantilla vigente no está resuelto. |
+| Reimprimir con mismas cláusulas contratadas | Implementado | `Contrato.textoContratoSnapshot` almacena el texto al momento del alta; `GET /contratos/:id/contrato-pdf` lo usa si existe, garantizando reimpresión fiel. |
 
 ## Riesgos y duplicidades
 
@@ -70,3 +70,13 @@ Documento de brechas entre el flujo operativo deseado (lista de pasos + notas SI
 - **`plantillaContratacionId`** en el body solo tiene efecto si `documentosRecibidos` trae al menos un ítem; si no, la API responde **400** (evita plantilla “huérfana” en el payload).
 - El cliente (wizard) exige **plantilla** cuando están activos “iniciar proceso” y al menos un documento en checklist, para no dejar un proceso sin plantilla al omitir el segundo `POST` a procesos.
 - El hito inicial “solicitud completada” al abrir proceso se centraliza en `crearHitoInicialSolicitudCompletado` (`hito-inicial.util.ts`), reutilizado por alta de contrato y por `POST /procesos-contratacion`.
+
+### Facturación, PDF e impresión de contrato (2026-04-10)
+
+- **`Contrato.textoContratoSnapshot`** (campo `Text?`): se captura automáticamente al crear el contrato, resolviendo el snapshot de cláusulas para reimpresión fiel.
+- **`GET /contratos/:id/contrato-pdf`**: devuelve HTML print-ready con el texto del snapshot (o preview si no hay snapshot). El frontend abre en nueva pestaña para imprimir/guardar PDF vía navegador.
+- **`POST /contratos/:id/factura-contratacion`**: genera `Timbrado` (estado Pendiente, sin consumo) + registros `CostoContrato` con los conceptos de cobro del tipo de contratación. Controlado por `FEATURE_FACTURACION_CONTRATACION=true`.
+- **Wizard**: checkbox "Generar factura de contratación al crear" (visible solo con flag activo); campo `generarFacturaContratacion` en DTO.
+- **Tab Facturación** en detalle: botón "Facturar contratación" (visible solo con flag) para generar la factura post-alta.
+- **Tab Texto contrato** en detalle: botón "Imprimir / PDF" que abre el endpoint HTML en nueva pestaña.
+- **Feature flag**: `FEATURE_FACTURACION_CONTRATACION` (backend) / `VITE_FEATURE_FACTURACION_CONTRATACION` (frontend), default `false`.
