@@ -508,7 +508,7 @@ const Contratos = () => {
 
       {/* Wizard */}
       <Dialog open={showWizard} onOpenChange={setShowWizard}>
-        <DialogContent className="max-w-xl">
+        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Alta de Contrato — Paso {step} de 3</DialogTitle>
             <DialogDescription>
