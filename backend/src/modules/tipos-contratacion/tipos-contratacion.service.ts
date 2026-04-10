@@ -332,4 +332,35 @@ export class TiposContratacionService {
   async updateClausula(id: string, dto: Partial<{ titulo: string; contenido: string; version: string; activo: boolean }>) {
     return this.prisma.clausulaContractual.update({ where: { id }, data: dto });
   }
+
+  // ─── Catálogos CIG2018 (actividad, categoría, relación PS) ─────────────────
+
+  async findCatalogoActividades(params: { activo?: string } = {}) {
+    return this.prisma.catalogoActividad.findMany({
+      where: params.activo !== undefined ? { activo: params.activo === 'true' } : undefined,
+      include: { grupo: true },
+      orderBy: { codigo: 'asc' },
+    });
+  }
+
+  async findCatalogoGruposActividad(params: { activo?: string } = {}) {
+    return this.prisma.catalogoGrupoActividad.findMany({
+      where: params.activo !== undefined ? { activo: params.activo === 'true' } : undefined,
+      orderBy: { codigo: 'asc' },
+    });
+  }
+
+  async findCatalogoCategorias(params: { activo?: string } = {}) {
+    return this.prisma.catalogoCategoria.findMany({
+      where: params.activo !== undefined ? { activo: params.activo === 'true' } : undefined,
+      orderBy: { codigo: 'asc' },
+    });
+  }
+
+  async findCatalogoTiposRelacionPS(params: { activo?: string } = {}) {
+    return this.prisma.catalogoTipoRelacionPS.findMany({
+      where: params.activo !== undefined ? { activo: params.activo === 'true' } : undefined,
+      orderBy: { codigo: 'asc' },
+    });
+  }
 }

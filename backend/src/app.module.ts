@@ -29,6 +29,7 @@ import { PuntosServicioModule } from './modules/puntos-servicio/puntos-servicio.
 import { TiposContratacionModule } from './modules/tipos-contratacion/tipos-contratacion.module';
 import { TarifasModule } from './modules/tarifas/tarifas.module';
 import { ProcesosContratacionModule } from './modules/procesos-contratacion/procesos-contratacion.module';
+import { CatalogosOperativosModule } from './modules/catalogos-operativos/catalogos-operativos.module';
 
 @Module({
   imports: [
@@ -60,6 +61,7 @@ import { ProcesosContratacionModule } from './modules/procesos-contratacion/proc
     TiposContratacionModule,
     TarifasModule,
     ProcesosContratacionModule,
+    CatalogosOperativosModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -40,4 +40,15 @@ export class CreateContratoDto {
   @IsOptional() @IsNumber() mesesAdeudo?: number;
   @IsOptional() @IsNumber() unidadesServidas?: number;
   @IsOptional() @IsNumber() personasHabitanVivienda?: number;
+
+  /** Persona moral / datos fiscales en el contrato */
+  @IsOptional() @IsString() razonSocial?: string;
+  @IsOptional() @IsString() regimenFiscal?: string;
+
+  /** Si true, al crear se genera orden InstalacionToma y estado Pendiente de toma (prioridad sobre medidor). */
+  @IsOptional() @IsBoolean() generarOrdenInstalacionToma?: boolean;
+  /** Si true (y no hay orden de toma), orden InstalacionMedidor y estado Pendiente de zona. */
+  @IsOptional() @IsBoolean() generarOrdenInstalacionMedidor?: boolean;
+  /** Omitir creación de Persona + rol PROPIETARIO (solo datos planos en contrato). */
+  @IsOptional() @IsBoolean() omitirRegistroPersonaTitular?: boolean;
 }

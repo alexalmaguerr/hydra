@@ -9,11 +9,14 @@ datasource db {
 
 // ---- Territorial ----
 model Administracion {
-  id        String   @id @default(cuid())
-  nombre    String
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-  zonas     Zona[]
+  id                String             @id @default(cuid())
+  nombre            String
+  createdAt         DateTime           @default(now()) @map("created_at")
+  updatedAt         DateTime           @updatedAt @map("updated_at")
+  zonas             Zona[]
+  tiposContratacion TipoContratacion[]
+  sectores          SectorHidraulico[]
+  oficinas          Oficina[]
 
   @@map("administraciones")
 }
@@ -188,30 +191,57 @@ model CostoContrato {
 }
 
 model Medidor {
-  id             String   @id @default(cuid())
-  contratoId     String   @unique @map("contrato_id")
-  serie          String
-  estado         String
-  cobroDiferido  Boolean  @default(false) @map("cobro_diferido")
-  lecturaInicial Int      @map("lectura_inicial")
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
-  contrato       Contrato @relation(fields: [contratoId], references: [id], onDelete: Cascade)
+  id               String                  @id @default(cuid())
+  contratoId       String                  @unique @map("contrato_id")
+  serie            String
+  estado           String
+  cobroDiferido    Boolean                 @default(false) @map("cobro_diferido")
+  lecturaInicial   Int                     @map("lectura_inicial")
+  marcaId          String?                 @map("marca_id")
+  modeloId         String?                 @map("modelo_id")
+  calibreId        String?                 @map("calibre_id")
+  emplazamientoId  String?                 @map("emplazamiento_id")
+  tipoContadorId   String?                 @map("tipo_contador_id")
+  digitos          Int?
+  tipoEsfera       String?                 @map("tipo_esfera")
+  tipoTelemetria   String?                 @map("tipo_telemetria")
+  fechaInstalacion DateTime?               @map("fecha_instalacion")
+  fechaUltimaVerif DateTime?               @map("fecha_ultima_verificacion")
+  createdAt        DateTime                @default(now()) @map("created_at")
+  updatedAt        DateTime                @updatedAt @map("updated_at")
+  contrato         Contrato                @relation(fields: [contratoId], references: [id], onDelete: Cascade)
+  marca            CatalogoMarcaMedidor?   @relation(fields: [marcaId], references: [id], onDelete: SetNull)
+  modelo           CatalogoModeloMedidor?  @relation(fields: [modeloId], references: [id], onDelete: SetNull)
+  calibre          CatalogoCalibre?        @relation(fields: [calibreId], references: [id], onDelete: SetNull)
+  emplazamiento    CatalogoEmplazamiento?  @relation(fields: [emplazamientoId], references: [id], onDelete: SetNull)
+  tipoContador     CatalogoTipoContador?   @relation(fields: [tipoContadorId], references: [id], onDelete: SetNull)
 
   @@index([contratoId])
+  @@index([marcaId])
+  @@index([modeloId])
+  @@index([calibreId])
   @@map("medidores")
 }
 
 model MedidorBodega {
-  id        String   @id @default(cuid())
-  serie     String
-  zonaId    String?  @map("zona_id")
-  estado    String // Disponible | En reparación
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-  zona      Zona?    @relation("MedidorBodegaZona", fields: [zonaId], references: [id], onDelete: SetNull)
+  id              String                  @id @default(cuid())
+  serie           String
+  zonaId          String?                 @map("zona_id")
+  estado          String // Disponible | En reparación | Retirado
+  marcaId         String?                 @map("marca_id")
+  modeloId        String?                 @map("modelo_id")
+  calibreId       String?                 @map("calibre_id")
+  digitos         Int?
+  fechaIngreso    DateTime?               @map("fecha_ingreso")
+  createdAt       DateTime                @default(now()) @map("created_at")
+  updatedAt       DateTime                @updatedAt @map("updated_at")
+  zona            Zona?                   @relation("MedidorBodegaZona", fields: [zonaId], references: [id], onDelete: SetNull)
+  marca           CatalogoMarcaMedidor?   @relation(fields: [marcaId], references: [id], onDelete: SetNull)
+  modelo          CatalogoModeloMedidor?  @relation(fields: [modeloId], references: [id], onDelete: SetNull)
+  calibre         CatalogoCalibre?        @relation(fields: [calibreId], references: [id], onDelete: SetNull)
 
   @@index([zonaId])
+  @@index([marcaId])
   @@map("medidores_bodega")
 }
 
@@ -335,26 +365,30 @@ model Recibo {
 }
 
 model Pago {
-  id         String    @id @default(cuid())
-  contratoId String    @map("contrato_id")
-  reciboId   String?   @map("recibo_id")
-  timbradoId String?   @map("timbrado_id")
-  convenioId String?   @map("convenio_id")
-  monto      Decimal   @db.Decimal(10, 2)
-  fecha      String
-  tipo       String // Efectivo | Transferencia | Tarjeta | SPEI | OXXO | CoDi | WEB
-  concepto   String
-  origen     String    @default("nativo") // nativo | externo
-  createdAt  DateTime  @default(now()) @map("created_at")
-  updatedAt  DateTime  @updatedAt @map("updated_at")
-  contrato   Contrato  @relation(fields: [contratoId], references: [id], onDelete: Cascade)
-  recibo     Recibo?   @relation(fields: [reciboId], references: [id], onDelete: SetNull)
-  timbrado   Timbrado? @relation(fields: [timbradoId], references: [id], onDelete: SetNull)
-  convenio   Convenio? @relation(fields: [convenioId], references: [id], onDelete: SetNull)
+  id          String     @id @default(cuid())
+  contratoId  String     @map("contrato_id")
+  reciboId    String?    @map("recibo_id")
+  timbradoId  String?    @map("timbrado_id")
+  convenioId  String?    @map("convenio_id")
+  formaPagoId String?    @map("forma_pago_id")
+  monto       Decimal    @db.Decimal(10, 2)
+  fecha       String
+  tipo        String // legacy: Efectivo | Transferencia | Tarjeta | SPEI | OXXO | CoDi | WEB
+  concepto    String
+  origen      String     @default("nativo") // nativo | externo
+  oficina     String?
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+  contrato    Contrato   @relation(fields: [contratoId], references: [id], onDelete: Cascade)
+  recibo      Recibo?    @relation(fields: [reciboId], references: [id], onDelete: SetNull)
+  timbrado    Timbrado?  @relation(fields: [timbradoId], references: [id], onDelete: SetNull)
+  convenio    Convenio?  @relation(fields: [convenioId], references: [id], onDelete: SetNull)
+  formaPago   FormaPago? @relation(fields: [formaPagoId], references: [id], onDelete: SetNull)
 
   @@index([contratoId])
   @@index([reciboId])
   @@index([convenioId])
+  @@index([formaPagoId])
   @@map("pagos")
 }
 
@@ -1084,13 +1118,15 @@ model CatalogoTipoCorte {
 }
 
 model CatalogoTipoSuministro {
-  id          String          @id @default(cuid())
-  codigo      String          @unique
-  descripcion String
-  activo      Boolean         @default(true)
-  createdAt   DateTime        @default(now()) @map("created_at")
-  updatedAt   DateTime        @updatedAt @map("updated_at")
-  puntos      PuntoServicio[]
+  id              String          @id @default(cuid())
+  codigo          String          @unique
+  descripcion     String
+  periodoLectura  String?         @map("periodo_lectura") // MENSUAL | BIMESTRAL
+  requiereMedidor Boolean         @default(true) @map("requiere_medidor")
+  activo          Boolean         @default(true)
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
+  puntos          PuntoServicio[]
 
   @@map("catalogo_tipos_suministro")
 }
@@ -1135,12 +1171,14 @@ model CatalogoActividad {
 }
 
 model CatalogoCategoria {
-  id          String     @id @default(cuid())
-  codigo      String     @unique
-  descripcion String
-  activo      Boolean    @default(true)
-  createdAt   DateTime   @default(now()) @map("created_at")
-  contratos   Contrato[]
+  id                         String     @id @default(cuid())
+  codigo                     String     @unique
+  descripcion                String
+  permiteIntFraccionamiento  Boolean    @default(false) @map("permite_int_fraccionamiento")
+  formatoRecibo              String?    @map("formato_recibo")
+  activo                     Boolean    @default(true)
+  createdAt                  DateTime   @default(now()) @map("created_at")
+  contratos                  Contrato[]
 
   @@map("catalogo_categorias")
 }
@@ -1304,7 +1342,6 @@ model TipoContratacion {
   nombre                    String
   descripcion               String?
   requiereMedidor           Boolean                              @default(true)  @map("requiere_medidor")
-  // Configuración del proceso de contratación (P1, P6 — de CIG2018)
   claseProceso              String?                              @map("clase_proceso") // AN | CN | PB | BJ
   esContratoFormal          Boolean                              @default(true) @map("es_contrato_formal")
   requiereSolicitudPrevia   Boolean                              @default(false) @map("requiere_solicitud_previa")
@@ -1313,14 +1350,21 @@ model TipoContratacion {
   diasPlazoAprobacion       Int?                                 @map("dias_plazo_aprobacion")
   periodicidadesPermitidas  String?                              @map("periodicidades_permitidas") // ANUAL,MENSUAL,SEMESTRAL,TRIMESTRAL
   tiposClientePermitidos    String?                              @map("tipos_cliente_permitidos")  // EMP,GRUPO,MUNICIPAL,OFICIAL,PARTICULAR
+  administracionId          String?                              @map("administracion_id")
+  claseContratoId           String?                              @map("clase_contrato_id")
   activo                    Boolean                              @default(true)
   createdAt                 DateTime                             @default(now()) @map("created_at")
   updatedAt                 DateTime                             @updatedAt @map("updated_at")
+  administracion            Administracion?                      @relation(fields: [administracionId], references: [id], onDelete: SetNull)
+  claseContrato             ClaseContrato?                       @relation(fields: [claseContratoId], references: [id], onDelete: SetNull)
   contratos                 Contrato[]
   conceptos                 ConceptoCobroTipoContratacion[]
   clausulas                 ClausulaTipoContratacion[]
   documentos                DocumentoRequeridoTipoContratacion[]
+  variables                 VariableTipoContratacion[]
 
+  @@index([administracionId])
+  @@index([claseContratoId])
   @@map("tipos_contratacion")
 }
 
@@ -1329,16 +1373,17 @@ model ConceptoCobro {
   codigo            String                          @unique
   nombre            String
   tipo              String // fijo | variable | porcentual
+  origen            String                          @default("CONTRATACION") // CONTRATACION | LECTURAS | VARIOS
   montoBase         Decimal?                        @map("monto_base") @db.Decimal(10, 2)
   ivaPct            Decimal                         @default(16) @map("iva_pct") @db.Decimal(5, 2)
-  // Fórmulas tarifarias de contratación (req PRD #26)
-  formula           String?                         // e.g. "precioBase + (componenteProporcional * cantidad)"
-  variablesFormula  Json?                           @map("variables_formula") // e.g. { "distancia": true, "diametro": true }
+  formula           String?
+  variablesFormula  Json?                           @map("variables_formula")
   activo            Boolean                         @default(true)
   createdAt         DateTime                        @default(now()) @map("created_at")
   updatedAt         DateTime                        @updatedAt @map("updated_at")
   tiposContratacion ConceptoCobroTipoContratacion[]
 
+  @@index([origen])
   @@map("conceptos_cobro")
 }
 
@@ -1357,15 +1402,16 @@ model ConceptoCobroTipoContratacion {
 }
 
 model ClausulaContractual {
-  id                String                     @id @default(cuid())
-  codigo            String                     @unique
-  titulo            String
-  contenido         String                     @db.Text
-  version           String                     @default("1.0")
-  activo            Boolean                    @default(true)
-  createdAt         DateTime                   @default(now()) @map("created_at")
-  updatedAt         DateTime                   @updatedAt @map("updated_at")
-  tiposContratacion ClausulaTipoContratacion[]
+  id                   String                     @id @default(cuid())
+  codigo               String                     @unique
+  titulo               String
+  contenido            String                     @db.Text
+  version              String                     @default("1.0")
+  aplicaPuntoServicio  Boolean                    @default(false) @map("aplica_punto_servicio")
+  activo               Boolean                    @default(true)
+  createdAt            DateTime                   @default(now()) @map("created_at")
+  updatedAt            DateTime                   @updatedAt @map("updated_at")
+  tiposContratacion    ClausulaTipoContratacion[]
 
   @@map("clausulas_contractuales")
 }
@@ -1399,26 +1445,30 @@ model DocumentoRequeridoTipoContratacion {
 
 // ---- T14: Motor Tarifario ----
 model Tarifa {
-  id             String    @id @default(cuid())
-  codigo         String
-  nombre         String
-  tipoServicio   String    @map("tipo_servicio") // agua | saneamiento | alcantarillado
-  tipoCalculo    String    @map("tipo_calculo") // escalonado | fijo | variable
-  rangoMinM3     Int?      @map("rango_min_m3")
-  rangoMaxM3     Int?      @map("rango_max_m3")
-  precioUnitario Decimal?  @map("precio_unitario") @db.Decimal(10, 4)
-  cuotaFija      Decimal?  @map("cuota_fija") @db.Decimal(10, 2)
-  ivaPct         Decimal   @default(16) @map("iva_pct") @db.Decimal(5, 2)
-  vigenciaDesde  DateTime  @map("vigencia_desde")
-  vigenciaHasta  DateTime? @map("vigencia_hasta")
-  activo         Boolean   @default(true)
-  version        Int       @default(1)
-  createdAt      DateTime  @default(now()) @map("created_at")
-  updatedAt      DateTime  @updatedAt @map("updated_at")
+  id                     String    @id @default(cuid())
+  codigo                 String
+  nombre                 String
+  tipoServicio           String    @map("tipo_servicio") // agua | saneamiento | alcantarillado
+  tipoCalculo            String    @map("tipo_calculo") // escalonado | fijo | variable
+  administracionId       String?   @map("administracion_id")
+  tipoContratacionCodigo String?   @map("tipo_contratacion_codigo")
+  rangoMinM3             Int?      @map("rango_min_m3")
+  rangoMaxM3             Int?      @map("rango_max_m3")
+  precioUnitario         Decimal?  @map("precio_unitario") @db.Decimal(10, 4)
+  cuotaFija              Decimal?  @map("cuota_fija") @db.Decimal(10, 2)
+  ivaPct                 Decimal   @default(16) @map("iva_pct") @db.Decimal(5, 2)
+  vigenciaDesde          DateTime  @map("vigencia_desde")
+  vigenciaHasta          DateTime? @map("vigencia_hasta")
+  activo                 Boolean   @default(true)
+  version                Int       @default(1)
+  createdAt              DateTime  @default(now()) @map("created_at")
+  updatedAt              DateTime  @updatedAt @map("updated_at")
 
   @@index([codigo])
   @@index([tipoServicio])
   @@index([vigenciaDesde])
+  @@index([administracionId])
+  @@index([tipoContratacionCodigo])
   @@map("tarifas")
 }
 
@@ -1472,4 +1522,194 @@ model ActualizacionTarifaria {
   @@index([estado])
   @@index([fechaAplicacion])
   @@map("actualizaciones_tarifarias")
+}
+
+// ---- T16: Catálogos de Medidores (sistema anterior) ----
+model CatalogoMarcaMedidor {
+  id              String                  @id @default(cuid())
+  codigo          String                  @unique
+  nombre          String
+  activo          Boolean                 @default(true)
+  createdAt       DateTime                @default(now()) @map("created_at")
+  updatedAt       DateTime                @updatedAt @map("updated_at")
+  modelos         CatalogoModeloMedidor[]
+  medidores       Medidor[]
+  medidoresBodega MedidorBodega[]
+
+  @@map("catalogo_marcas_medidor")
+}
+
+model CatalogoModeloMedidor {
+  id              String                @id @default(cuid())
+  marcaId         String                @map("marca_id")
+  codigo          String                @unique
+  nombre          String
+  activo          Boolean               @default(true)
+  createdAt       DateTime              @default(now()) @map("created_at")
+  updatedAt       DateTime              @updatedAt @map("updated_at")
+  marca           CatalogoMarcaMedidor  @relation(fields: [marcaId], references: [id], onDelete: Restrict)
+  medidores       Medidor[]
+  medidoresBodega MedidorBodega[]
+
+  @@index([marcaId])
+  @@map("catalogo_modelos_medidor")
+}
+
+model CatalogoCalibre {
+  id              String          @id @default(cuid())
+  codigo          String          @unique
+  descripcion     String
+  diametroMm      Decimal?        @map("diametro_mm") @db.Decimal(8, 2)
+  activo          Boolean         @default(true)
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
+  medidores       Medidor[]
+  medidoresBodega MedidorBodega[]
+
+  @@map("catalogo_calibres")
+}
+
+model CatalogoEmplazamiento {
+  id          String    @id @default(cuid())
+  codigo      String    @unique
+  descripcion String
+  activo      Boolean   @default(true)
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  medidores   Medidor[]
+
+  @@map("catalogo_emplazamientos")
+}
+
+model CatalogoTipoContador {
+  id          String    @id @default(cuid())
+  codigo      String    @unique
+  descripcion String
+  activo      Boolean   @default(true)
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  medidores   Medidor[]
+
+  @@map("catalogo_tipos_contador")
+}
+
+// ---- T17: Formas de Pago y Oficinas (sistema anterior) ----
+model FormaPago {
+  id                String   @id @default(cuid())
+  codigo            String   @unique
+  nombre            String
+  tipoRecaudacion   String   @map("tipo_recaudacion") // CAJA | BANCO | EXTERNO | DOMICILIACION | WEB
+  aceptaEfectivo    Boolean  @default(false) @map("acepta_efectivo")
+  aceptaCheque      Boolean  @default(false) @map("acepta_cheque")
+  aceptaTarjeta     Boolean  @default(false) @map("acepta_tarjeta")
+  aceptaTransf      Boolean  @default(false) @map("acepta_transf")
+  requiereReferencia Boolean @default(false) @map("requiere_referencia")
+  layoutArchivoId   String?  @map("layout_archivo_id")
+  activo            Boolean  @default(true)
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+  pagos             Pago[]
+
+  @@map("catalogo_formas_pago")
+}
+
+model Oficina {
+  id               String          @id @default(cuid())
+  codigo           String          @unique
+  nombre           String
+  administracionId String?         @map("administracion_id")
+  tipoOficinaId    String?         @map("tipo_oficina_id")
+  direccion        String?
+  horario          String?
+  activo           Boolean         @default(true)
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @updatedAt @map("updated_at")
+  administracion   Administracion? @relation(fields: [administracionId], references: [id], onDelete: SetNull)
+  tipoOficina      TipoOficina?    @relation(fields: [tipoOficinaId], references: [id], onDelete: SetNull)
+
+  @@index([administracionId])
+  @@index([tipoOficinaId])
+  @@map("oficinas")
+}
+
+model TipoOficina {
+  id          String    @id @default(cuid())
+  codigo      String    @unique
+  descripcion String
+  activo      Boolean   @default(true)
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  oficinas    Oficina[]
+
+  @@map("catalogo_tipos_oficina")
+}
+
+// ---- T18: Variables por Tipo de Contratación (sistema anterior) ----
+model TipoVariable {
+  id                String                     @id @default(cuid())
+  codigo            String                     @unique
+  nombre            String
+  tipoDato          String                     @map("tipo_dato") // TEXTO | NUMERO | FECHA | BOOLEANO | LISTA
+  valoresPosibles   Json?                      @map("valores_posibles")
+  unidad            String?
+  activo            Boolean                    @default(true)
+  createdAt         DateTime                   @default(now()) @map("created_at")
+  updatedAt         DateTime                   @updatedAt @map("updated_at")
+  asignaciones      VariableTipoContratacion[]
+
+  @@map("catalogo_tipos_variable")
+}
+
+model VariableTipoContratacion {
+  id                 String           @id @default(cuid())
+  tipoContratacionId String           @map("tipo_contratacion_id")
+  tipoVariableId     String           @map("tipo_variable_id")
+  obligatorio        Boolean          @default(false)
+  valorDefecto       String?          @map("valor_defecto")
+  orden              Int              @default(0)
+  createdAt          DateTime         @default(now()) @map("created_at")
+  tipoContratacion   TipoContratacion @relation(fields: [tipoContratacionId], references: [id], onDelete: Cascade)
+  tipoVariable       TipoVariable     @relation(fields: [tipoVariableId], references: [id], onDelete: Cascade)
+
+  @@unique([tipoContratacionId, tipoVariableId])
+  @@map("variables_tipo_contratacion")
+}
+
+// ---- Catálogos territoriales / operativos adicionales (sistema anterior) ----
+model SectorHidraulico {
+  id               String          @id @default(cuid())
+  codigo           String          @unique
+  nombre           String
+  administracionId String?         @map("administracion_id")
+  activo           Boolean         @default(true)
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @updatedAt @map("updated_at")
+  administracion   Administracion? @relation(fields: [administracionId], references: [id], onDelete: SetNull)
+
+  @@index([administracionId])
+  @@map("sectores_hidraulicos")
+}
+
+model ClaseContrato {
+  id                String             @id @default(cuid())
+  codigo            String             @unique
+  descripcion       String
+  activo            Boolean            @default(true)
+  createdAt         DateTime           @default(now()) @map("created_at")
+  updatedAt         DateTime           @updatedAt @map("updated_at")
+  tiposContratacion TipoContratacion[]
+
+  @@map("catalogo_clases_contrato")
+}
+
+model TipoVia {
+  id          String   @id @default(cuid())
+  codigo      String   @unique
+  descripcion String
+  abreviatura String?
+  activo      Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("catalogo_tipos_via")
 }

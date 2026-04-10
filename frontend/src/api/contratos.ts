@@ -3,6 +3,8 @@ import { apiRequest, hasApi } from './client';
 export interface ContratoDto {
   id: string;
   tomaId?: string | null;
+  puntoServicioId?: string | null;
+  tipoContratacionId?: string | null;
   tipoContrato: string;
   tipoServicio: string;
   nombre: string;
@@ -17,12 +19,16 @@ export interface ContratoDto {
   domiciliado: boolean;
   fechaReconexionPrevista?: string | null;
   ceaNumContrato?: string | null;
+  razonSocial?: string | null;
+  regimenFiscal?: string | null;
   createdAt: string;
   updatedAt: string;
 }
 
 export interface CreateContratoDto {
   tomaId?: string;
+  puntoServicioId?: string;
+  tipoContratacionId?: string;
   tipoContrato: string;
   tipoServicio: string;
   nombre: string;
@@ -37,6 +43,11 @@ export interface CreateContratoDto {
   domiciliado?: boolean;
   fechaReconexionPrevista?: string;
   ceaNumContrato?: string;
+  razonSocial?: string;
+  regimenFiscal?: string;
+  generarOrdenInstalacionToma?: boolean;
+  generarOrdenInstalacionMedidor?: boolean;
+  omitirRegistroPersonaTitular?: boolean;
 }
 
 export interface UpdateContratoDto {
@@ -48,6 +59,11 @@ export interface UpdateContratoDto {
   razonSocial?: string | null;
   regimenFiscal?: string | null;
   constanciaFiscalUrl?: string | null;
+  domicilioId?: string | null;
+  puntoServicioId?: string | null;
+  tipoContratacionId?: string | null;
+  zonaId?: string | null;
+  rutaId?: string | null;
 }
 
 export interface EstadoOperativoDto {
@@ -90,6 +106,16 @@ export async function updateContrato(id: string, dto: UpdateContratoDto): Promis
 
 export async function fetchEstadoOperativo(id: string): Promise<EstadoOperativoDto> {
   return apiRequest<EstadoOperativoDto>(`/contratos/${id}/estado-operativo`);
+}
+
+export interface TextoContratoPreviewDto {
+  texto: string;
+  fuente: 'plantilla' | 'clausulas' | 'vacío';
+  contratoId: string;
+}
+
+export async function fetchTextoContratoPreview(id: string): Promise<TextoContratoPreviewDto> {
+  return apiRequest<TextoContratoPreviewDto>(`/contratos/${id}/texto-contrato`);
 }
 
 export { hasApi };

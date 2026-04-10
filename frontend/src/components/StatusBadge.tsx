@@ -27,6 +27,8 @@ const statusVariant: Record<string, Variant> = {
   'En comité': 'warning',
   'En proceso': 'warning',
   'Pendiente de alta': 'warning',
+  'Pendiente de toma': 'warning',
+  'Pendiente de zona': 'warning',
   Pendiente: 'warning',
   'En trámite': 'warning',
   'Por cobrar': 'warning',

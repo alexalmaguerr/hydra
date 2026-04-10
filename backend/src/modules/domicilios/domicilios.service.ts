@@ -187,6 +187,111 @@ export class DomiciliosService {
     });
   }
 
+  /** Conteos de catálogos INEGI (para dashboards / UI) */
+  async findCatalogoInegiResumen() {
+    const [estados, municipios, localidades, colonias] = await Promise.all([
+      this.prisma.catalogoEstadoINEGI.count({ where: { activo: true } }),
+      this.prisma.catalogoMunicipioINEGI.count({ where: { activo: true } }),
+      this.prisma.catalogoLocalidadINEGI.count({ where: { activo: true } }),
+      this.prisma.catalogoColoniaINEGI.count({ where: { activo: true } }),
+    ]);
+    return { estados, municipios, localidades, colonias };
+  }
+
+  private clampCatalogLimit(limit?: number) {
+    const n = limit ?? 50;
+    return Math.min(200, Math.max(1, n));
+  }
+
+  /** Municipios INEGI paginados (para consulta de catálogo en UI) */
+  async findCatalogoMunicipiosPaginated(params: {
+    estadoId?: string;
+    nombre?: string;
+    page?: number;
+    limit?: number;
+  }) {
+    const page = Math.max(1, params.page ?? 1);
+    const limit = this.clampCatalogLimit(params.limit);
+    const where = {
+      activo: true,
+      ...(params.estadoId && { estadoId: params.estadoId }),
+      ...(params.nombre && {
+        nombre: { contains: params.nombre, mode: 'insensitive' as const },
+      }),
+    };
+    const [data, total] = await Promise.all([
+      this.prisma.catalogoMunicipioINEGI.findMany({
+        where,
+        include: { estado: true },
+        orderBy: [{ estadoId: 'asc' }, { nombre: 'asc' }],
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.catalogoMunicipioINEGI.count({ where }),
+    ]);
+    return { data, total, page, limit };
+  }
+
+  /** Localidades INEGI paginadas */
+  async findCatalogoLocalidadesPaginated(params: {
+    municipioId?: string;
+    nombre?: string;
+    page?: number;
+    limit?: number;
+  }) {
+    const page = Math.max(1, params.page ?? 1);
+    const limit = this.clampCatalogLimit(params.limit);
+    const where = {
+      activo: true,
+      ...(params.municipioId && { municipioId: params.municipioId }),
+      ...(params.nombre && {
+        nombre: { contains: params.nombre, mode: 'insensitive' as const },
+      }),
+    };
+    const [data, total] = await Promise.all([
+      this.prisma.catalogoLocalidadINEGI.findMany({
+        where,
+        include: { municipio: { include: { estado: true } } },
+        orderBy: [{ municipioId: 'asc' }, { nombre: 'asc' }],
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.catalogoLocalidadINEGI.count({ where }),
+    ]);
+    return { data, total, page, limit };
+  }
+
+  /** Colonias INEGI paginadas (volumen alto: siempre usar paginación) */
+  async findCatalogoColoniasPaginated(params: {
+    municipioId?: string;
+    codigoPostal?: string;
+    nombre?: string;
+    page?: number;
+    limit?: number;
+  }) {
+    const page = Math.max(1, params.page ?? 1);
+    const limit = this.clampCatalogLimit(params.limit);
+    const where = {
+      activo: true,
+      ...(params.municipioId && { municipioId: params.municipioId }),
+      ...(params.codigoPostal && { codigoPostal: { contains: params.codigoPostal } }),
+      ...(params.nombre && {
+        nombre: { contains: params.nombre, mode: 'insensitive' as const },
+      }),
+    };
+    const [data, total] = await Promise.all([
+      this.prisma.catalogoColoniaINEGI.findMany({
+        where,
+        include: { municipio: { include: { estado: true } } },
+        orderBy: [{ municipioId: 'asc' }, { codigoPostal: 'asc' }, { nombre: 'asc' }],
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.catalogoColoniaINEGI.count({ where }),
+    ]);
+    return { data, total, page, limit };
+  }
+
   private async actualizarDireccionConcatenada(id: string) {
     const d = await this.prisma.domicilio.findUnique({
       where: { id },

@@ -1,6 +1,12 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 
+function optionalFkId(value?: string | null): string | null {
+  if (value == null) return null;
+  const t = String(value).trim();
+  return t.length > 0 ? t : null;
+}
+
 interface CreatePuntoServicioDto {
   codigo: string;
   domicilioId?: string;
@@ -8,6 +14,7 @@ interface CreatePuntoServicioDto {
   estructuraTecnicaId?: string;
   zonaFacturacionId?: string;
   codigoRecorridoId?: string;
+  tipoRelacionPadreId?: string;
   diametroToma?: string;
   materialTuberia?: string;
   profundidadToma?: number;
@@ -26,6 +33,7 @@ interface UpdatePuntoServicioDto {
   estructuraTecnicaId?: string;
   zonaFacturacionId?: string;
   codigoRecorridoId?: string;
+  tipoRelacionPadreId?: string | null;
   diametroToma?: string;
   materialTuberia?: string;
   profundidadToma?: number;
@@ -65,6 +73,11 @@ export class PuntosServicioService {
           domicilio: { select: { id: true, calle: true, numExterior: true, codigoPostal: true } },
           tipoSuministro: { select: { id: true, codigo: true, descripcion: true } },
           estructuraTecnica: { select: { id: true, codigo: true, descripcion: true } },
+          zonaFacturacion: { select: { id: true, codigo: true, descripcion: true } },
+          codigoRecorrido: { select: { id: true, codigo: true, descripcion: true } },
+          tipoRelacionPadre: {
+            select: { id: true, codigo: true, descripcion: true, metodo: true, reparteConsumo: true },
+          },
           puntoServicioPadre: { select: { id: true, codigo: true } },
           _count: { select: { puntosServicioHijos: true, contratos: true } },
         },
@@ -92,6 +105,9 @@ export class PuntosServicioService {
         estructuraTecnica: true,
         zonaFacturacion: true,
         codigoRecorrido: true,
+        tipoRelacionPadre: {
+          select: { id: true, codigo: true, descripcion: true, metodo: true, reparteConsumo: true },
+        },
         puntoServicioPadre: { select: { id: true, codigo: true, estado: true } },
         puntosServicioHijos: {
           select: { id: true, codigo: true, estado: true, reparticionConsumo: true },
@@ -109,6 +125,19 @@ export class PuntosServicioService {
     });
     if (existing) throw new BadRequestException(`Código '${dto.codigo}' ya existe`);
 
+    const tipoRelacionPadreId = optionalFkId(dto.tipoRelacionPadreId);
+    if (tipoRelacionPadreId) {
+      const tr = await this.prisma.catalogoTipoRelacionPS.findUnique({
+        where: { id: tipoRelacionPadreId },
+        select: { id: true },
+      });
+      if (!tr) {
+        throw new BadRequestException(
+          `El tipo de relación PS indicado no existe (tipoRelacionPadreId: ${tipoRelacionPadreId}).`,
+        );
+      }
+    }
+
     return this.prisma.puntoServicio.create({
       data: {
         codigo: dto.codigo,
@@ -117,6 +146,7 @@ export class PuntosServicioService {
         estructuraTecnicaId: dto.estructuraTecnicaId ?? null,
         zonaFacturacionId: dto.zonaFacturacionId ?? null,
         codigoRecorridoId: dto.codigoRecorridoId ?? null,
+        tipoRelacionPadreId,
         diametroToma: dto.diametroToma ?? null,
         materialTuberia: dto.materialTuberia ?? null,
         profundidadToma: dto.profundidadToma ?? null,
@@ -137,6 +167,21 @@ export class PuntosServicioService {
 
   async update(id: string, dto: UpdatePuntoServicioDto) {
     await this.findOne(id);
+    if (dto.tipoRelacionPadreId !== undefined) {
+      const tipoRelacionPadreId = optionalFkId(dto.tipoRelacionPadreId);
+      if (tipoRelacionPadreId) {
+        const tr = await this.prisma.catalogoTipoRelacionPS.findUnique({
+          where: { id: tipoRelacionPadreId },
+          select: { id: true },
+        });
+        if (!tr) {
+          throw new BadRequestException(
+            `El tipo de relación PS indicado no existe (tipoRelacionPadreId: ${tipoRelacionPadreId}).`,
+          );
+        }
+      }
+    }
+
     return this.prisma.puntoServicio.update({
       where: { id },
       data: {
@@ -145,6 +190,9 @@ export class PuntosServicioService {
         ...(dto.estructuraTecnicaId !== undefined && { estructuraTecnicaId: dto.estructuraTecnicaId }),
         ...(dto.zonaFacturacionId !== undefined && { zonaFacturacionId: dto.zonaFacturacionId }),
         ...(dto.codigoRecorridoId !== undefined && { codigoRecorridoId: dto.codigoRecorridoId }),
+        ...(dto.tipoRelacionPadreId !== undefined && {
+          tipoRelacionPadreId: optionalFkId(dto.tipoRelacionPadreId),
+        }),
         ...(dto.diametroToma !== undefined && { diametroToma: dto.diametroToma }),
         ...(dto.materialTuberia !== undefined && { materialTuberia: dto.materialTuberia }),
         ...(dto.profundidadToma !== undefined && { profundidadToma: dto.profundidadToma }),
@@ -171,6 +219,9 @@ export class PuntosServicioService {
         estado: true,
         cortable: true,
         reparticionConsumo: true,
+        tipoRelacionPadre: {
+          select: { id: true, codigo: true, descripcion: true, metodo: true, reparteConsumo: true },
+        },
         tipoSuministro: { select: { codigo: true, descripcion: true } },
       },
       orderBy: { codigo: 'asc' },
@@ -182,13 +233,34 @@ export class PuntosServicioService {
     return { hijos, totalReparticion };
   }
 
-  async vincularPadre(id: string, padreId: string, reparticion: number) {
+  async vincularPadre(
+    id: string,
+    padreId: string,
+    reparticion: number,
+    opts?: { tipoRelacionPadreId?: string | null },
+  ) {
     if (id === padreId) throw new BadRequestException('Un punto no puede ser su propio padre');
     await this.findOne(id);
     await this.findOne(padreId);
 
     if (reparticion < 0 || reparticion > 100) {
       throw new BadRequestException('La repartición debe estar entre 0 y 100');
+    }
+
+    let tipoRelacionPayload: string | null | undefined = undefined;
+    if (opts && 'tipoRelacionPadreId' in opts) {
+      tipoRelacionPayload = optionalFkId(opts.tipoRelacionPadreId);
+      if (tipoRelacionPayload) {
+        const tr = await this.prisma.catalogoTipoRelacionPS.findUnique({
+          where: { id: tipoRelacionPayload },
+          select: { id: true },
+        });
+        if (!tr) {
+          throw new BadRequestException(
+            `El tipo de relación PS indicado no existe (tipoRelacionPadreId: ${tipoRelacionPayload}).`,
+          );
+        }
+      }
     }
 
     // Validar que la suma de reparticiones de hijos existentes no supere 100
@@ -208,7 +280,11 @@ export class PuntosServicioService {
 
     return this.prisma.puntoServicio.update({
       where: { id },
-      data: { puntoServicioPadreId: padreId, reparticionConsumo: reparticion },
+      data: {
+        puntoServicioPadreId: padreId,
+        reparticionConsumo: reparticion,
+        ...(tipoRelacionPayload !== undefined && { tipoRelacionPadreId: tipoRelacionPayload }),
+      },
     });
   }
 
@@ -216,7 +292,11 @@ export class PuntosServicioService {
     await this.findOne(id);
     return this.prisma.puntoServicio.update({
       where: { id },
-      data: { puntoServicioPadreId: null, reparticionConsumo: null },
+      data: {
+        puntoServicioPadreId: null,
+        reparticionConsumo: null,
+        tipoRelacionPadreId: null,
+      },
     });
   }
 

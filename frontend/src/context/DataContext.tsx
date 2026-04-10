@@ -4,7 +4,13 @@ import React, { createContext, useContext, useState, ReactNode } from 'react';
 export type FactibilidadEstado = 'Pre-factibilidad' | 'En comité' | 'Aprobada' | 'Rechazada';
 export type ConstruccionEstado = 'Planeación' | 'En proceso' | 'Finalizada';
 export type TomaEstado = 'Disponible' | 'Asignada';
-export type ContratoEstado = 'Pendiente de alta' | 'Activo' | 'Suspendido' | 'Cancelado';
+export type ContratoEstado =
+  | 'Pendiente de alta'
+  | 'Pendiente de toma'
+  | 'Pendiente de zona'
+  | 'Activo'
+  | 'Suspendido'
+  | 'Cancelado';
 export type MedidorEstado = 'Activo' | 'Inactivo';
 export type MedidorBodegaEstado = 'Disponible' | 'En reparación';
 

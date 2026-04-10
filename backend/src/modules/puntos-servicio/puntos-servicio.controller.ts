@@ -47,6 +47,7 @@ export class PuntosServicioController {
       estructuraTecnicaId?: string;
       zonaFacturacionId?: string;
       codigoRecorridoId?: string;
+      tipoRelacionPadreId?: string;
       diametroToma?: string;
       materialTuberia?: string;
       profundidadToma?: number;
@@ -72,6 +73,7 @@ export class PuntosServicioController {
       estructuraTecnicaId?: string;
       zonaFacturacionId?: string;
       codigoRecorridoId?: string;
+      tipoRelacionPadreId?: string | null;
       diametroToma?: string;
       materialTuberia?: string;
       profundidadToma?: number;
@@ -95,9 +97,12 @@ export class PuntosServicioController {
   @Post(':id/vincular-padre')
   vincularPadre(
     @Param('id') id: string,
-    @Body() body: { padreId: string; reparticion: number },
+    @Body()
+    body: { padreId: string; reparticion: number; tipoRelacionPadreId?: string | null },
   ) {
-    return this.service.vincularPadre(id, body.padreId, body.reparticion);
+    const opts =
+      body.tipoRelacionPadreId !== undefined ? { tipoRelacionPadreId: body.tipoRelacionPadreId } : undefined;
+    return this.service.vincularPadre(id, body.padreId, body.reparticion, opts);
   }
 
   @Delete(':id/vincular-padre')

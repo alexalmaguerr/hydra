@@ -134,19 +134,8 @@ export class ProcesosContratacionService {
       }),
     ]);
 
-    // Al completar instalacion_toma → generar orden de instalación de medidor (req PRD #5)
-    if (nuevaEtapa === 'instalacion_medidor' && proceso.contratoId) {
-      await this.prisma.orden.create({
-        data: {
-          contratoId: proceso.contratoId,
-          tipo: 'InstalacionMedidor',
-          prioridad: 'Normal',
-          notas: `Auto-generada al avanzar proceso ${id} a instalacion_medidor`,
-          origenAutomatico: true,
-          eventoOrigen: `ProcesoContratacion:${id}`,
-        },
-      });
-    }
+    // La orden de medidor se genera al ejecutar en campo la InstalacionToma (OrdenesService),
+    // evitando duplicados si el proceso administrativo y las órdenes reales conviven.
 
     return this.findOne(procesoActualizado.id);
   }

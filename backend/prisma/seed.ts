@@ -785,6 +785,272 @@ async function seedTarifas() {
   console.log('Tarifas sembradas:', tarifas.length);
 }
 
+async function seedCatalogosMedidor() {
+  const marcas = [
+    { id: 'MRC01', codigo: 'ELSTER', nombre: 'Elster / Honeywell' },
+    { id: 'MRC02', codigo: 'SENSUS', nombre: 'Sensus / Xylem' },
+    { id: 'MRC03', codigo: 'ITRON', nombre: 'Itron' },
+    { id: 'MRC04', codigo: 'BADGER', nombre: 'Badger Meter' },
+    { id: 'MRC05', codigo: 'ZENNER', nombre: 'Zenner' },
+    { id: 'MRC06', codigo: 'DIEHL', nombre: 'Diehl Metering' },
+    { id: 'MRC07', codigo: 'ARAD', nombre: 'Arad Group' },
+    { id: 'MRC08', codigo: 'KAMSTRUP', nombre: 'Kamstrup' },
+    { id: 'MRC09', codigo: 'MASTER_METER', nombre: 'Master Meter' },
+    { id: 'MRC10', codigo: 'LAO', nombre: 'LAO Industria' },
+  ];
+  for (const m of marcas) {
+    await prisma.catalogoMarcaMedidor.upsert({
+      where: { codigo: m.codigo },
+      update: { nombre: m.nombre },
+      create: m,
+    });
+  }
+
+  const modelos = [
+    { id: 'MOD01', marcaId: 'MRC01', codigo: 'V100', nombre: 'V100 Volumétrico' },
+    { id: 'MOD02', marcaId: 'MRC01', codigo: 'S150', nombre: 'S150 Chorro único' },
+    { id: 'MOD03', marcaId: 'MRC02', codigo: 'MEITWIN', nombre: 'MeiTwin' },
+    { id: 'MOD04', marcaId: 'MRC02', codigo: 'IPERL', nombre: 'iPERL Ultrasónico' },
+    { id: 'MOD05', marcaId: 'MRC03', codigo: 'FLODIS', nombre: 'Flodis Chorro único' },
+    { id: 'MOD06', marcaId: 'MRC03', codigo: 'AQUADIS', nombre: 'Aquadis+ Volumétrico' },
+    { id: 'MOD07', marcaId: 'MRC04', codigo: 'M25', nombre: 'M25 Industrial' },
+    { id: 'MOD08', marcaId: 'MRC05', codigo: 'MTKD', nombre: 'MTK-D Doméstico' },
+    { id: 'MOD09', marcaId: 'MRC10', codigo: 'LAO_DOM', nombre: 'Doméstico estándar' },
+    { id: 'MOD10', marcaId: 'MRC10', codigo: 'LAO_IND', nombre: 'Industrial tipo Woltman' },
+  ];
+  for (const m of modelos) {
+    await prisma.catalogoModeloMedidor.upsert({
+      where: { codigo: m.codigo },
+      update: { nombre: m.nombre, marcaId: m.marcaId },
+      create: m,
+    });
+  }
+
+  const calibres = [
+    { id: 'CAL01', codigo: '1/2"', descripcion: 'Media pulgada (13 mm)', diametroMm: 13 },
+    { id: 'CAL02', codigo: '3/4"', descripcion: 'Tres cuartos de pulgada (19 mm)', diametroMm: 19 },
+    { id: 'CAL03', codigo: '1"', descripcion: 'Una pulgada (25 mm)', diametroMm: 25 },
+    { id: 'CAL04', codigo: '1-1/2"', descripcion: 'Pulgada y media (38 mm)', diametroMm: 38 },
+    { id: 'CAL05', codigo: '2"', descripcion: 'Dos pulgadas (50 mm)', diametroMm: 50 },
+    { id: 'CAL06', codigo: '3"', descripcion: 'Tres pulgadas (75 mm)', diametroMm: 75 },
+    { id: 'CAL07', codigo: '4"', descripcion: 'Cuatro pulgadas (100 mm)', diametroMm: 100 },
+    { id: 'CAL08', codigo: '6"', descripcion: 'Seis pulgadas (150 mm)', diametroMm: 150 },
+  ];
+  for (const c of calibres) {
+    await prisma.catalogoCalibre.upsert({
+      where: { codigo: c.codigo },
+      update: { descripcion: c.descripcion },
+      create: c,
+    });
+  }
+
+  const emplazamientos = [
+    { id: 'EMP01', codigo: 'INTERIOR', descripcion: 'Interior del predio' },
+    { id: 'EMP02', codigo: 'BANQUETA', descripcion: 'En banqueta / acera' },
+    { id: 'EMP03', codigo: 'PARED_EXT', descripcion: 'Pared exterior' },
+    { id: 'EMP04', codigo: 'CAJA_REGISTRO', descripcion: 'Caja de registro subterránea' },
+    { id: 'EMP05', codigo: 'CUARTO_MAQ', descripcion: 'Cuarto de máquinas' },
+    { id: 'EMP06', codigo: 'SOTANO', descripcion: 'Sótano' },
+  ];
+  for (const e of emplazamientos) {
+    await prisma.catalogoEmplazamiento.upsert({
+      where: { codigo: e.codigo },
+      update: { descripcion: e.descripcion },
+      create: e,
+    });
+  }
+
+  const tiposContador = [
+    { id: 'TC01', codigo: 'VOLUMETRICO', descripcion: 'Volumétrico (pistón oscilante)' },
+    { id: 'TC02', codigo: 'CHORRO_UNICO', descripcion: 'Chorro único (velocidad)' },
+    { id: 'TC03', codigo: 'CHORRO_MULTIPLE', descripcion: 'Chorro múltiple' },
+    { id: 'TC04', codigo: 'WOLTMAN', descripcion: 'Woltman (turbina axial)' },
+    { id: 'TC05', codigo: 'ULTRASONICO', descripcion: 'Ultrasónico' },
+    { id: 'TC06', codigo: 'ELECTROMAG', descripcion: 'Electromagnético' },
+    { id: 'TC07', codigo: 'PROPORCIONAL', descripcion: 'Proporcional / combinado' },
+  ];
+  for (const tc of tiposContador) {
+    await prisma.catalogoTipoContador.upsert({
+      where: { codigo: tc.codigo },
+      update: { descripcion: tc.descripcion },
+      create: tc,
+    });
+  }
+
+  console.log(
+    `Catálogos de medidores sembrados: ${marcas.length} marcas, ${modelos.length} modelos, ${calibres.length} calibres, ${emplazamientos.length} emplazamientos, ${tiposContador.length} tipos`,
+  );
+}
+
+async function seedFormasPagoOficinas() {
+  const formasPago = [
+    { id: 'FP01', codigo: 'EFECTIVO', nombre: 'Efectivo en caja', tipoRecaudacion: 'CAJA', aceptaEfectivo: true },
+    { id: 'FP02', codigo: 'CHEQUE', nombre: 'Cheque', tipoRecaudacion: 'CAJA', aceptaCheque: true },
+    { id: 'FP03', codigo: 'TARJETA_DEB', nombre: 'Tarjeta de débito', tipoRecaudacion: 'CAJA', aceptaTarjeta: true },
+    { id: 'FP04', codigo: 'TARJETA_CRED', nombre: 'Tarjeta de crédito', tipoRecaudacion: 'CAJA', aceptaTarjeta: true },
+    { id: 'FP05', codigo: 'SPEI', nombre: 'Transferencia SPEI', tipoRecaudacion: 'BANCO', aceptaTransf: true, requiereReferencia: true },
+    { id: 'FP06', codigo: 'DOMICILIACION', nombre: 'Domiciliación bancaria', tipoRecaudacion: 'DOMICILIACION', aceptaTransf: true, requiereReferencia: true },
+    { id: 'FP07', codigo: 'OXXO', nombre: 'Pago en OXXO', tipoRecaudacion: 'EXTERNO', requiereReferencia: true },
+    { id: 'FP08', codigo: 'BANORTE', nombre: 'Pago en Banorte', tipoRecaudacion: 'EXTERNO', requiereReferencia: true },
+    { id: 'FP09', codigo: 'BBVA', nombre: 'Pago en BBVA', tipoRecaudacion: 'EXTERNO', requiereReferencia: true },
+    { id: 'FP10', codigo: 'SANTANDER', nombre: 'Pago en Santander', tipoRecaudacion: 'EXTERNO', requiereReferencia: true },
+    { id: 'FP11', codigo: 'BANAMEX', nombre: 'Pago en Citibanamex', tipoRecaudacion: 'EXTERNO', requiereReferencia: true },
+    { id: 'FP12', codigo: 'SCOTIABANK', nombre: 'Pago en Scotiabank', tipoRecaudacion: 'EXTERNO', requiereReferencia: true },
+    { id: 'FP13', codigo: 'HSBC', nombre: 'Pago en HSBC', tipoRecaudacion: 'EXTERNO', requiereReferencia: true },
+    { id: 'FP14', codigo: 'BAJIO', nombre: 'Pago en BanBajío', tipoRecaudacion: 'EXTERNO', requiereReferencia: true },
+    { id: 'FP15', codigo: 'AFIRME', nombre: 'Pago en Afirme', tipoRecaudacion: 'EXTERNO', requiereReferencia: true },
+    { id: 'FP16', codigo: 'SORIANA', nombre: 'Pago en Soriana', tipoRecaudacion: 'EXTERNO', requiereReferencia: true },
+    { id: 'FP17', codigo: 'ELEKTRA', nombre: 'Pago en Elektra', tipoRecaudacion: 'EXTERNO', requiereReferencia: true },
+    { id: 'FP18', codigo: 'CODI', nombre: 'CoDi', tipoRecaudacion: 'WEB', aceptaTransf: true },
+    { id: 'FP19', codigo: 'WEB_PORTAL', nombre: 'Pago en portal web', tipoRecaudacion: 'WEB', aceptaTarjeta: true },
+    { id: 'FP20', codigo: 'AMEX', nombre: 'American Express', tipoRecaudacion: 'EXTERNO', aceptaTarjeta: true, requiereReferencia: true },
+    { id: 'FP21', codigo: 'REGALII', nombre: 'Regalii', tipoRecaudacion: 'EXTERNO', requiereReferencia: true },
+    { id: 'FP22', codigo: 'SUPERQ', nombre: 'Super Q', tipoRecaudacion: 'EXTERNO', requiereReferencia: true },
+    { id: 'FP23', codigo: 'BIMBONET', nombre: 'Bimbonet', tipoRecaudacion: 'EXTERNO', requiereReferencia: true },
+    { id: 'FP24', codigo: 'CAJA_FLORENCIA', nombre: 'Caja Florencia', tipoRecaudacion: 'EXTERNO', requiereReferencia: true },
+    { id: 'FP25', codigo: 'CAJA_GONZALEZ', nombre: 'Caja González', tipoRecaudacion: 'EXTERNO', requiereReferencia: true },
+    { id: 'FP26', codigo: 'CAJA_INMACULADA', nombre: 'Caja Inmaculada', tipoRecaudacion: 'EXTERNO', requiereReferencia: true },
+    { id: 'FP27', codigo: 'MUNICIPIO_QRO', nombre: 'Municipio de Querétaro', tipoRecaudacion: 'EXTERNO', requiereReferencia: true },
+  ];
+  for (const fp of formasPago) {
+    await prisma.formaPago.upsert({
+      where: { codigo: fp.codigo },
+      update: { nombre: fp.nombre },
+      create: {
+        id: fp.id,
+        codigo: fp.codigo,
+        nombre: fp.nombre,
+        tipoRecaudacion: fp.tipoRecaudacion,
+        aceptaEfectivo: fp.aceptaEfectivo ?? false,
+        aceptaCheque: fp.aceptaCheque ?? false,
+        aceptaTarjeta: fp.aceptaTarjeta ?? false,
+        aceptaTransf: fp.aceptaTransf ?? false,
+        requiereReferencia: fp.requiereReferencia ?? false,
+      },
+    });
+  }
+  console.log('Formas de pago sembradas:', formasPago.length);
+
+  const tiposOficina = [
+    { id: 'TOF01', codigo: 'CENTRAL', descripcion: 'Oficina central' },
+    { id: 'TOF02', codigo: 'MODULO', descripcion: 'Módulo de atención' },
+    { id: 'TOF03', codigo: 'SUCURSAL', descripcion: 'Sucursal' },
+    { id: 'TOF04', codigo: 'CAJA_EXT', descripcion: 'Punto de recaudación externo' },
+  ];
+  for (const to of tiposOficina) {
+    await prisma.tipoOficina.upsert({
+      where: { codigo: to.codigo },
+      update: { descripcion: to.descripcion },
+      create: to,
+    });
+  }
+
+  const oficinas = [
+    { id: 'OF01', codigo: 'CEA_CENTRAL', nombre: 'Oficina Central CEA', administracionId: 'ADM01', tipoOficinaId: 'TOF01', direccion: 'Blvd. Bernardo Quintana 100, Querétaro' },
+    { id: 'OF02', codigo: 'CEA_NORTE', nombre: 'Módulo Norte', administracionId: 'ADM01', tipoOficinaId: 'TOF02', direccion: 'Av. Constituyentes 200, Querétaro' },
+    { id: 'OF03', codigo: 'CEA_SUR', nombre: 'Módulo Sur', administracionId: 'ADM01', tipoOficinaId: 'TOF02', direccion: 'Av. 5 de Febrero 1500, Querétaro' },
+    { id: 'OF04', codigo: 'CEA_MARQUES', nombre: 'Sucursal El Marqués', administracionId: 'ADM01', tipoOficinaId: 'TOF03', direccion: 'Centro El Marqués' },
+  ];
+  for (const of_ of oficinas) {
+    await prisma.oficina.upsert({
+      where: { codigo: of_.codigo },
+      update: { nombre: of_.nombre },
+      create: of_,
+    });
+  }
+  console.log('Oficinas sembradas:', oficinas.length);
+}
+
+async function seedSectoresClasesVariables() {
+  const sectores = [
+    { id: 'SH01', codigo: 'SEC_CENTRO', nombre: 'Centro', administracionId: 'ADM01' },
+    { id: 'SH02', codigo: 'SEC_NORTE', nombre: 'Norte', administracionId: 'ADM01' },
+    { id: 'SH03', codigo: 'SEC_SUR', nombre: 'Sur', administracionId: 'ADM01' },
+    { id: 'SH04', codigo: 'SEC_PONIENTE', nombre: 'Poniente', administracionId: 'ADM01' },
+    { id: 'SH05', codigo: 'SEC_ORIENTE', nombre: 'Oriente', administracionId: 'ADM01' },
+    { id: 'SH06', codigo: 'SEC_MARQUES', nombre: 'El Marqués', administracionId: 'ADM01' },
+    { id: 'SH07', codigo: 'SEC_CORREGIDORA', nombre: 'Corregidora', administracionId: 'ADM01' },
+  ];
+  for (const s of sectores) {
+    await prisma.sectorHidraulico.upsert({
+      where: { codigo: s.codigo },
+      update: { nombre: s.nombre },
+      create: s,
+    });
+  }
+  console.log('Sectores hidráulicos sembrados:', sectores.length);
+
+  const clases = [
+    { id: 'CLC01', codigo: 'AN', descripcion: 'Alta nueva' },
+    { id: 'CLC02', codigo: 'CN', descripcion: 'Cambio de nombre / titular' },
+    { id: 'CLC03', codigo: 'PB', descripcion: 'Proceso de baja' },
+    { id: 'CLC04', codigo: 'BJ', descripcion: 'Baja definitiva' },
+    { id: 'CLC05', codigo: 'CT', descripcion: 'Cambio de tipo' },
+    { id: 'CLC06', codigo: 'RX', descripcion: 'Reconexión' },
+    { id: 'CLC07', codigo: 'BT', descripcion: 'Baja temporal' },
+  ];
+  for (const c of clases) {
+    await prisma.claseContrato.upsert({
+      where: { codigo: c.codigo },
+      update: { descripcion: c.descripcion },
+      create: c,
+    });
+  }
+  console.log('Clases de contrato sembradas:', clases.length);
+
+  const tiposVia = [
+    { id: 'TV01', codigo: 'CALLE', descripcion: 'Calle', abreviatura: 'C.' },
+    { id: 'TV02', codigo: 'AVENIDA', descripcion: 'Avenida', abreviatura: 'Av.' },
+    { id: 'TV03', codigo: 'BOULEVARD', descripcion: 'Boulevard', abreviatura: 'Blvd.' },
+    { id: 'TV04', codigo: 'CALZADA', descripcion: 'Calzada', abreviatura: 'Czda.' },
+    { id: 'TV05', codigo: 'CERRADA', descripcion: 'Cerrada', abreviatura: 'Cerr.' },
+    { id: 'TV06', codigo: 'PRIVADA', descripcion: 'Privada', abreviatura: 'Priv.' },
+    { id: 'TV07', codigo: 'ANDADOR', descripcion: 'Andador', abreviatura: 'And.' },
+    { id: 'TV08', codigo: 'PROLONGACION', descripcion: 'Prolongación', abreviatura: 'Prol.' },
+    { id: 'TV09', codigo: 'CIRCUITO', descripcion: 'Circuito', abreviatura: 'Cto.' },
+    { id: 'TV10', codigo: 'CAMINO', descripcion: 'Camino', abreviatura: 'Cam.' },
+    { id: 'TV11', codigo: 'CARRETERA', descripcion: 'Carretera', abreviatura: 'Carr.' },
+    { id: 'TV12', codigo: 'PASEO', descripcion: 'Paseo', abreviatura: 'Pso.' },
+    { id: 'TV13', codigo: 'RETORNO', descripcion: 'Retorno', abreviatura: 'Ret.' },
+  ];
+  for (const tv of tiposVia) {
+    await prisma.tipoVia.upsert({
+      where: { codigo: tv.codigo },
+      update: { descripcion: tv.descripcion },
+      create: tv,
+    });
+  }
+  console.log('Tipos de vía sembrados:', tiposVia.length);
+
+  const tiposVariable = [
+    { id: 'TVAR01', codigo: 'DISTANCIA_RED', nombre: 'Distancia a red principal', tipoDato: 'NUMERO', unidad: 'metros' },
+    { id: 'TVAR02', codigo: 'DIAMETRO_TOMA', nombre: 'Diámetro de toma', tipoDato: 'LISTA', valoresPosibles: ['1/2"', '3/4"', '1"', '1-1/2"', '2"'] },
+    { id: 'TVAR03', codigo: 'PROFUNDIDAD_TOMA', nombre: 'Profundidad de toma', tipoDato: 'NUMERO', unidad: 'metros' },
+    { id: 'TVAR04', codigo: 'SUPERFICIE', nombre: 'Superficie del predio', tipoDato: 'NUMERO', unidad: 'm²' },
+    { id: 'TVAR05', codigo: 'NUM_DEPARTAMENTOS', nombre: 'Número de departamentos', tipoDato: 'NUMERO' },
+    { id: 'TVAR06', codigo: 'TIPO_DESCARGA', nombre: 'Tipo de descarga', tipoDato: 'LISTA', valoresPosibles: ['DOMESTICA', 'INDUSTRIAL', 'MIXTA'] },
+    { id: 'TVAR07', codigo: 'GIRO_ACTIVIDAD', nombre: 'Giro de actividad', tipoDato: 'TEXTO' },
+    { id: 'TVAR08', codigo: 'REQUIERE_FACTIBILIDAD', nombre: 'Requiere dictamen de factibilidad', tipoDato: 'BOOLEANO' },
+    { id: 'TVAR09', codigo: 'PRESION_DISPONIBLE', nombre: 'Presión disponible en red', tipoDato: 'NUMERO', unidad: 'kg/cm²' },
+    { id: 'TVAR10', codigo: 'MATERIAL_TUBERIA', nombre: 'Material de tubería', tipoDato: 'LISTA', valoresPosibles: ['PVC', 'CPVC', 'PEAD', 'COBRE', 'GALVANIZADO', 'ACERO'] },
+  ];
+  for (const tv of tiposVariable) {
+    await prisma.tipoVariable.upsert({
+      where: { codigo: tv.codigo },
+      update: { nombre: tv.nombre },
+      create: {
+        id: tv.id,
+        codigo: tv.codigo,
+        nombre: tv.nombre,
+        tipoDato: tv.tipoDato,
+        unidad: tv.unidad ?? null,
+        valoresPosibles: tv.valoresPosibles ?? null,
+      },
+    });
+  }
+  console.log('Tipos de variable sembrados:', tiposVariable.length);
+}
+
 main()
   .then(() => seedUser())
   .then(() => seedCatalogoTramites())
@@ -792,6 +1058,9 @@ main()
   .then(() => seedCatalogosContratacion())
   .then(() => seedCatalogosActividadRelacionPS())
   .then(() => seedTarifas())
+  .then(() => seedCatalogosMedidor())
+  .then(() => seedFormasPagoOficinas())
+  .then(() => seedSectoresClasesVariables())
   .catch((e) => {
     console.error(e);
     process.exit(1);

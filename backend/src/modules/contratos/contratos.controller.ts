@@ -27,6 +27,23 @@ class UpdateContratoDto {
   domicilioId?: string | null;
   puntoServicioId?: string | null;
   tipoContratacionId?: string | null;
+  zonaId?: string | null;
+  rutaId?: string | null;
+  fechaBaja?: string | null;
+  actividadId?: string | null;
+  categoriaId?: string | null;
+  referenciaContratoAnterior?: string | null;
+  observaciones?: string | null;
+  tipoEnvioFactura?: string | null;
+  indicadorEmisionRecibo?: boolean;
+  indicadorExentarFacturacion?: boolean;
+  indicadorContactoCorreo?: boolean;
+  cicloFacturacion?: string | null;
+  superficiePredio?: number | null;
+  superficieConstruida?: number | null;
+  mesesAdeudo?: number | null;
+  unidadesServidas?: number | null;
+  personasHabitanVivienda?: number | null;
 }
 
 @Controller('contratos')
@@ -69,6 +86,11 @@ export class ContratosController {
   @Get(':id/estado-operativo')
   getEstadoOperativo(@Param('id') id: string) {
     return this.contratosService.getEstadoOperativo(id);
+  }
+
+  @Get(':id/texto-contrato')
+  getTextoContratoPreview(@Param('id') id: string) {
+    return this.contratosService.getTextoContratoPreview(id);
   }
 
   @Get(':id')

@@ -136,6 +136,7 @@ export class OrdenesService {
     // MOD-T03-1: auto-generar orden de medidor al ejecutar instalación de toma
     if (nuevoEstado === 'Ejecutada' && orden.tipo === 'InstalacionToma') {
       await this.autoGenerarOrdenMedidor(orden);
+      await this.marcarContratoPendienteDeZona(orden.contratoId);
     }
 
     return updated;
@@ -186,6 +187,15 @@ export class OrdenesService {
     contratoId: string;
     operadorId: string | null;
   }) {
+    const pendiente = await this.prisma.orden.findFirst({
+      where: {
+        contratoId: orden.contratoId,
+        tipo: 'InstalacionMedidor',
+        estado: { in: ['Pendiente', 'En proceso'] },
+      },
+    });
+    if (pendiente) return;
+
     await this.prisma.orden.create({
       data: {
         contratoId: orden.contratoId,
@@ -197,5 +207,21 @@ export class OrdenesService {
         eventoOrigen: `InstalacionToma:${orden.id}`,
       },
     });
+  }
+
+  /** Tras ejecutar toma: contrato listo para asignación de zona/ruta (facturación operativa). */
+  private async marcarContratoPendienteDeZona(contratoId: string) {
+    const c = await this.prisma.contrato.findUnique({
+      where: { id: contratoId },
+      select: { estado: true },
+    });
+    if (!c) return;
+    const prev = c.estado ?? '';
+    if (['Pendiente de toma', 'Pendiente de alta'].includes(prev)) {
+      await this.prisma.contrato.update({
+        where: { id: contratoId },
+        data: { estado: 'Pendiente de zona' },
+      });
+    }
   }
 }

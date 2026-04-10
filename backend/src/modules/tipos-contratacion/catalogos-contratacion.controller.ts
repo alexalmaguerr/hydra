@@ -89,4 +89,26 @@ export class CatalogosContratacionController {
   ) {
     return this.service.updateClausula(id, body);
   }
+
+  // ─── Catálogos de contrato (P1 / CIG2018) ─────────────────────────────────
+
+  @Get('actividades')
+  findActividades(@Query('activo') activo?: string) {
+    return this.service.findCatalogoActividades({ activo });
+  }
+
+  @Get('grupos-actividad')
+  findGruposActividad(@Query('activo') activo?: string) {
+    return this.service.findCatalogoGruposActividad({ activo });
+  }
+
+  @Get('categorias')
+  findCategorias(@Query('activo') activo?: string) {
+    return this.service.findCatalogoCategorias({ activo });
+  }
+
+  @Get('tipos-relacion-ps')
+  findTiposRelacionPS(@Query('activo') activo?: string) {
+    return this.service.findCatalogoTiposRelacionPS({ activo });
+  }
 }

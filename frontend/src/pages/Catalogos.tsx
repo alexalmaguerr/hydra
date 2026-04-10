@@ -1,20 +1,85 @@
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { PageHeader } from '@/components/PageHeader';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import StatusBadge from '@/components/StatusBadge';
 import {
   fetchActividades,
   fetchGruposActividad,
   fetchCategorias,
   fetchTiposRelacionPS,
+  fetchConceptosCobro,
+  fetchClausulas,
+  fetchTiposCorte,
+  fetchTiposSuministro,
+  fetchEstructurasTecnicas,
+  fetchZonasFacturacion,
+  fetchCodigosRecorrido,
+  fetchMarcasMedidor,
+  fetchCalibres,
+  fetchEmplazamientos,
+  fetchTiposContador,
+  fetchFormasPago,
+  fetchTiposOficina,
+  fetchSectoresHidraulicos,
+  fetchClasesContrato,
+  fetchTiposVia,
+  fetchTiposVariable,
   type CatalogoActividad,
   type CatalogoGrupoActividad,
   type CatalogoCategoria,
   type CatalogoTipoRelacionPS,
+  type ConceptoCobro,
+  type ClausulaContractual,
+  type CatalogoTipoCorte,
+  type CatalogoCodigoDescripcion,
+  type CatalogoCodigoRecorrido,
+  type CatalogoMarcaMedidor,
+  type CatalogoCalibre,
+  type FormaPago,
+  type SectorHidraulico,
+  type ClaseContrato,
+  type TipoVariable,
 } from '@/api/catalogos';
+import {
+  fetchInegiResumen,
+  fetchInegiEstados,
+  fetchInegiMunicipiosCatalogo,
+  fetchInegiLocalidadesCatalogo,
+  fetchInegiColoniasCatalogo,
+  type CatalogoEstadoINEGI,
+  type CatalogoMunicipioINEGIRow,
+  type CatalogoLocalidadINEGIRow,
+  type CatalogoColoniaINEGIRow,
+} from '@/api/domicilios-inegi';
 import { hasApi } from '@/api/contratos';
-import { BookOpen, Tag, Share2, Layers } from 'lucide-react';
+import {
+  BookOpen,
+  Tag,
+  Share2,
+  Layers,
+  Receipt,
+  FileText,
+  Scissors,
+  Zap,
+  Building2,
+  MapPin,
+  Route,
+  Globe2,
+  Landmark,
+  MapPinned,
+  Home,
+  Gauge,
+  Ruler,
+  CreditCard,
+  Droplets,
+  SquareStack,
+  Signpost,
+  Variable,
+} from 'lucide-react';
 
 // ── Static fallback data ──────────────────────────────────────────────────────
 
@@ -84,10 +149,36 @@ const FALLBACK_TIPOS_RELACION: CatalogoTipoRelacionPS[] = [
   { id: 'r06', codigo: 'USO_MIX_HIJO', descripcion: 'PS hijo de uso mixto', metodo: 'hijo', reparteConsumo: false, activo: true },
 ];
 
+function fmtMoney(v: string | number | null | undefined): string {
+  if (v === null || v === undefined || v === '') return '—';
+  const n = typeof v === 'string' ? Number(v) : v;
+  return Number.isFinite(n) ? n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : String(v);
+}
+
+function actividadGrupoId(a: CatalogoActividad): string | null {
+  return a.grupoId ?? a.grupo?.id ?? null;
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
+
+const INEGI_PAGE_SIZE = 50;
 
 const Catalogos = () => {
   const useApi = hasApi();
+  const [catalogTab, setCatalogTab] = useState('actividades');
+
+  const [munPage, setMunPage] = useState(1);
+  const [munEstadoId, setMunEstadoId] = useState('');
+  const [munNombre, setMunNombre] = useState('');
+
+  const [locPage, setLocPage] = useState(1);
+  const [locMunicipioId, setLocMunicipioId] = useState('');
+  const [locNombre, setLocNombre] = useState('');
+
+  const [colPage, setColPage] = useState(1);
+  const [colMunicipioId, setColMunicipioId] = useState('');
+  const [colCp, setColCp] = useState('');
+  const [colNombre, setColNombre] = useState('');
 
   const { data: grupos = FALLBACK_GRUPOS } = useQuery({
     queryKey: ['catalogos', 'grupos-actividad'],
@@ -113,58 +204,338 @@ const Catalogos = () => {
     enabled: useApi,
   });
 
-  // Build grupo lookup map
-  const grupoMap = new Map(grupos.map((g) => [g.id, g]));
+  const { data: conceptos = [] } = useQuery({
+    queryKey: ['catalogos', 'conceptos-cobro'],
+    queryFn: fetchConceptosCobro,
+    enabled: useApi,
+  });
+
+  const { data: clausulas = [] } = useQuery({
+    queryKey: ['catalogos', 'clausulas'],
+    queryFn: fetchClausulas,
+    enabled: useApi,
+  });
+
+  const { data: tiposCorte = [] } = useQuery({
+    queryKey: ['catalogos', 'tipos-corte'],
+    queryFn: fetchTiposCorte,
+    enabled: useApi,
+  });
+
+  const { data: tiposSuministro = [] } = useQuery({
+    queryKey: ['catalogos', 'tipos-suministro'],
+    queryFn: fetchTiposSuministro,
+    enabled: useApi,
+  });
+
+  const { data: estructuras = [] } = useQuery({
+    queryKey: ['catalogos', 'estructuras-tecnicas'],
+    queryFn: fetchEstructurasTecnicas,
+    enabled: useApi,
+  });
+
+  const { data: zonasFacturacion = [] } = useQuery({
+    queryKey: ['catalogos', 'zonas-facturacion'],
+    queryFn: fetchZonasFacturacion,
+    enabled: useApi,
+  });
+
+  const { data: codigosRecorrido = [] } = useQuery({
+    queryKey: ['catalogos', 'codigos-recorrido'],
+    queryFn: fetchCodigosRecorrido,
+    enabled: useApi,
+  });
+
+  const { data: inegiResumen } = useQuery({
+    queryKey: ['domicilios', 'catalogo-inegi', 'resumen'],
+    queryFn: fetchInegiResumen,
+    enabled: useApi,
+  });
+
+  const inegiCounts = inegiResumen ?? { estados: 0, municipios: 0, localidades: 0, colonias: 0 };
+
+  const inegiEstadosEnabled =
+    useApi && (catalogTab === 'inegi-estados' || catalogTab === 'inegi-municipios');
+
+  const { data: inegiEstados = [] } = useQuery({
+    queryKey: ['domicilios', 'estados'],
+    queryFn: fetchInegiEstados,
+    enabled: inegiEstadosEnabled,
+  });
+
+  const { data: munResult } = useQuery({
+    queryKey: ['domicilios', 'catalogo-inegi', 'municipios', munPage, munEstadoId, munNombre],
+    queryFn: () =>
+      fetchInegiMunicipiosCatalogo({
+        page: munPage,
+        limit: INEGI_PAGE_SIZE,
+        estadoId: munEstadoId || undefined,
+        nombre: munNombre.trim() || undefined,
+      }),
+    enabled: useApi && catalogTab === 'inegi-municipios',
+  });
+
+  const { data: locResult } = useQuery({
+    queryKey: ['domicilios', 'catalogo-inegi', 'localidades', locPage, locMunicipioId, locNombre],
+    queryFn: () =>
+      fetchInegiLocalidadesCatalogo({
+        page: locPage,
+        limit: INEGI_PAGE_SIZE,
+        municipioId: locMunicipioId.trim() || undefined,
+        nombre: locNombre.trim() || undefined,
+      }),
+    enabled: useApi && catalogTab === 'inegi-localidades',
+  });
+
+  const { data: colResult } = useQuery({
+    queryKey: ['domicilios', 'catalogo-inegi', 'colonias', colPage, colMunicipioId, colCp, colNombre],
+    queryFn: () =>
+      fetchInegiColoniasCatalogo({
+        page: colPage,
+        limit: INEGI_PAGE_SIZE,
+        municipioId: colMunicipioId.trim() || undefined,
+        codigoPostal: colCp.trim() || undefined,
+        nombre: colNombre.trim() || undefined,
+      }),
+    enabled: useApi && catalogTab === 'inegi-colonias',
+  });
+
+  // ── Catálogos Operativos ───────────────────────────────────────────────────
+
+  const { data: marcasMedidor = [] } = useQuery<CatalogoMarcaMedidor[]>({
+    queryKey: ['catalogos-op', 'marcas-medidor'],
+    queryFn: fetchMarcasMedidor,
+    enabled: useApi,
+  });
+
+  const { data: calibres = [] } = useQuery<CatalogoCalibre[]>({
+    queryKey: ['catalogos-op', 'calibres'],
+    queryFn: fetchCalibres,
+    enabled: useApi,
+  });
+
+  const { data: emplazamientos = [] } = useQuery<CatalogoCodigoDescripcion[]>({
+    queryKey: ['catalogos-op', 'emplazamientos'],
+    queryFn: fetchEmplazamientos,
+    enabled: useApi,
+  });
+
+  const { data: tiposContador = [] } = useQuery<CatalogoCodigoDescripcion[]>({
+    queryKey: ['catalogos-op', 'tipos-contador'],
+    queryFn: fetchTiposContador,
+    enabled: useApi,
+  });
+
+  const { data: formasPago = [] } = useQuery<FormaPago[]>({
+    queryKey: ['catalogos-op', 'formas-pago'],
+    queryFn: fetchFormasPago,
+    enabled: useApi,
+  });
+
+  const { data: tiposOficina = [] } = useQuery<CatalogoCodigoDescripcion[]>({
+    queryKey: ['catalogos-op', 'tipos-oficina'],
+    queryFn: fetchTiposOficina,
+    enabled: useApi,
+  });
+
+  const { data: sectoresHidraulicos = [] } = useQuery<SectorHidraulico[]>({
+    queryKey: ['catalogos-op', 'sectores-hidraulicos'],
+    queryFn: fetchSectoresHidraulicos,
+    enabled: useApi,
+  });
+
+  const { data: clasesContrato = [] } = useQuery<ClaseContrato[]>({
+    queryKey: ['catalogos-op', 'clases-contrato'],
+    queryFn: fetchClasesContrato,
+    enabled: useApi,
+  });
+
+  const { data: tiposVia = [] } = useQuery<CatalogoCodigoDescripcion[]>({
+    queryKey: ['catalogos-op', 'tipos-via'],
+    queryFn: fetchTiposVia,
+    enabled: useApi,
+  });
+
+  const { data: tiposVariable = [] } = useQuery<TipoVariable[]>({
+    queryKey: ['catalogos-op', 'tipos-variable'],
+    queryFn: fetchTiposVariable,
+    enabled: useApi,
+  });
+
+  const kpiItems = [
+    { label: 'Conceptos cobro', value: conceptos.length, icon: Receipt, color: '#0d9488' },
+    { label: 'Cláusulas', value: clausulas.length, icon: FileText, color: '#7c3aed' },
+    { label: 'Grupos actividad', value: grupos.length, icon: Layers, color: '#003366' },
+    { label: 'Actividades', value: actividades.length, icon: BookOpen, color: '#007BFF' },
+    { label: 'Categorías', value: categorias.length, icon: Tag, color: '#4A6278' },
+    { label: 'Tipos relación PS', value: tiposRelacion.length, icon: Share2, color: '#059669' },
+    { label: 'Tipos corte', value: tiposCorte.length, icon: Scissors, color: '#b45309' },
+    { label: 'Tipos suministro', value: tiposSuministro.length, icon: Zap, color: '#ca8a04' },
+    { label: 'Estructuras técnicas', value: estructuras.length, icon: Building2, color: '#475569' },
+    { label: 'Zonas facturación', value: zonasFacturacion.length, icon: MapPin, color: '#be123c' },
+    { label: 'Códigos recorrido', value: codigosRecorrido.length, icon: Route, color: '#0369a1' },
+    { label: 'INEGI Estados', value: inegiCounts.estados, icon: Globe2, color: '#0f766e' },
+    { label: 'INEGI Municipios', value: inegiCounts.municipios, icon: Landmark, color: '#115e59' },
+    { label: 'INEGI Localidades', value: inegiCounts.localidades, icon: MapPinned, color: '#134e4a' },
+    { label: 'INEGI Colonias', value: inegiCounts.colonias, icon: Home, color: '#042f2e' },
+    { label: 'Marcas medidor', value: marcasMedidor.length, icon: Gauge, color: '#6d28d9' },
+    { label: 'Calibres', value: calibres.length, icon: Ruler, color: '#a21caf' },
+    { label: 'Formas pago', value: formasPago.length, icon: CreditCard, color: '#0891b2' },
+    { label: 'Sectores hidráulicos', value: sectoresHidraulicos.length, icon: Droplets, color: '#2563eb' },
+    { label: 'Clases contrato', value: clasesContrato.length, icon: SquareStack, color: '#d97706' },
+    { label: 'Tipos vía', value: tiposVia.length, icon: Signpost, color: '#4f46e5' },
+    { label: 'Tipos variable', value: tiposVariable.length, icon: Variable, color: '#dc2626' },
+  ];
+
+  const tabDefs: { value: string; label: string }[] = [
+    { value: 'conceptos-cobro', label: 'Conceptos de cobro' },
+    { value: 'clausulas', label: 'Cláusulas' },
+    { value: 'actividades', label: 'Actividades por grupo' },
+    { value: 'categorias', label: 'Categorías tarifarias' },
+    { value: 'relaciones', label: 'Tipos relación PS' },
+    { value: 'tipos-corte', label: 'Tipos de corte' },
+    { value: 'tipos-suministro', label: 'Tipos suministro' },
+    { value: 'estructuras-tecnicas', label: 'Estructuras técnicas' },
+    { value: 'zonas-facturacion', label: 'Zonas facturación' },
+    { value: 'codigos-recorrido', label: 'Códigos recorrido' },
+    { value: 'inegi-estados', label: 'INEGI · Estados' },
+    { value: 'inegi-municipios', label: 'INEGI · Municipios' },
+    { value: 'inegi-localidades', label: 'INEGI · Localidades' },
+    { value: 'inegi-colonias', label: 'INEGI · Colonias' },
+    { value: 'marcas-medidor', label: 'Marcas medidor' },
+    { value: 'calibres', label: 'Calibres' },
+    { value: 'emplazamientos', label: 'Emplazamientos' },
+    { value: 'tipos-contador', label: 'Tipos contador' },
+    { value: 'formas-pago', label: 'Formas de pago' },
+    { value: 'tipos-oficina', label: 'Tipos oficina' },
+    { value: 'sectores-hidraulicos', label: 'Sectores hidráulicos' },
+    { value: 'clases-contrato', label: 'Clases contrato' },
+    { value: 'tipos-via', label: 'Tipos de vía' },
+    { value: 'tipos-variable', label: 'Tipos variable' },
+  ];
 
   return (
     <div>
       <PageHeader
-        title="Catálogos CIG2018"
-        subtitle="Clasificación de actividades económicas, categorías tarifarias y tipos de relación conforme al estándar CIG2018."
+        title="Catálogos"
+        subtitle="Contratación, CIG2018, punto de servicio, medidores, pagos, operativos y catálogo territorial INEGI. Solo consulta."
         breadcrumbs={[{ label: 'Configuración', href: '#' }, { label: 'Catálogos' }]}
       />
 
-      {/* Summary KPIs */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        {[
-          { label: 'Grupos de actividad', value: grupos.length, icon: Layers, color: '#003366' },
-          { label: 'Actividades', value: actividades.length, icon: BookOpen, color: '#007BFF' },
-          { label: 'Categorías tarifarias', value: categorias.length, icon: Tag, color: '#4A6278' },
-          { label: 'Tipos relación PS', value: tiposRelacion.length, icon: Share2, color: '#059669' },
-        ].map(({ label, value, icon: Icon, color }) => (
-          <div key={label} className="bg-white rounded-xl border border-border/50 shadow-sm p-5 flex items-center gap-4">
-            <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${color}18` }}>
-              <Icon className="w-5 h-5" style={{ color }} />
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3 mb-6">
+        {kpiItems.map(({ label, value, icon: Icon, color }) => (
+          <div key={label} className="bg-white rounded-xl border border-border/50 shadow-sm p-4 flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${color}18` }}>
+              <Icon className="w-4 h-4" style={{ color }} />
             </div>
-            <div>
-              <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium">{label}</p>
-              <p className="text-2xl font-bold font-display" style={{ color }}>{value}</p>
+            <div className="min-w-0">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium truncate">{label}</p>
+              <p className="text-xl font-bold font-display" style={{ color }}>{value}</p>
             </div>
           </div>
         ))}
       </div>
 
-      <Tabs defaultValue="actividades">
-        <TabsList className="mb-4 bg-white border rounded-lg p-1 gap-1 h-auto">
-          {[
-            { value: 'actividades', label: 'Actividades por grupo' },
-            { value: 'categorias', label: 'Categorías tarifarias' },
-            { value: 'relaciones', label: 'Tipos relación PS' },
-          ].map((t) => (
+      <Tabs value={catalogTab} onValueChange={setCatalogTab}>
+        <TabsList className="mb-4 bg-white border rounded-lg p-1 gap-1 h-auto flex flex-wrap justify-start">
+          {tabDefs.map((t) => (
             <TabsTrigger
               key={t.value}
               value={t.value}
-              className="rounded-md data-[state=active]:bg-[#003366] data-[state=active]:text-white text-sm px-4 py-2"
+              className="rounded-md data-[state=active]:bg-[#003366] data-[state=active]:text-white text-xs sm:text-sm px-3 py-2"
             >
               {t.label}
             </TabsTrigger>
           ))}
         </TabsList>
 
-        {/* ── Actividades por grupo ── */}
+        <TabsContent value="conceptos-cobro" className="mt-0">
+          <div className="bg-white rounded-xl border border-border/50 shadow-sm overflow-hidden overflow-x-auto">
+            <table className="w-full text-sm min-w-[720px]">
+              <thead>
+                <tr className="bg-muted/40">
+                  {['Código', 'Nombre', 'Tipo', 'Monto base', 'IVA %', 'Fórmula', 'Estado'].map((h) => (
+                    <th key={h} className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-4 py-3">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {conceptos.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground text-sm">
+                      Sin registros. Verifica la API y el seed de conceptos de cobro.
+                    </td>
+                  </tr>
+                ) : (
+                  conceptos.map((c: ConceptoCobro, i: number) => (
+                    <tr key={c.id} className={`${i > 0 ? 'border-t border-border/50' : ''} hover:bg-muted/20 transition-colors`}>
+                      <td className="px-4 py-3 font-mono text-xs text-[#007BFF] font-medium whitespace-nowrap">{c.codigo}</td>
+                      <td className="px-4 py-3 font-medium">{c.nombre}</td>
+                      <td className="px-4 py-3">
+                        <Badge variant="secondary" className="text-xs font-mono">{c.tipo}</Badge>
+                      </td>
+                      <td className="px-4 py-3 tabular-nums">{fmtMoney(c.montoBase)}</td>
+                      <td className="px-4 py-3 tabular-nums">{fmtMoney(c.ivaPct)}</td>
+                      <td className="px-4 py-3 max-w-[200px]">
+                        <span className="text-xs text-muted-foreground line-clamp-2" title={c.formula ?? undefined}>
+                          {c.formula ?? '—'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <StatusBadge status={c.activo ? 'Activo' : 'Inactivo'} />
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="clausulas" className="mt-0">
+          <div className="bg-white rounded-xl border border-border/50 shadow-sm overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-muted/40">
+                  {['Código', 'Título', 'Versión', 'Contenido', 'Estado'].map((h) => (
+                    <th key={h} className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-4 py-3">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {clausulas.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground text-sm">
+                      Sin registros. Verifica la API y el seed de cláusulas.
+                    </td>
+                  </tr>
+                ) : (
+                  clausulas.map((cl: ClausulaContractual, i: number) => (
+                    <tr key={cl.id} className={`${i > 0 ? 'border-t border-border/50' : ''} hover:bg-muted/20 transition-colors align-top`}>
+                      <td className="px-4 py-3 font-mono text-xs text-[#007BFF] font-medium whitespace-nowrap">{cl.codigo}</td>
+                      <td className="px-4 py-3 font-medium max-w-[220px]">{cl.titulo}</td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <Badge variant="outline" className="text-xs">{cl.version}</Badge>
+                      </td>
+                      <td className="px-4 py-3 max-w-xl">
+                        <div className="text-xs text-muted-foreground max-h-36 overflow-y-auto whitespace-pre-wrap border border-border/40 rounded-md p-2 bg-muted/20">
+                          {cl.contenido}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <StatusBadge status={cl.activo ? 'Activo' : 'Inactivo'} />
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </TabsContent>
+
         <TabsContent value="actividades" className="mt-0 space-y-4">
           {grupos.map((grupo) => {
-            const acts = actividades.filter((a) => a.grupoId === grupo.id);
+            const acts = actividades.filter((a) => actividadGrupoId(a) === grupo.id);
             return (
               <div key={grupo.id} className="bg-white rounded-xl border border-border/50 shadow-sm overflow-hidden">
                 <div className="flex items-center gap-3 px-5 py-3.5 bg-muted/30 border-b">
@@ -176,8 +547,8 @@ const Catalogos = () => {
                 {acts.length > 0 ? (
                   <table className="w-full text-sm">
                     <tbody>
-                      {acts.map((a, i) => (
-                        <tr key={a.id} className={i > 0 ? 'border-t border-border/40' : ''}>
+                      {acts.map((a, j) => (
+                        <tr key={a.id} className={j > 0 ? 'border-t border-border/40' : ''}>
                           <td className="px-5 py-2.5 w-36 font-mono text-xs text-[#007BFF] font-medium">{a.codigo}</td>
                           <td className="px-4 py-2.5">{a.descripcion}</td>
                           <td className="px-4 py-2.5 text-right">
@@ -195,7 +566,6 @@ const Catalogos = () => {
           })}
         </TabsContent>
 
-        {/* ── Categorías tarifarias ── */}
         <TabsContent value="categorias" className="mt-0">
           <div className="bg-white rounded-xl border border-border/50 shadow-sm overflow-hidden">
             <table className="w-full text-sm">
@@ -221,7 +591,6 @@ const Catalogos = () => {
           </div>
         </TabsContent>
 
-        {/* ── Tipos relación PS ── */}
         <TabsContent value="relaciones" className="mt-0">
           <div className="bg-white rounded-xl border border-border/50 shadow-sm overflow-hidden">
             <table className="w-full text-sm">
@@ -254,9 +623,572 @@ const Catalogos = () => {
             </table>
           </div>
         </TabsContent>
+
+        <TabsContent value="tipos-corte" className="mt-0">
+          <div className="bg-white rounded-xl border border-border/50 shadow-sm overflow-hidden overflow-x-auto">
+            <table className="w-full text-sm min-w-[640px]">
+              <thead>
+                <tr className="bg-muted/40">
+                  {['Código', 'Descripción', 'Impacto', 'Cuadrilla', 'Estado'].map((h) => (
+                    <th key={h} className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-5 py-3">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {tiposCorte.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-5 py-8 text-center text-muted-foreground text-sm">Sin registros.</td>
+                  </tr>
+                ) : (
+                  tiposCorte.map((row: CatalogoTipoCorte, i: number) => (
+                    <tr key={row.id} className={`${i > 0 ? 'border-t border-border/50' : ''} hover:bg-muted/20 transition-colors`}>
+                      <td className="px-5 py-3 font-mono text-xs text-[#007BFF] font-medium">{row.codigo}</td>
+                      <td className="px-5 py-3 font-medium">{row.descripcion}</td>
+                      <td className="px-5 py-3">
+                        {row.impacto ? (
+                          <Badge variant="secondary" className="text-xs font-mono">{row.impacto}</Badge>
+                        ) : (
+                          <span className="text-muted-foreground text-xs">—</span>
+                        )}
+                      </td>
+                      <td className="px-5 py-3 text-xs">{row.requiereCuadrilla ? 'Sí' : 'No'}</td>
+                      <td className="px-5 py-3">
+                        <StatusBadge status={row.activo ? 'Activo' : 'Inactivo'} />
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="tipos-suministro" className="mt-0">
+          <SimpleCodigoDescripcionTable rows={tiposSuministro} emptyMessage="Sin tipos de suministro." />
+        </TabsContent>
+
+        <TabsContent value="estructuras-tecnicas" className="mt-0">
+          <SimpleCodigoDescripcionTable rows={estructuras} emptyMessage="Sin estructuras técnicas." />
+        </TabsContent>
+
+        <TabsContent value="zonas-facturacion" className="mt-0">
+          <SimpleCodigoDescripcionTable rows={zonasFacturacion} emptyMessage="Sin zonas de facturación." />
+        </TabsContent>
+
+        <TabsContent value="codigos-recorrido" className="mt-0">
+          <div className="bg-white rounded-xl border border-border/50 shadow-sm overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-muted/40">
+                  {['Código', 'Descripción', 'Ruta', 'Estado'].map((h) => (
+                    <th key={h} className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-5 py-3">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {codigosRecorrido.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="px-5 py-8 text-center text-muted-foreground text-sm">Sin códigos de recorrido.</td>
+                  </tr>
+                ) : (
+                  codigosRecorrido.map((row: CatalogoCodigoRecorrido, i: number) => (
+                    <tr key={row.id} className={`${i > 0 ? 'border-t border-border/50' : ''} hover:bg-muted/20 transition-colors`}>
+                      <td className="px-5 py-3 font-mono text-xs text-[#007BFF] font-medium">{row.codigo}</td>
+                      <td className="px-5 py-3 font-medium">{row.descripcion}</td>
+                      <td className="px-5 py-3 font-mono text-xs text-muted-foreground">{row.rutaId ?? '—'}</td>
+                      <td className="px-5 py-3">
+                        <StatusBadge status={row.activo ? 'Activo' : 'Inactivo'} />
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="inegi-estados" className="mt-0">
+          <div className="bg-white rounded-xl border border-border/50 shadow-sm overflow-hidden">
+            <p className="text-xs text-muted-foreground px-4 py-3 border-b border-border/40">
+              Catálogo de entidades federativas (clave INEGI oficial).
+            </p>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-muted/40">
+                  {['Clave INEGI', 'Nombre', 'Estado'].map((h) => (
+                    <th key={h} className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-5 py-3">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {inegiEstados.length === 0 ? (
+                  <tr>
+                    <td colSpan={3} className="px-5 py-8 text-center text-muted-foreground text-sm">
+                      Sin datos. Carga el catálogo INEGI en la base o revisa la API.
+                    </td>
+                  </tr>
+                ) : (
+                  inegiEstados.map((e: CatalogoEstadoINEGI, i: number) => (
+                    <tr key={e.id} className={`${i > 0 ? 'border-t border-border/50' : ''} hover:bg-muted/20 transition-colors`}>
+                      <td className="px-5 py-3 font-mono text-xs text-[#0f766e] font-medium">{e.claveINEGI}</td>
+                      <td className="px-5 py-3 font-medium">{e.nombre}</td>
+                      <td className="px-5 py-3">
+                        <StatusBadge status={e.activo ? 'Activo' : 'Inactivo'} />
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="inegi-municipios" className="mt-0 space-y-3">
+          <div className="flex flex-wrap items-end gap-3 bg-white rounded-xl border border-border/50 shadow-sm p-4">
+            <div className="space-y-1.5 min-w-[200px]">
+              <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Estado</label>
+              <select
+                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm"
+                value={munEstadoId}
+                onChange={(e) => {
+                  setMunEstadoId(e.target.value);
+                  setMunPage(1);
+                }}
+              >
+                <option value="">Todos</option>
+                {inegiEstados.map((e) => (
+                  <option key={e.id} value={e.id}>
+                    {e.claveINEGI} — {e.nombre}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1.5 flex-1 min-w-[180px] max-w-sm">
+              <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Nombre (contiene)</label>
+              <Input
+                value={munNombre}
+                placeholder="Ej. Monterrey"
+                onChange={(e) => {
+                  setMunNombre(e.target.value);
+                  setMunPage(1);
+                }}
+              />
+            </div>
+          </div>
+          <div className="bg-white rounded-xl border border-border/50 shadow-sm overflow-hidden overflow-x-auto">
+            <table className="w-full text-sm min-w-[640px]">
+              <thead>
+                <tr className="bg-muted/40">
+                  {['Clave', 'Municipio', 'Entidad federativa', 'Clave entidad', 'Activo'].map((h) => (
+                    <th key={h} className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-4 py-3">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {!munResult?.data.length ? (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground text-sm">
+                      Sin resultados en esta página. Ajusta filtros o importa catálogo INEGI.
+                    </td>
+                  </tr>
+                ) : (
+                  munResult.data.map((row: CatalogoMunicipioINEGIRow, i: number) => (
+                    <tr key={row.id} className={`${i > 0 ? 'border-t border-border/50' : ''} hover:bg-muted/20 transition-colors`}>
+                      <td className="px-4 py-3 font-mono text-xs text-[#0f766e] font-medium whitespace-nowrap">{row.claveINEGI}</td>
+                      <td className="px-4 py-3 font-medium">{row.nombre}</td>
+                      <td className="px-4 py-3">{row.estado?.nombre ?? '—'}</td>
+                      <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{row.estado?.claveINEGI ?? '—'}</td>
+                      <td className="px-4 py-3">
+                        <StatusBadge status={row.activo ? 'Activo' : 'Inactivo'} />
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+            {munResult ? (
+              <CatalogPagination
+                page={munResult.page}
+                limit={munResult.limit}
+                total={munResult.total}
+                onPageChange={setMunPage}
+              />
+            ) : null}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="inegi-localidades" className="mt-0 space-y-3">
+          <div className="flex flex-wrap items-end gap-3 bg-white rounded-xl border border-border/50 shadow-sm p-4">
+            <div className="space-y-1.5 flex-1 min-w-[220px] max-w-md">
+              <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">ID municipio INEGI (opcional)</label>
+              <Input
+                value={locMunicipioId}
+                placeholder="Pegar id del municipio desde la pestaña anterior"
+                onChange={(e) => {
+                  setLocMunicipioId(e.target.value);
+                  setLocPage(1);
+                }}
+              />
+            </div>
+            <div className="space-y-1.5 flex-1 min-w-[180px] max-w-sm">
+              <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Nombre (contiene)</label>
+              <Input
+                value={locNombre}
+                onChange={(e) => {
+                  setLocNombre(e.target.value);
+                  setLocPage(1);
+                }}
+              />
+            </div>
+          </div>
+          <div className="bg-white rounded-xl border border-border/50 shadow-sm overflow-hidden overflow-x-auto">
+            <table className="w-full text-sm min-w-[720px]">
+              <thead>
+                <tr className="bg-muted/40">
+                  {['Clave', 'Localidad', 'Municipio', 'Entidad', 'Activo'].map((h) => (
+                    <th key={h} className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-4 py-3">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {!locResult?.data.length ? (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground text-sm">
+                      Sin resultados. Opcionalmente filtra por municipio o importa catálogo.
+                    </td>
+                  </tr>
+                ) : (
+                  locResult.data.map((row: CatalogoLocalidadINEGIRow, i: number) => (
+                    <tr key={row.id} className={`${i > 0 ? 'border-t border-border/50' : ''} hover:bg-muted/20 transition-colors`}>
+                      <td className="px-4 py-3 font-mono text-xs text-[#0f766e] font-medium whitespace-nowrap">{row.claveINEGI}</td>
+                      <td className="px-4 py-3 font-medium">{row.nombre}</td>
+                      <td className="px-4 py-3">{row.municipio?.nombre ?? '—'}</td>
+                      <td className="px-4 py-3">{row.municipio?.estado?.nombre ?? '—'}</td>
+                      <td className="px-4 py-3">
+                        <StatusBadge status={row.activo ? 'Activo' : 'Inactivo'} />
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+            {locResult ? (
+              <CatalogPagination
+                page={locResult.page}
+                limit={locResult.limit}
+                total={locResult.total}
+                onPageChange={setLocPage}
+              />
+            ) : null}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="inegi-colonias" className="mt-0 space-y-3">
+          <div className="flex flex-wrap items-end gap-3 bg-white rounded-xl border border-border/50 shadow-sm p-4">
+            <div className="space-y-1.5 flex-1 min-w-[200px] max-w-sm">
+              <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">ID municipio (opcional)</label>
+              <Input
+                value={colMunicipioId}
+                onChange={(e) => {
+                  setColMunicipioId(e.target.value);
+                  setColPage(1);
+                }}
+              />
+            </div>
+            <div className="space-y-1.5 w-28">
+              <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">C.P.</label>
+              <Input
+                value={colCp}
+                onChange={(e) => {
+                  setColCp(e.target.value);
+                  setColPage(1);
+                }}
+              />
+            </div>
+            <div className="space-y-1.5 flex-1 min-w-[180px] max-w-sm">
+              <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Nombre colonia</label>
+              <Input
+                value={colNombre}
+                onChange={(e) => {
+                  setColNombre(e.target.value);
+                  setColPage(1);
+                }}
+              />
+            </div>
+          </div>
+          <div className="bg-white rounded-xl border border-border/50 shadow-sm overflow-hidden overflow-x-auto">
+            <table className="w-full text-sm min-w-[800px]">
+              <thead>
+                <tr className="bg-muted/40">
+                  {['Clave', 'Nombre', 'C.P.', 'Municipio', 'Entidad', 'Activo'].map((h) => (
+                    <th key={h} className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-4 py-3">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {!colResult?.data.length ? (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground text-sm">
+                      Sin resultados. Usa C.P., municipio o nombre; el volumen es alto, siempre hay paginación.
+                    </td>
+                  </tr>
+                ) : (
+                  colResult.data.map((row: CatalogoColoniaINEGIRow, i: number) => (
+                    <tr key={row.id} className={`${i > 0 ? 'border-t border-border/50' : ''} hover:bg-muted/20 transition-colors`}>
+                      <td className="px-4 py-3 font-mono text-xs text-[#0f766e] font-medium whitespace-nowrap">{row.claveINEGI}</td>
+                      <td className="px-4 py-3 font-medium">{row.nombre}</td>
+                      <td className="px-4 py-3 font-mono text-xs">{row.codigoPostal}</td>
+                      <td className="px-4 py-3">{row.municipio?.nombre ?? '—'}</td>
+                      <td className="px-4 py-3">{row.municipio?.estado?.nombre ?? '—'}</td>
+                      <td className="px-4 py-3">
+                        <StatusBadge status={row.activo ? 'Activo' : 'Inactivo'} />
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+            {colResult ? (
+              <CatalogPagination
+                page={colResult.page}
+                limit={colResult.limit}
+                total={colResult.total}
+                onPageChange={setColPage}
+              />
+            ) : null}
+          </div>
+        </TabsContent>
+
+        {/* ── Catálogos Operativos ──────────────────────────────────────────── */}
+
+        <TabsContent value="marcas-medidor" className="mt-0">
+          <div className="bg-white rounded-xl border border-border/50 shadow-sm overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-muted/40">
+                  {['Código', 'Nombre', 'Estado'].map(h => (
+                    <th key={h} className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-5 py-3">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {marcasMedidor.length === 0 ? (
+                  <tr><td colSpan={3} className="px-5 py-8 text-center text-muted-foreground text-sm">Sin marcas registradas</td></tr>
+                ) : marcasMedidor.map((r, i) => (
+                  <tr key={r.id} className={`${i > 0 ? 'border-t border-border/50' : ''} hover:bg-muted/20 transition-colors`}>
+                    <td className="px-5 py-3 font-mono text-xs text-[#007BFF] font-medium">{r.codigo}</td>
+                    <td className="px-5 py-3 font-medium">{r.nombre}</td>
+                    <td className="px-5 py-3"><StatusBadge status={r.activo ? 'Activo' : 'Inactivo'} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="calibres" className="mt-0">
+          <div className="bg-white rounded-xl border border-border/50 shadow-sm overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-muted/40">
+                  {['Código', 'Descripción', 'Diámetro (mm)', 'Estado'].map(h => (
+                    <th key={h} className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-5 py-3">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {calibres.length === 0 ? (
+                  <tr><td colSpan={4} className="px-5 py-8 text-center text-muted-foreground text-sm">Sin calibres registrados</td></tr>
+                ) : calibres.map((r, i) => (
+                  <tr key={r.id} className={`${i > 0 ? 'border-t border-border/50' : ''} hover:bg-muted/20 transition-colors`}>
+                    <td className="px-5 py-3 font-mono text-xs text-[#007BFF] font-medium">{r.codigo}</td>
+                    <td className="px-5 py-3 font-medium">{r.descripcion}</td>
+                    <td className="px-5 py-3 tabular-nums">{r.diametroMm ?? '—'}</td>
+                    <td className="px-5 py-3"><StatusBadge status={r.activo ? 'Activo' : 'Inactivo'} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="emplazamientos" className="mt-0">
+          <SimpleCodigoDescripcionTable rows={emplazamientos} emptyMessage="Sin emplazamientos registrados" />
+        </TabsContent>
+
+        <TabsContent value="tipos-contador" className="mt-0">
+          <SimpleCodigoDescripcionTable rows={tiposContador} emptyMessage="Sin tipos de contador registrados" />
+        </TabsContent>
+
+        <TabsContent value="formas-pago" className="mt-0">
+          <div className="bg-white rounded-xl border border-border/50 shadow-sm overflow-hidden overflow-x-auto">
+            <table className="w-full text-sm min-w-[820px]">
+              <thead>
+                <tr className="bg-muted/40">
+                  {['Código', 'Nombre', 'Tipo recaudación', 'Efectivo', 'Cheque', 'Tarjeta', 'Transf.', 'Ref.', 'Estado'].map(h => (
+                    <th key={h} className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-4 py-3">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {formasPago.length === 0 ? (
+                  <tr><td colSpan={9} className="px-5 py-8 text-center text-muted-foreground text-sm">Sin formas de pago registradas</td></tr>
+                ) : formasPago.map((r, i) => (
+                  <tr key={r.id} className={`${i > 0 ? 'border-t border-border/50' : ''} hover:bg-muted/20 transition-colors`}>
+                    <td className="px-4 py-3 font-mono text-xs text-[#007BFF] font-medium">{r.codigo}</td>
+                    <td className="px-4 py-3 font-medium">{r.nombre}</td>
+                    <td className="px-4 py-3"><Badge variant="secondary" className="text-xs">{r.tipoRecaudacion}</Badge></td>
+                    <td className="px-4 py-3 text-center">{r.aceptaEfectivo ? '✓' : '—'}</td>
+                    <td className="px-4 py-3 text-center">{r.aceptaCheque ? '✓' : '—'}</td>
+                    <td className="px-4 py-3 text-center">{r.aceptaTarjeta ? '✓' : '—'}</td>
+                    <td className="px-4 py-3 text-center">{r.aceptaTransf ? '✓' : '—'}</td>
+                    <td className="px-4 py-3 text-center">{r.requiereReferencia ? '✓' : '—'}</td>
+                    <td className="px-4 py-3"><StatusBadge status={r.activo ? 'Activo' : 'Inactivo'} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="tipos-oficina" className="mt-0">
+          <SimpleCodigoDescripcionTable rows={tiposOficina} emptyMessage="Sin tipos de oficina registrados" />
+        </TabsContent>
+
+        <TabsContent value="sectores-hidraulicos" className="mt-0">
+          <div className="bg-white rounded-xl border border-border/50 shadow-sm overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-muted/40">
+                  {['Código', 'Nombre', 'Estado'].map(h => (
+                    <th key={h} className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-5 py-3">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {sectoresHidraulicos.length === 0 ? (
+                  <tr><td colSpan={3} className="px-5 py-8 text-center text-muted-foreground text-sm">Sin sectores registrados</td></tr>
+                ) : sectoresHidraulicos.map((r, i) => (
+                  <tr key={r.id} className={`${i > 0 ? 'border-t border-border/50' : ''} hover:bg-muted/20 transition-colors`}>
+                    <td className="px-5 py-3 font-mono text-xs text-[#007BFF] font-medium">{r.codigo}</td>
+                    <td className="px-5 py-3 font-medium">{r.nombre}</td>
+                    <td className="px-5 py-3"><StatusBadge status={r.activo ? 'Activo' : 'Inactivo'} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="clases-contrato" className="mt-0">
+          <SimpleCodigoDescripcionTable rows={clasesContrato} emptyMessage="Sin clases de contrato registradas" />
+        </TabsContent>
+
+        <TabsContent value="tipos-via" className="mt-0">
+          <SimpleCodigoDescripcionTable rows={tiposVia} emptyMessage="Sin tipos de vía registrados" />
+        </TabsContent>
+
+        <TabsContent value="tipos-variable" className="mt-0">
+          <div className="bg-white rounded-xl border border-border/50 shadow-sm overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-muted/40">
+                  {['Código', 'Nombre', 'Tipo dato', 'Unidad', 'Estado'].map(h => (
+                    <th key={h} className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-5 py-3">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {tiposVariable.length === 0 ? (
+                  <tr><td colSpan={5} className="px-5 py-8 text-center text-muted-foreground text-sm">Sin tipos de variable registrados</td></tr>
+                ) : tiposVariable.map((r, i) => (
+                  <tr key={r.id} className={`${i > 0 ? 'border-t border-border/50' : ''} hover:bg-muted/20 transition-colors`}>
+                    <td className="px-5 py-3 font-mono text-xs text-[#007BFF] font-medium">{r.codigo}</td>
+                    <td className="px-5 py-3 font-medium">{r.nombre}</td>
+                    <td className="px-5 py-3"><Badge variant="secondary" className="text-xs">{r.tipoDato}</Badge></td>
+                    <td className="px-5 py-3 text-muted-foreground">{r.unidad ?? '—'}</td>
+                    <td className="px-5 py-3"><StatusBadge status={r.activo ? 'Activo' : 'Inactivo'} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </TabsContent>
       </Tabs>
     </div>
   );
 };
+
+function CatalogPagination({
+  page,
+  limit,
+  total,
+  onPageChange,
+}: {
+  page: number;
+  limit: number;
+  total: number;
+  onPageChange: (p: number) => void;
+}) {
+  const pageCount = Math.max(1, Math.ceil(total / limit));
+  const from = total === 0 ? 0 : (page - 1) * limit + 1;
+  const to = Math.min(page * limit, total);
+  return (
+    <div className="flex flex-wrap items-center gap-3 justify-between px-4 py-3 border-t border-border/50 bg-muted/20 text-sm">
+      <span className="text-muted-foreground">
+        {total === 0
+          ? 'Sin resultados'
+          : `${from.toLocaleString('es-MX')}–${to.toLocaleString('es-MX')} de ${total.toLocaleString('es-MX')} · Página ${page} / ${pageCount}`}
+      </span>
+      <div className="flex gap-2">
+        <Button type="button" variant="outline" size="sm" disabled={page <= 1} onClick={() => onPageChange(page - 1)}>
+          Anterior
+        </Button>
+        <Button type="button" variant="outline" size="sm" disabled={page >= pageCount} onClick={() => onPageChange(page + 1)}>
+          Siguiente
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function SimpleCodigoDescripcionTable({
+  rows,
+  emptyMessage,
+}: {
+  rows: CatalogoCodigoDescripcion[];
+  emptyMessage: string;
+}) {
+  return (
+    <div className="bg-white rounded-xl border border-border/50 shadow-sm overflow-hidden">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="bg-muted/40">
+            {['Código', 'Descripción', 'Estado'].map((h) => (
+              <th key={h} className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-5 py-3">{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.length === 0 ? (
+            <tr>
+              <td colSpan={3} className="px-5 py-8 text-center text-muted-foreground text-sm">{emptyMessage}</td>
+            </tr>
+          ) : (
+            rows.map((row, i) => (
+              <tr key={row.id} className={`${i > 0 ? 'border-t border-border/50' : ''} hover:bg-muted/20 transition-colors`}>
+                <td className="px-5 py-3 font-mono text-xs text-[#007BFF] font-medium">{row.codigo}</td>
+                <td className="px-5 py-3 font-medium">{row.descripcion}</td>
+                <td className="px-5 py-3">
+                  <StatusBadge status={row.activo ? 'Activo' : 'Inactivo'} />
+                </td>
+              </tr>
+            ))
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}
 
 export default Catalogos;

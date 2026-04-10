@@ -43,6 +43,52 @@ export class DomiciliosController {
     return this.service.buscarColonias({ codigoPostal, nombre, municipioId, limit });
   }
 
+  /** Resumen de volúmenes de catálogo INEGI */
+  @Get('catalogo-inegi/resumen')
+  catalogoInegiResumen() {
+    return this.service.findCatalogoInegiResumen();
+  }
+
+  /** Municipios INEGI paginados (catálogo en UI) */
+  @Get('catalogo-inegi/municipios')
+  catalogoInegiMunicipios(
+    @Query('estadoId') estadoId?: string,
+    @Query('nombre') nombre?: string,
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page = 1,
+    @Query('limit', new DefaultValuePipe(50), ParseIntPipe) limit = 50,
+  ) {
+    return this.service.findCatalogoMunicipiosPaginated({ estadoId, nombre, page, limit });
+  }
+
+  /** Localidades INEGI paginadas */
+  @Get('catalogo-inegi/localidades')
+  catalogoInegiLocalidades(
+    @Query('municipioId') municipioId?: string,
+    @Query('nombre') nombre?: string,
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page = 1,
+    @Query('limit', new DefaultValuePipe(50), ParseIntPipe) limit = 50,
+  ) {
+    return this.service.findCatalogoLocalidadesPaginated({ municipioId, nombre, page, limit });
+  }
+
+  /** Colonias INEGI paginadas */
+  @Get('catalogo-inegi/colonias')
+  catalogoInegiColonias(
+    @Query('municipioId') municipioId?: string,
+    @Query('codigoPostal') codigoPostal?: string,
+    @Query('nombre') nombre?: string,
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page = 1,
+    @Query('limit', new DefaultValuePipe(50), ParseIntPipe) limit = 50,
+  ) {
+    return this.service.findCatalogoColoniasPaginated({
+      municipioId,
+      codigoPostal,
+      nombre,
+      page,
+      limit,
+    });
+  }
+
   @Get()
   findAll(
     @Query('codigoPostal') codigoPostal?: string,

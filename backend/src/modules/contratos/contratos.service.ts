@@ -65,14 +65,33 @@ export class ContratosService {
       mesesAdeudo?: number | null;
       unidadesServidas?: number | null;
       personasHabitanVivienda?: number | null;
+      zonaId?: string | null;
+      rutaId?: string | null;
     },
   ) {
     await this.findOne(id);
+    const prev = await this.prisma.contrato.findUnique({
+      where: { id },
+      select: { estado: true, zonaId: true, rutaId: true },
+    });
+    if (!prev) throw new NotFoundException('Contrato no encontrado');
+
+    const mergedZona = dto.zonaId !== undefined ? dto.zonaId : prev.zonaId;
+    const mergedRuta = dto.rutaId !== undefined ? dto.rutaId : prev.rutaId;
+    const shouldAutoActivo =
+      dto.estado === undefined &&
+      !!mergedZona &&
+      !!mergedRuta &&
+      ['Pendiente de zona', 'Pendiente de alta', 'Pendiente de toma'].includes(
+        prev.estado ?? '',
+      );
+
     return this.prisma.contrato.update({
       where: { id },
       data: {
         ...(dto.ceaNumContrato !== undefined && { ceaNumContrato: dto.ceaNumContrato }),
         ...(dto.estado !== undefined && { estado: dto.estado }),
+        ...(shouldAutoActivo && { estado: 'Activo' }),
         ...(dto.domiciliado !== undefined && { domiciliado: dto.domiciliado }),
         ...(dto.fechaReconexionPrevista !== undefined && { fechaReconexionPrevista: dto.fechaReconexionPrevista }),
         ...(dto.bloqueadoJuridico !== undefined && { bloqueadoJuridico: dto.bloqueadoJuridico }),
@@ -97,6 +116,8 @@ export class ContratosService {
         ...(dto.mesesAdeudo !== undefined && { mesesAdeudo: dto.mesesAdeudo }),
         ...(dto.unidadesServidas !== undefined && { unidadesServidas: dto.unidadesServidas }),
         ...(dto.personasHabitanVivienda !== undefined && { personasHabitanVivienda: dto.personasHabitanVivienda }),
+        ...(dto.zonaId !== undefined && { zonaId: dto.zonaId }),
+        ...(dto.rutaId !== undefined && { rutaId: dto.rutaId }),
       },
     });
   }
@@ -421,46 +442,116 @@ export class ContratosService {
 
     await Promise.all(refChecks);
 
-    return this.prisma.contrato.create({
-      data: {
-        tomaId,
-        puntoServicioId,
-        domicilioId,
-        tipoContratacionId,
-        tipoContrato: dto.tipoContrato,
-        tipoServicio: dto.tipoServicio,
-        nombre: dto.nombre,
-        rfc: dto.rfc,
-        direccion: dto.direccion ?? '',
-        contacto: dto.contacto ?? '',
-        estado: dto.estado,
-        fecha: dto.fecha,
-        medidorId,
-        rutaId,
-        zonaId,
-        domiciliado: dto.domiciliado ?? false,
-        fechaReconexionPrevista: dto.fechaReconexionPrevista ?? null,
-        ceaNumContrato: dto.ceaNumContrato ?? null,
-        fechaBaja: dto.fechaBaja ?? null,
-        actividadId,
-        categoriaId,
-        referenciaContratoAnterior: dto.referenciaContratoAnterior ?? null,
-        observaciones: dto.observaciones ?? null,
-        tipoEnvioFactura: dto.tipoEnvioFactura ?? null,
-        indicadorEmisionRecibo: dto.indicadorEmisionRecibo ?? true,
-        indicadorExentarFacturacion: dto.indicadorExentarFacturacion ?? false,
-        indicadorContactoCorreo: dto.indicadorContactoCorreo ?? false,
-        cicloFacturacion: dto.cicloFacturacion ?? null,
-        superficiePredio: dto.superficiePredio ?? null,
-        superficieConstruida: dto.superficieConstruida ?? null,
-        mesesAdeudo: dto.mesesAdeudo ?? null,
-        unidadesServidas: dto.unidadesServidas ?? null,
-        personasHabitanVivienda: dto.personasHabitanVivienda ?? null,
-      },
+    let estadoInicial = dto.estado;
+    if (dto.generarOrdenInstalacionToma === true) {
+      estadoInicial = 'Pendiente de toma';
+    } else if (dto.generarOrdenInstalacionMedidor === true) {
+      estadoInicial = 'Pendiente de zona';
+    }
+
+    const omitirPersona = dto.omitirRegistroPersonaTitular === true;
+
+    return this.prisma.$transaction(async (tx) => {
+      const contrato = await tx.contrato.create({
+        data: {
+          tomaId,
+          puntoServicioId,
+          domicilioId,
+          tipoContratacionId,
+          tipoContrato: dto.tipoContrato,
+          tipoServicio: dto.tipoServicio,
+          nombre: dto.nombre,
+          rfc: dto.rfc,
+          razonSocial: dto.razonSocial ?? null,
+          regimenFiscal: dto.regimenFiscal ?? null,
+          direccion: dto.direccion ?? '',
+          contacto: dto.contacto ?? '',
+          estado: estadoInicial,
+          fecha: dto.fecha,
+          medidorId,
+          rutaId,
+          zonaId,
+          domiciliado: dto.domiciliado ?? false,
+          fechaReconexionPrevista: dto.fechaReconexionPrevista ?? null,
+          ceaNumContrato: dto.ceaNumContrato ?? null,
+          fechaBaja: dto.fechaBaja ?? null,
+          actividadId,
+          categoriaId,
+          referenciaContratoAnterior: dto.referenciaContratoAnterior ?? null,
+          observaciones: dto.observaciones ?? null,
+          tipoEnvioFactura: dto.tipoEnvioFactura ?? null,
+          indicadorEmisionRecibo: dto.indicadorEmisionRecibo ?? true,
+          indicadorExentarFacturacion: dto.indicadorExentarFacturacion ?? false,
+          indicadorContactoCorreo: dto.indicadorContactoCorreo ?? false,
+          cicloFacturacion: dto.cicloFacturacion ?? null,
+          superficiePredio: dto.superficiePredio ?? null,
+          superficieConstruida: dto.superficieConstruida ?? null,
+          mesesAdeudo: dto.mesesAdeudo ?? null,
+          unidadesServidas: dto.unidadesServidas ?? null,
+          personasHabitanVivienda: dto.personasHabitanVivienda ?? null,
+        },
+      });
+
+      if (!omitirPersona) {
+        let persona = await tx.persona.findFirst({
+          where: { rfc: dto.rfc },
+        });
+        if (!persona) {
+          persona = await tx.persona.create({
+            data: {
+              nombre: dto.nombre,
+              rfc: dto.rfc,
+              tipo: 'Fisica',
+              telefono: (dto.contacto ?? '').trim() || null,
+            },
+          });
+        }
+        await tx.rolPersonaContrato.upsert({
+          where: {
+            personaId_contratoId_rol: {
+              personaId: persona.id,
+              contratoId: contrato.id,
+              rol: 'PROPIETARIO',
+            },
+          },
+          create: {
+            personaId: persona.id,
+            contratoId: contrato.id,
+            rol: 'PROPIETARIO',
+          },
+          update: { activo: true },
+        });
+      }
+
+      if (dto.generarOrdenInstalacionToma === true) {
+        await tx.orden.create({
+          data: {
+            contratoId: contrato.id,
+            tipo: 'InstalacionToma',
+            prioridad: 'Normal',
+            notas: 'Generada en alta de contrato',
+            origenAutomatico: true,
+            eventoOrigen: 'contrato.create',
+          },
+        });
+      } else if (dto.generarOrdenInstalacionMedidor === true) {
+        await tx.orden.create({
+          data: {
+            contratoId: contrato.id,
+            tipo: 'InstalacionMedidor',
+            prioridad: 'Normal',
+            notas: 'Generada en alta de contrato',
+            origenAutomatico: true,
+            eventoOrigen: 'contrato.create',
+          },
+        });
+      }
+
+      return contrato;
     });
   }
 
-  /** Flujo completo del contrato: personas, domicilio, tipo contratación, historial */
+  /** Flujo completo del contrato: personas, domicilio, tipo contratación, órdenes, trámites, procesos e historial */
   async getFlujoCompleto(contratoId: string) {
     const contrato = await this.prisma.contrato.findUnique({
       where: { id: contratoId },
@@ -497,9 +588,41 @@ export class ContratosService {
             },
           },
         },
+        ordenes: {
+          orderBy: { createdAt: 'desc' },
+          take: 25,
+          select: {
+            id: true,
+            tipo: true,
+            estado: true,
+            prioridad: true,
+            fechaSolicitud: true,
+            fechaProgramada: true,
+            fechaEjecucion: true,
+            notas: true,
+            origenAutomatico: true,
+            eventoOrigen: true,
+          },
+        },
+        tramites: {
+          orderBy: { createdAt: 'desc' },
+          take: 20,
+          select: {
+            id: true,
+            folio: true,
+            tipo: true,
+            estado: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+        },
         procesosContratacion: {
           orderBy: { createdAt: 'desc' },
-          take: 1,
+          take: 5,
+          include: {
+            hitos: { orderBy: { createdAt: 'asc' } },
+            plantilla: { select: { id: true, nombre: true, version: true } },
+          },
         },
         historico: {
           orderBy: { createdAt: 'desc' },
@@ -509,5 +632,56 @@ export class ContratosService {
     });
     if (!contrato) throw new NotFoundException('Contrato no encontrado');
     return contrato;
+  }
+
+  /** Vista previa de texto contractual (plantilla del proceso o cláusulas del tipo), con sustitución básica de variables. */
+  async getTextoContratoPreview(contratoId: string) {
+    const c = await this.prisma.contrato.findUnique({
+      where: { id: contratoId },
+      include: {
+        tipoContratacion: {
+          include: {
+            clausulas: {
+              orderBy: { orden: 'asc' },
+              include: { clausula: true },
+            },
+          },
+        },
+      },
+    });
+    if (!c) throw new NotFoundException('Contrato no encontrado');
+
+    const proceso = await this.prisma.procesoContratacion.findFirst({
+      where: { contratoId },
+      orderBy: { createdAt: 'desc' },
+      include: { plantilla: true },
+    });
+
+    let base = (proceso?.plantilla?.contenido ?? '').trim();
+    let fuente: 'plantilla' | 'clausulas' | 'vacío' = 'vacío';
+    if (base.length > 0) {
+      fuente = 'plantilla';
+    } else if (c.tipoContratacion?.clausulas?.length) {
+      base = c.tipoContratacion.clausulas
+        .map((row) => row.clausula.contenido)
+        .join('\n\n');
+      fuente = 'clausulas';
+    }
+
+    const vars: Record<string, string> = {
+      nombre: c.nombre,
+      rfc: c.rfc,
+      direccion: c.direccion,
+      contacto: c.contacto,
+      razonSocial: c.razonSocial ?? '',
+      regimenFiscal: c.regimenFiscal ?? '',
+      fecha: c.fecha,
+    };
+    let texto = base;
+    for (const [k, v] of Object.entries(vars)) {
+      texto = texto.split(`{{${k}}}`).join(v);
+    }
+
+    return { texto, fuente, contratoId: c.id };
   }
 }
