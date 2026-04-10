@@ -28,7 +28,11 @@ import {
   PenLine,
   Shield,
 } from 'lucide-react';
-import { getCatalogoTramites, type CatalogoTramiteDto } from '@/api/tramites';
+import {
+  getCatalogoTramites,
+  labelDocumentoRequeridoCatalogo,
+  type CatalogoTramiteDto,
+} from '@/api/tramites';
 
 type FieldType = 'text' | 'date' | 'number' | 'select';
 interface FieldConfig {
@@ -266,12 +270,26 @@ const TramitesDigitales = () => {
                     Documentos requeridos
                   </p>
                   <ul className="space-y-0.5">
-                    {catalogoEntry.documentosRequeridos.map((doc) => (
-                      <li key={doc} className="flex items-center gap-1.5 text-xs text-foreground">
-                        <FileText className="h-3 w-3 text-muted-foreground shrink-0" />
-                        {doc}
-                      </li>
-                    ))}
+                    {catalogoEntry.documentosRequeridos.map((doc, i) => {
+                      const label = labelDocumentoRequeridoCatalogo(doc);
+                      const key =
+                        typeof doc === 'string' ? doc : `${doc.nombre}-${i}`;
+                      const obligatorio = typeof doc === 'object' && doc !== null && doc.requerido;
+                      return (
+                        <li key={key} className="flex items-center gap-1.5 text-xs text-foreground">
+                          <FileText className="h-3 w-3 text-muted-foreground shrink-0" />
+                          <span>
+                            {label}
+                            {obligatorio ? (
+                              <span className="text-destructive" aria-label="obligatorio">
+                                {' '}
+                                *
+                              </span>
+                            ) : null}
+                          </span>
+                        </li>
+                      );
+                    })}
                   </ul>
                 </div>
               )}
