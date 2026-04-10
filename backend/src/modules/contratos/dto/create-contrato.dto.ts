@@ -3,7 +3,23 @@ import {
   IsOptional,
   IsBoolean,
   IsNumber,
+  IsArray,
+  ArrayMaxSize,
+  MaxLength,
+  ValidateNested,
 } from 'class-validator';
+import { Type } from 'class-transformer';
+
+export class PersonaRelacionContratoDto {
+  @IsOptional() @IsString() personaId?: string;
+  @IsOptional() @IsString() nombre?: string;
+  @IsOptional() @IsString() rfc?: string;
+  @IsOptional() @IsString() curp?: string;
+  @IsOptional() @IsString() email?: string;
+  @IsOptional() @IsString() telefono?: string;
+  @IsOptional() @IsString() razonSocial?: string;
+  @IsOptional() @IsString() regimenFiscal?: string;
+}
 
 export class CreateContratoDto {
   @IsOptional() @IsString() tomaId?: string;
@@ -51,4 +67,30 @@ export class CreateContratoDto {
   @IsOptional() @IsBoolean() generarOrdenInstalacionMedidor?: boolean;
   /** Omitir creación de Persona + rol PROPIETARIO (solo datos planos en contrato). */
   @IsOptional() @IsBoolean() omitirRegistroPersonaTitular?: boolean;
+
+  /** Checklist de documentos marcados como recibidos durante la contratación. */
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(100)
+  @IsString({ each: true })
+  @MaxLength(500, { each: true })
+  documentosRecibidos?: string[];
+
+  /**
+   * Plantilla del proceso cuando el checklist se captura en el mismo POST.
+   * Requiere al menos un valor en `documentosRecibidos`; si no, 400.
+   */
+  @IsOptional() @IsString() plantillaContratacionId?: string;
+
+  /** Persona fiscal relacionada (rol FISCAL). */
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => PersonaRelacionContratoDto)
+  personaFiscal?: PersonaRelacionContratoDto;
+
+  /** Persona de contacto relacionada (rol CONTACTO). */
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => PersonaRelacionContratoDto)
+  personaContacto?: PersonaRelacionContratoDto;
 }

@@ -5,13 +5,65 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateContratoDto } from './dto/create-contrato.dto';
-import { Prisma } from '@prisma/client';
+import { Prisma, type PrismaClient } from '@prisma/client';
+import { crearHitoInicialSolicitudCompletado } from '../procesos-contratacion/hito-inicial.util';
+
+type PersonaRelacionInput = {
+  personaId?: string;
+  nombre?: string;
+  rfc?: string;
+  curp?: string;
+  email?: string;
+  telefono?: string;
+  razonSocial?: string;
+  regimenFiscal?: string;
+};
 
 /** FK string fields: trim; empty string becomes null (avoids invalid "" references). */
 function optionalFkId(value?: string | null): string | null {
   if (value == null) return null;
   const t = String(value).trim();
   return t.length > 0 ? t : null;
+}
+
+function normalizeDocumentosRecibidos(raw?: string[] | null): string[] {
+  return Array.from(
+    new Set(
+      (raw ?? [])
+        .map((d) => String(d).trim())
+        .filter((d) => d.length > 0),
+    ),
+  );
+}
+
+async function loadNombreDocumentosObligatorios(
+  db: Pick<PrismaClient, 'documentoRequeridoTipoContratacion'>,
+  tipoContratacionId: string,
+): Promise<string[]> {
+  const rows = await db.documentoRequeridoTipoContratacion.findMany({
+    where: { tipoContratacionId, obligatorio: true },
+    select: { nombreDocumento: true },
+  });
+  return [
+    ...new Set(
+      rows
+        .map((r) => r.nombreDocumento.trim())
+        .filter((n) => n.length > 0),
+    ),
+  ];
+}
+
+function assertDocsRecibidosCubrenObligatorios(
+  required: string[],
+  docsRecibidos: string[],
+): void {
+  const received = new Set(docsRecibidos);
+  const missing = required.filter((n) => !received.has(n));
+  if (missing.length > 0) {
+    throw new BadRequestException(
+      `Faltan documentos obligatorios marcados como recibidos: ${missing.join(', ')}`,
+    );
+  }
 }
 
 // Estados que implican servicio activo
@@ -316,6 +368,7 @@ export class ContratosService {
     const zonaId = optionalFkId(dto.zonaId);
     const actividadId = optionalFkId(dto.actividadId);
     const categoriaId = optionalFkId(dto.categoriaId);
+    const plantillaContratacionId = optionalFkId(dto.plantillaContratacionId);
 
     const refChecks: Promise<void>[] = [];
 
@@ -439,8 +492,31 @@ export class ContratosService {
           }),
       );
     }
+    if (plantillaContratacionId) {
+      refChecks.push(
+        this.prisma.plantillaContrato
+          .findUnique({
+            where: { id: plantillaContratacionId },
+            select: { id: true },
+          })
+          .then((row) => {
+            if (!row) {
+              throw new BadRequestException(
+                `La plantilla de contratación indicada no existe (plantillaContratacionId: ${plantillaContratacionId}).`,
+              );
+            }
+          }),
+      );
+    }
 
     await Promise.all(refChecks);
+
+    const docsRecibidos = normalizeDocumentosRecibidos(dto.documentosRecibidos);
+    if (plantillaContratacionId && docsRecibidos.length === 0) {
+      throw new BadRequestException(
+        'plantillaContratacionId solo aplica cuando documentosRecibidos incluye al menos un documento.',
+      );
+    }
 
     let estadoInicial = dto.estado;
     if (dto.generarOrdenInstalacionToma === true) {
@@ -452,6 +528,86 @@ export class ContratosService {
     const omitirPersona = dto.omitirRegistroPersonaTitular === true;
 
     return this.prisma.$transaction(async (tx) => {
+      let procesoGestionadoEnAlta = false;
+
+      if (tipoContratacionId) {
+        const required = await loadNombreDocumentosObligatorios(
+          tx,
+          tipoContratacionId,
+        );
+        assertDocsRecibidosCubrenObligatorios(required, docsRecibidos);
+      }
+
+      const findOrCreatePersona = async (
+        input: PersonaRelacionInput,
+      ): Promise<{ id: string }> => {
+        const personaId = optionalFkId(input.personaId);
+        if (personaId) {
+          const existente = await tx.persona.findUnique({
+            where: { id: personaId },
+            select: { id: true },
+          });
+          if (!existente) {
+            throw new BadRequestException(
+              `La persona indicada no existe (personaId: ${personaId}).`,
+            );
+          }
+          return existente;
+        }
+
+        const nombre = (input.nombre ?? '').trim();
+        const rfc = (input.rfc ?? '').trim();
+        if (!nombre || !rfc) {
+          throw new BadRequestException(
+            'Para registrar una persona relacionada se requiere personaId o nombre+rfc.',
+          );
+        }
+
+        const porRfc = await tx.persona.findFirst({
+          where: { rfc },
+          select: { id: true },
+        });
+        if (porRfc) return porRfc;
+
+        return tx.persona.create({
+          data: {
+            nombre,
+            rfc,
+            curp: (input.curp ?? '').trim() || null,
+            tipo: (input.razonSocial ?? '').trim() ? 'Moral' : 'Fisica',
+            email: (input.email ?? '').trim() || null,
+            telefono: (input.telefono ?? '').trim() || null,
+            razonSocial: (input.razonSocial ?? '').trim() || null,
+            regimenFiscal: (input.regimenFiscal ?? '').trim() || null,
+          },
+          select: { id: true },
+        });
+      };
+
+      const upsertRolPersona = async (
+        contratoId: string,
+        rol: 'PROPIETARIO' | 'FISCAL' | 'CONTACTO',
+        input?: PersonaRelacionInput,
+      ) => {
+        if (!input) return;
+        const persona = await findOrCreatePersona(input);
+        await tx.rolPersonaContrato.upsert({
+          where: {
+            personaId_contratoId_rol: {
+              personaId: persona.id,
+              contratoId,
+              rol,
+            },
+          },
+          create: {
+            personaId: persona.id,
+            contratoId,
+            rol,
+          },
+          update: { activo: true, fechaHasta: null },
+        });
+      };
+
       const contrato = await tx.contrato.create({
         data: {
           tomaId,
@@ -523,6 +679,13 @@ export class ContratosService {
         });
       }
 
+      if (dto.personaFiscal) {
+        await upsertRolPersona(contrato.id, 'FISCAL', dto.personaFiscal);
+      }
+      if (dto.personaContacto) {
+        await upsertRolPersona(contrato.id, 'CONTACTO', dto.personaContacto);
+      }
+
       if (dto.generarOrdenInstalacionToma === true) {
         await tx.orden.create({
           data: {
@@ -547,7 +710,73 @@ export class ContratosService {
         });
       }
 
-      return contrato;
+      if (docsRecibidos.length > 0) {
+        const procesoReciente = await tx.procesoContratacion.findFirst({
+          where: { contratoId: contrato.id },
+          orderBy: { createdAt: 'desc' },
+          select: { id: true, datosAdicionales: true, plantillaId: true },
+        });
+
+        const plantillaParaProceso = plantillaContratacionId;
+
+        if (procesoReciente) {
+          const prev =
+            procesoReciente.datosAdicionales &&
+            typeof procesoReciente.datosAdicionales === 'object' &&
+            !Array.isArray(procesoReciente.datosAdicionales)
+              ? (procesoReciente.datosAdicionales as Record<string, unknown>)
+              : {};
+
+          await tx.procesoContratacion.update({
+            where: { id: procesoReciente.id },
+            data: {
+              ...(plantillaParaProceso && !procesoReciente.plantillaId
+                ? { plantillaId: plantillaParaProceso }
+                : {}),
+              datosAdicionales: {
+                ...prev,
+                documentosRecibidos: docsRecibidos,
+                checklistCapturadoEnAlta: true,
+              },
+            },
+          });
+          const nHitos = await tx.hitoContratacion.count({
+            where: { procesoId: procesoReciente.id },
+          });
+          // Procesos legacy sin hitos: semántica de “inicio” en solicitud completada (puede no coincidir con etapa actual del proceso).
+          if (nHitos === 0) {
+            await crearHitoInicialSolicitudCompletado(
+              tx,
+              procesoReciente.id,
+              null,
+            );
+          }
+        } else {
+          const nuevoProceso = await tx.procesoContratacion.create({
+            data: {
+              contratoId: contrato.id,
+              etapa: 'solicitud',
+              estado: 'en_progreso',
+              plantillaId: plantillaParaProceso,
+              datosAdicionales: {
+                documentosRecibidos: docsRecibidos,
+                checklistCapturadoEnAlta: true,
+              },
+            },
+          });
+          await crearHitoInicialSolicitudCompletado(
+            tx,
+            nuevoProceso.id,
+            null,
+          );
+        }
+        procesoGestionadoEnAlta = true;
+      }
+
+      return {
+        ...contrato,
+        procesoGestionadoEnAlta,
+      };
     });
   }
 

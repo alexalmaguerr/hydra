@@ -12,6 +12,13 @@ export interface ProcesoContratacion {
   historial?: EtapaHistorial[];
 }
 
+export interface PlantillaContrato {
+  id: string;
+  nombre: string;
+  version: string;
+  activo: boolean;
+}
+
 export interface EtapaHistorial {
   id: string;
   procesoId: string;
@@ -112,8 +119,14 @@ export const fetchProceso = (id: string) =>
 export const crearProceso = (dto: {
   contratoId: string;
   tipoContratacionId?: string;
+  plantillaId?: string;
   creadoPor?: string;
 }) => apiRequest<ProcesoContratacion>('/procesos-contratacion', { method: 'POST', body: JSON.stringify(dto) });
+
+export const fetchPlantillasContrato = (soloActivas = true) =>
+  apiRequest<PlantillaContrato[]>(
+    `/procesos-contratacion/plantillas/lista?soloActivas=${soloActivas ? 'true' : 'false'}`,
+  );
 
 export const avanzarEtapa = (id: string, nota?: string) =>
   apiRequest<ProcesoContratacion>(`/procesos-contratacion/${id}/avanzar`, {

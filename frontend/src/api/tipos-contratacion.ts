@@ -19,6 +19,37 @@ export interface TipoContratacion {
   _count?: { contratos: number };
 }
 
+export interface DocumentoRequeridoTipoContratacion {
+  id: string;
+  nombreDocumento: string;
+  obligatorio: boolean;
+  descripcion?: string | null;
+}
+
+export interface TipoContratacionConfiguracion extends TipoContratacion {
+  conceptos: Array<{
+    id: string;
+    obligatorio: boolean;
+    orden: number;
+    conceptoCobro: {
+      id: string;
+      codigo: string;
+      nombre: string;
+    };
+  }>;
+  clausulas: Array<{
+    id: string;
+    obligatorio: boolean;
+    orden: number;
+    clausula: {
+      id: string;
+      codigo: string;
+      titulo: string;
+    };
+  }>;
+  documentos: DocumentoRequeridoTipoContratacion[];
+}
+
 export interface UpdateTipoContratacionDto {
   nombre?: string;
   descripcion?: string;
@@ -54,6 +85,9 @@ export const fetchTiposContratacion = () =>
 
 export const fetchTipoContratacion = (id: string) =>
   apiRequest<TipoContratacion>(`/tipos-contratacion/${id}`);
+
+export const fetchTipoContratacionConfiguracion = (id: string) =>
+  apiRequest<TipoContratacionConfiguracion>(`/tipos-contratacion/${id}/configuracion`);
 
 export const createTipoContratacion = (dto: CreateTipoContratacionDto) =>
   apiRequest<TipoContratacion>('/tipos-contratacion', {

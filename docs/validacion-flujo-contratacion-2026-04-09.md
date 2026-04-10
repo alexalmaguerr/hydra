@@ -63,3 +63,10 @@ Documento de brechas entre el flujo operativo deseado (lista de pasos + notas SI
 - **Duplicidad orden medidor:** la orden de medidor por etapa de proceso fue retirada en favor del flujo por órdenes de campo; en `OrdenesService` se evita duplicar `InstalacionMedidor` pendiente/en proceso.
 - **Frontend:** wizard con opciones fiscales y de órdenes; `StatusBadge` y búsqueda en atención reconocen **Pendiente de toma** / **Pendiente de zona**; KPI “Pendientes en campo”.
 - **UI posterior:** pestaña **Texto contrato** en el detalle del contrato (`Contratos.tsx`) que consume `GET /contratos/:id/texto-contrato`; asistente de alta con selects opcionales de **tipo de contratación** (catálogo) y **punto de servicio** (`GET /puntos-servicio`, `GET /tipos-contratacion`).
+
+### Contrato + proceso en el mismo alta (revisión 2026-04-09, iteración posterior)
+
+- **`POST /contratos`** puede devolver el contrato con el campo adicional **`procesoGestionadoEnAlta`** (`true` si en esa petición se creó o actualizó un `ProcesoContratacion` por checklist de `documentosRecibidos`).
+- **`plantillaContratacionId`** en el body solo tiene efecto si `documentosRecibidos` trae al menos un ítem; si no, la API responde **400** (evita plantilla “huérfana” en el payload).
+- El cliente (wizard) exige **plantilla** cuando están activos “iniciar proceso” y al menos un documento en checklist, para no dejar un proceso sin plantilla al omitir el segundo `POST` a procesos.
+- El hito inicial “solicitud completada” al abrir proceso se centraliza en `crearHitoInicialSolicitudCompletado` (`hito-inicial.util.ts`), reutilizado por alta de contrato y por `POST /procesos-contratacion`.

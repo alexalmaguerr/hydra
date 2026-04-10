@@ -26,9 +26,36 @@ export interface ContratoDto {
 }
 
 export interface CreateContratoDto {
+  personaFiscal?: {
+    personaId?: string;
+    nombre?: string;
+    rfc?: string;
+    curp?: string;
+    email?: string;
+    telefono?: string;
+    razonSocial?: string;
+    regimenFiscal?: string;
+  };
+  personaContacto?: {
+    personaId?: string;
+    nombre?: string;
+    rfc?: string;
+    curp?: string;
+    email?: string;
+    telefono?: string;
+    razonSocial?: string;
+    regimenFiscal?: string;
+  };
   tomaId?: string;
   puntoServicioId?: string;
   tipoContratacionId?: string;
+  actividadId?: string;
+  referenciaContratoAnterior?: string;
+  superficiePredio?: number;
+  superficieConstruida?: number;
+  unidadesServidas?: number;
+  personasHabitanVivienda?: number;
+  documentosRecibidos?: string[];
   tipoContrato: string;
   tipoServicio: string;
   nombre: string;
@@ -48,7 +75,14 @@ export interface CreateContratoDto {
   generarOrdenInstalacionToma?: boolean;
   generarOrdenInstalacionMedidor?: boolean;
   omitirRegistroPersonaTitular?: boolean;
+  /** Con checklist en alta: opcional, enlaza plantilla al proceso creado en el mismo POST. */
+  plantillaContratacionId?: string;
 }
+
+/** Respuesta de POST /contratos (incluye metadatos de proceso en la misma alta). */
+export type CreateContratoResponseDto = ContratoDto & {
+  procesoGestionadoEnAlta?: boolean;
+};
 
 export interface UpdateContratoDto {
   ceaNumContrato?: string | null;
@@ -90,8 +124,8 @@ export async function fetchContrato(id: string): Promise<ContratoDto> {
   return apiRequest<ContratoDto>(`/contratos/${id}`);
 }
 
-export async function createContrato(dto: CreateContratoDto): Promise<ContratoDto> {
-  return apiRequest<ContratoDto>('/contratos', {
+export async function createContrato(dto: CreateContratoDto): Promise<CreateContratoResponseDto> {
+  return apiRequest<CreateContratoResponseDto>('/contratos', {
     method: 'POST',
     body: JSON.stringify(dto),
   });

@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { crearHitoInicialSolicitudCompletado } from './hito-inicial.util';
 
 // Secuencia oficial de etapas del flujo de contratación (req PRD #1, #6)
 const ETAPAS_FLUJO: string[] = ['solicitud', 'factibilidad', 'contrato', 'instalacion_toma', 'instalacion_medidor', 'alta'];
@@ -79,17 +80,11 @@ export class ProcesosContratacionService {
       },
     });
 
-    // Crear hito inicial
-    await this.prisma.hitoContratacion.create({
-      data: {
-        procesoId: proceso.id,
-        etapa: 'solicitud',
-        estado: 'completado',
-        nota: 'Proceso iniciado',
-        usuario: dto.creadoPor ?? null,
-        fechaCumpl: new Date(),
-      },
-    });
+    await crearHitoInicialSolicitudCompletado(
+      this.prisma,
+      proceso.id,
+      dto.creadoPor ?? null,
+    );
 
     return this.findOne(proceso.id);
   }
