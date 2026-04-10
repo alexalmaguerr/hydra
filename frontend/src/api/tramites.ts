@@ -1,10 +1,18 @@
 import { apiRequest } from './client';
 
+/** Stored as JSON: legacy string[] or rich objects from seed/API */
+export type DocumentoRequeridoCatalogo = string | { nombre: string; requerido?: boolean };
+
+export function labelDocumentoRequeridoCatalogo(doc: DocumentoRequeridoCatalogo): string {
+  if (typeof doc === 'string') return doc;
+  return doc?.nombre ?? '';
+}
+
 export interface CatalogoTramiteDto {
   id: string;
   tipo: string;
   descripcion: string | null;
-  documentosRequeridos: string[];
+  documentosRequeridos: DocumentoRequeridoCatalogo[];
   tipoFirma: string;
   activo: boolean;
 }
