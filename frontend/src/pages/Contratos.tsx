@@ -147,6 +147,11 @@ const Contratos = () => {
   const useApi = hasApi();
   const { contratos: contextContratos, tomas, addContrato, allowedZonaIds, timbrados, recibos, preFacturas, pagos } = useData();
 
+  const [showWizard, setShowWizard] = useState(false);
+  const [step, setStep] = useState(1);
+  const [detail, setDetail] = useState<string | null>(null);
+  const [searchParams] = useSearchParams();
+
   const { data: apiContratos = [], isLoading } = useQuery({
     queryKey: ['contratos'],
     queryFn: fetchContratos,
@@ -181,10 +186,6 @@ const Contratos = () => {
     !allowedZonaIds ? contratos : contratos.filter((c: { zonaId?: string }) => c.zonaId && allowedZonaIds.includes(c.zonaId)),
     [contratos, allowedZonaIds]
   );
-  const [showWizard, setShowWizard] = useState(false);
-  const [step, setStep] = useState(1);
-  const [detail, setDetail] = useState<string | null>(null);
-  const [searchParams] = useSearchParams();
 
   const emptyWizardForm = () => ({
     tomaId: '',
