@@ -4,6 +4,7 @@ import {
   FileCheck,
   Building2,
   Droplets,
+  MapPin,
   FileText,
   Gauge,
   Route,
@@ -63,6 +64,13 @@ export const APP_ROUTES: AppRouteConfig[] = [
     label: 'Tomas',
     icon: Droplets,
     allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'OPERADOR'],
+    group: 'Infraestructura',
+  },
+  {
+    path: 'puntos-servicio',
+    label: 'Puntos de servicio',
+    icon: MapPin,
+    allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'OPERADOR', 'ATENCION_CLIENTES'],
     group: 'Infraestructura',
   },
   // Servicios

@@ -1,8 +1,10 @@
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Loader2, Search } from 'lucide-react';
+import { ExternalLink, Loader2, RefreshCw, Search } from 'lucide-react';
 
 import { fetchPuntosServicio, type PuntoServicioListItem } from '@/api/puntos-servicio';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
@@ -17,7 +19,7 @@ function formatDomicilio(ps: PuntoServicioListItem): string {
 
 export default function PasoServicioPoint({ data, updateData }: StepProps) {
   const [q, setQ] = useState('');
-  const { data: list, isLoading, isError, error, refetch } = useQuery({
+  const { data: list, isLoading, isError, error, refetch, isFetching } = useQuery({
     queryKey: ['puntos-servicio', 'wizard'],
     queryFn: () => fetchPuntosServicio({ page: 1, limit: 500 }),
   });
@@ -49,8 +51,28 @@ export default function PasoServicioPoint({ data, updateData }: StepProps) {
           Punto de servicio
         </h2>
         <p className="text-sm text-muted-foreground">
-          Busque y seleccione el punto de servicio asociado al contrato.
+          Busque y seleccione el punto de servicio asociado al contrato. Si aún no existe en el sistema, délo de alta
+          en el catálogo y vuelva a este paso.
         </p>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <Button type="button" variant="outline" size="sm" asChild>
+          <Link to="/app/puntos-servicio" target="_blank" rel="noopener noreferrer">
+            <ExternalLink className="mr-1.5 h-4 w-4" aria-hidden />
+            Abrir catálogo — dar de alta
+          </Link>
+        </Button>
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          onClick={() => refetch()}
+          disabled={isLoading || isFetching}
+        >
+          <RefreshCw className={`mr-1.5 h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} aria-hidden />
+          Actualizar lista
+        </Button>
       </div>
 
       <div className="relative">
@@ -99,11 +121,25 @@ export default function PasoServicioPoint({ data, updateData }: StepProps) {
       ) : null}
 
       {!isLoading && !isError && filtered.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          {rows.length === 0
-            ? 'No hay puntos de servicio registrados o no tiene permisos para listarlos.'
-            : 'Ningún resultado coincide con el filtro.'}
-        </p>
+        <div className="rounded-lg border border-dashed bg-muted/30 px-4 py-6 text-sm">
+          {rows.length === 0 ? (
+            <div className="space-y-3">
+              <p className="text-muted-foreground">
+                No hay puntos de servicio en el catálogo (o no tiene permisos para listarlos). Para registrar uno
+                nuevo, use el catálogo de puntos de servicio.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" size="sm" asChild>
+                  <Link to="/app/puntos-servicio" target="_blank" rel="noopener noreferrer">
+                    Ir a catálogo y dar de alta
+                  </Link>
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <p className="text-muted-foreground">Ningún resultado coincide con el filtro.</p>
+          )}
+        </div>
       ) : null}
 
       {!isLoading && !isError && filtered.length > 0 ? (

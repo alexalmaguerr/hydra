@@ -40,3 +40,17 @@ export function fetchPuntosServicio(params?: { page?: number; limit?: number; es
   if (params?.estado) q.set('estado', params.estado);
   return apiRequest<PuntosServicioListResponse>(`/puntos-servicio?${q.toString()}`);
 }
+
+export interface CreatePuntoServicioDto {
+  codigo: string;
+  domicilioId?: string;
+  tipoSuministroId?: string;
+  estado?: string;
+}
+
+export function createPuntoServicio(dto: CreatePuntoServicioDto) {
+  return apiRequest<PuntoServicioListItem>('/puntos-servicio', {
+    method: 'POST',
+    body: JSON.stringify(dto),
+  });
+}
