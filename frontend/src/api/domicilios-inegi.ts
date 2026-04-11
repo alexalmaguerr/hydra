@@ -49,6 +49,37 @@ export interface InegiResumen {
   colonias: number;
 }
 
+export interface CreateDomicilioDto {
+  calle: string;
+  numExterior?: string;
+  numInterior?: string;
+  coloniaINEGIId?: string;
+  codigoPostal?: string;
+  localidadINEGIId?: string;
+  municipioINEGIId?: string;
+  estadoINEGIId?: string;
+  entreCalle1?: string;
+  entreCalle2?: string;
+  referencia?: string;
+}
+
+export interface DomicilioCreado {
+  id: string;
+  calle: string;
+  numExterior: string | null;
+  numInterior: string | null;
+  codigoPostal: string | null;
+  coloniaINEGIId: string | null;
+  municipioINEGIId: string | null;
+  estadoINEGIId: string | null;
+}
+
+export const createDomicilio = (dto: CreateDomicilioDto) =>
+  apiRequest<DomicilioCreado>('/domicilios', {
+    method: 'POST',
+    body: JSON.stringify(dto),
+  });
+
 export const fetchInegiResumen = () =>
   apiRequest<InegiResumen>('/domicilios/catalogo-inegi/resumen');
 

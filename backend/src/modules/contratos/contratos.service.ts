@@ -719,7 +719,8 @@ export class ContratosService {
         });
       }
 
-      if (docsRecibidos.length > 0) {
+      // Siempre crear/actualizar el ProcesoContratacion al dar de alta un contrato
+      {
         const procesoReciente = await tx.procesoContratacion.findFirst({
           where: { contratoId: contrato.id },
           orderBy: { createdAt: 'desc' },
@@ -742,23 +743,20 @@ export class ContratosService {
               ...(plantillaParaProceso && !procesoReciente.plantillaId
                 ? { plantillaId: plantillaParaProceso }
                 : {}),
-              datosAdicionales: {
-                ...prev,
-                documentosRecibidos: docsRecibidos,
-                checklistCapturadoEnAlta: true,
-              },
+              ...(docsRecibidos.length > 0 && {
+                datosAdicionales: {
+                  ...prev,
+                  documentosRecibidos: docsRecibidos,
+                  checklistCapturadoEnAlta: true,
+                },
+              }),
             },
           });
           const nHitos = await tx.hitoContratacion.count({
             where: { procesoId: procesoReciente.id },
           });
-          // Procesos legacy sin hitos: semántica de “inicio” en solicitud completada (puede no coincidir con etapa actual del proceso).
           if (nHitos === 0) {
-            await crearHitoInicialSolicitudCompletado(
-              tx,
-              procesoReciente.id,
-              null,
-            );
+            await crearHitoInicialSolicitudCompletado(tx, procesoReciente.id, null);
           }
         } else {
           const nuevoProceso = await tx.procesoContratacion.create({
@@ -766,18 +764,16 @@ export class ContratosService {
               contratoId: contrato.id,
               etapa: 'solicitud',
               estado: 'en_progreso',
-              plantillaId: plantillaParaProceso,
-              datosAdicionales: {
-                documentosRecibidos: docsRecibidos,
-                checklistCapturadoEnAlta: true,
-              },
+              plantillaId: plantillaParaProceso ?? null,
+              ...(docsRecibidos.length > 0 && {
+                datosAdicionales: {
+                  documentosRecibidos: docsRecibidos,
+                  checklistCapturadoEnAlta: true,
+                },
+              }),
             },
           });
-          await crearHitoInicialSolicitudCompletado(
-            tx,
-            nuevoProceso.id,
-            null,
-          );
+          await crearHitoInicialSolicitudCompletado(tx, nuevoProceso.id, null);
         }
         procesoGestionadoEnAlta = true;
       }

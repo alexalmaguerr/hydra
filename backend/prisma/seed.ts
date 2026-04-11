@@ -1051,6 +1051,92 @@ async function seedSectoresClasesVariables() {
   console.log('Tipos de variable sembrados:', tiposVariable.length);
 }
 
+async function seedInegiQueretaro() {
+  // Estado
+  const estado = await prisma.catalogoEstadoINEGI.upsert({
+    where: { claveINEGI: '22' },
+    update: {},
+    create: { claveINEGI: '22', nombre: 'Querétaro', activo: true },
+  });
+
+  // Municipio Querétaro
+  const mpio = await prisma.catalogoMunicipioINEGI.upsert({
+    where: { claveINEGI: '22001' },
+    update: {},
+    create: { estadoId: estado.id, claveINEGI: '22001', nombre: 'Querétaro', activo: true },
+  });
+
+  // Municipio El Marqués
+  const mpioMarques = await prisma.catalogoMunicipioINEGI.upsert({
+    where: { claveINEGI: '22003' },
+    update: {},
+    create: { estadoId: estado.id, claveINEGI: '22003', nombre: 'El Marqués', activo: true },
+  });
+
+  // Localidad: ciudad de Querétaro
+  await prisma.catalogoLocalidadINEGI.upsert({
+    where: { claveINEGI: '220010001' },
+    update: {},
+    create: { municipioId: mpio.id, claveINEGI: '220010001', nombre: 'Querétaro', activo: true },
+  });
+
+  // Localidad: Juriquilla
+  await prisma.catalogoLocalidadINEGI.upsert({
+    where: { claveINEGI: '220010043' },
+    update: {},
+    create: { municipioId: mpio.id, claveINEGI: '220010043', nombre: 'Juriquilla', activo: true },
+  });
+
+  // Localidad: El Marqués (cabecera)
+  await prisma.catalogoLocalidadINEGI.upsert({
+    where: { claveINEGI: '220030001' },
+    update: {},
+    create: { municipioId: mpioMarques.id, claveINEGI: '220030001', nombre: 'El Marqués', activo: true },
+  });
+
+  // Colonias municipio Querétaro
+  const colonias = [
+    { claveINEGI: '22001-0001', nombre: 'Centro Histórico',          codigoPostal: '76000' },
+    { claveINEGI: '22001-0002', nombre: 'Epigmenio González',         codigoPostal: '76140' },
+    { claveINEGI: '22001-0003', nombre: 'Pedregal de Querétaro',      codigoPostal: '76060' },
+    { claveINEGI: '22001-0004', nombre: 'Juriquilla',                 codigoPostal: '76100' },
+    { claveINEGI: '22001-0005', nombre: 'Punta Juriquilla',           codigoPostal: '76230' },
+    { claveINEGI: '22001-0006', nombre: 'La Cañada',                  codigoPostal: '76177' },
+    { claveINEGI: '22001-0007', nombre: 'Satélite',                   codigoPostal: '76150' },
+    { claveINEGI: '22001-0008', nombre: 'El Refugio',                 codigoPostal: '76146' },
+    { claveINEGI: '22001-0009', nombre: 'Cimatario',                  codigoPostal: '76030' },
+    { claveINEGI: '22001-0010', nombre: 'Loma Dorada',                codigoPostal: '76060' },
+    { claveINEGI: '22001-0011', nombre: 'El Cerrito',                 codigoPostal: '76090' },
+    { claveINEGI: '22001-0012', nombre: 'Hacienda Juriquilla',        codigoPostal: '76226' },
+    { claveINEGI: '22001-0013', nombre: 'Los Ángeles',                codigoPostal: '76046' },
+    { claveINEGI: '22001-0014', nombre: 'Carretas',                   codigoPostal: '76050' },
+    { claveINEGI: '22001-0015', nombre: 'Tecnológico',                codigoPostal: '76148' },
+  ];
+
+  for (const c of colonias) {
+    await prisma.catalogoColoniaINEGI.upsert({
+      where: { claveINEGI: c.claveINEGI },
+      update: {},
+      create: { municipioId: mpio.id, claveINEGI: c.claveINEGI, nombre: c.nombre, codigoPostal: c.codigoPostal, activo: true },
+    });
+  }
+
+  // Colonias municipio El Marqués
+  const coloniasMarques = [
+    { claveINEGI: '22003-0001', nombre: 'Zibatá',         codigoPostal: '76269' },
+    { claveINEGI: '22003-0002', nombre: 'El Marqués Centro', codigoPostal: '76260' },
+  ];
+  for (const c of coloniasMarques) {
+    await prisma.catalogoColoniaINEGI.upsert({
+      where: { claveINEGI: c.claveINEGI },
+      update: {},
+      create: { municipioId: mpioMarques.id, claveINEGI: c.claveINEGI, nombre: c.nombre, codigoPostal: c.codigoPostal, activo: true },
+    });
+  }
+
+  console.log('INEGI Querétaro: 1 estado, 2 municipios, 3 localidades,', colonias.length + coloniasMarques.length, 'colonias');
+}
+
 main()
   .then(() => seedUser())
   .then(() => seedCatalogoTramites())
@@ -1061,6 +1147,7 @@ main()
   .then(() => seedCatalogosMedidor())
   .then(() => seedFormasPagoOficinas())
   .then(() => seedSectoresClasesVariables())
+  .then(() => seedInegiQueretaro())
   .catch((e) => {
     console.error(e);
     process.exit(1);
