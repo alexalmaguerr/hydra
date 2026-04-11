@@ -42,7 +42,7 @@ const Pagos = () => {
   );
   const activos = contratosVisibles.filter(c => c.estado === 'Activo');
   const contratoIdsVisibles = useMemo(() => new Set(contratosVisibles.map(c => c.id)), [contratosVisibles]);
-  const pagosVisibles = useMemo(() => pagos.filter(p => contratoIdsVisibles.has(p.contratoId)), [pagos, contratoIdsVisibles]);
+  const pagosVisibles = useMemo(() => useApi ? pagos : pagos.filter(p => contratoIdsVisibles.has(p.contratoId)), [pagos, contratoIdsVisibles, useApi]);
   const pagosNativosAplicados = useMemo(() =>
     pagosVisibles.filter(p => p.origen === 'nativo' || p.tipo === 'Link de pago'),
     [pagosVisibles]

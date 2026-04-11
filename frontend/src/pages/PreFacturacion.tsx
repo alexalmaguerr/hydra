@@ -53,12 +53,14 @@ const PreFacturacion = () => {
   const contratoIdsZona = useMemo(() => new Set(contratosEnZona.map(c => c.id)), [contratosEnZona]);
 
   const consumosConfirmados = useMemo(() =>
-    consumos.filter(c => c.confirmado && contratoIdsZona.has(c.contratoId) && !preFacturas.some(pf => pf.contratoId === c.contratoId && pf.periodo === c.periodo)),
-    [consumos, contratoIdsZona, preFacturas]
+    useApi
+      ? consumos.filter(c => c.confirmado && !preFacturas.some(pf => pf.contratoId === c.contratoId && pf.periodo === c.periodo))
+      : consumos.filter(c => c.confirmado && contratoIdsZona.has(c.contratoId) && !preFacturas.some(pf => pf.contratoId === c.contratoId && pf.periodo === c.periodo)),
+    [consumos, contratoIdsZona, preFacturas, useApi]
   );
   const preFacturasFiltradas = useMemo(() =>
-    preFacturas.filter(pf => contratoIdsZona.has(pf.contratoId)),
-    [preFacturas, contratoIdsZona]
+    useApi ? preFacturas : preFacturas.filter(pf => contratoIdsZona.has(pf.contratoId)),
+    [preFacturas, contratoIdsZona, useApi]
   );
 
   const porEtapa = useMemo(() => {

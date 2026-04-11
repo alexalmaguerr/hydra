@@ -43,9 +43,10 @@ const Lecturas = () => {
     if (!allowedZonaIds) return new Set(contratos.map(c => c.id));
     return new Set(contratos.filter(c => c.zonaId && allowedZonaIds.includes(c.zonaId)).map(c => c.id));
   }, [contratos, allowedZonaIds]);
+  // When using real API, backend already handles zone access; skip mock-contract filter
   const lecturasVisibles = useMemo(() =>
-    lecturas.filter(l => contratoIdsVisibles.has(l.contratoId)),
-    [lecturas, contratoIdsVisibles]
+    useApi ? lecturas : lecturas.filter(l => contratoIdsVisibles.has(l.contratoId)),
+    [lecturas, contratoIdsVisibles, useApi]
   );
 
   const [selectedRuta, setSelectedRuta] = useState('');
