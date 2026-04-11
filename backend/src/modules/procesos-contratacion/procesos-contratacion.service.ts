@@ -26,6 +26,17 @@ export class ProcesosContratacionService {
         include: {
           hitos: { orderBy: { createdAt: 'asc' } },
           plantilla: { select: { id: true, nombre: true, version: true } },
+          contrato: {
+            select: {
+              id: true,
+              nombre: true,
+              rfc: true,
+              estado: true,
+              tipoServicio: true,
+              direccion: true,
+              fecha: true,
+            },
+          },
         },
         orderBy: { createdAt: 'desc' },
         skip: (page - 1) * limit,
@@ -91,7 +102,15 @@ export class ProcesosContratacionService {
 
   /**
    * Avanza el proceso a la siguiente etapa.
-   * Al completar instalacion_toma, genera automáticamente la orden de instalación de medidor (req #5).
+   * Al avanzar, actualiza automáticamente contrato.estado según la etapa alcanzada
+   * y crea las órdenes de instalación necesarias (req PRD #5).
+   *
+   * Mapa etapa → contrato.estado:
+   *   factibilidad       → "En factibilidad"
+   *   contrato           → "Pendiente de firma"
+   *   instalacion_toma   → "Pendiente de toma"   + Orden InstalacionToma
+   *   instalacion_medidor→ "Pendiente de medidor" (orden ya existe o se crea si no)
+   *   alta               → "Activo"
    */
   async avanzarEtapa(id: string, dto: { nota?: string; usuario?: string; datosAdicionales?: object }) {
     const proceso = await this.findOne(id);
@@ -107,8 +126,19 @@ export class ProcesosContratacionService {
     const nuevaEtapa = ETAPAS_FLUJO[idxActual + 1];
     const esUltima = idxActual + 1 === ETAPAS_FLUJO.length - 1;
 
-    const [procesoActualizado] = await this.prisma.$transaction([
-      this.prisma.procesoContratacion.update({
+    // Mapa etapa alcanzada → estado del contrato
+    const estadoContratoMap: Record<string, string> = {
+      factibilidad:        'En factibilidad',
+      contrato:            'Pendiente de firma',
+      instalacion_toma:    'Pendiente de toma',
+      instalacion_medidor: 'Pendiente de medidor',
+      alta:                'Activo',
+    };
+    const nuevoEstadoContrato = estadoContratoMap[nuevaEtapa];
+
+    const procesoActualizado = await this.prisma.$transaction(async (tx) => {
+      // 1. Avanzar el proceso
+      const p = await tx.procesoContratacion.update({
         where: { id },
         data: {
           etapa: nuevaEtapa,
@@ -116,8 +146,10 @@ export class ProcesosContratacionService {
           fechaFin: esUltima ? new Date() : null,
           ...(dto.datosAdicionales && { datosAdicionales: dto.datosAdicionales }),
         },
-      }),
-      this.prisma.hitoContratacion.create({
+      });
+
+      // 2. Registrar hito
+      await tx.hitoContratacion.create({
         data: {
           procesoId: id,
           etapa: nuevaEtapa,
@@ -126,11 +158,56 @@ export class ProcesosContratacionService {
           usuario: dto.usuario ?? null,
           fechaCumpl: new Date(),
         },
-      }),
-    ]);
+      });
 
-    // La orden de medidor se genera al ejecutar en campo la InstalacionToma (OrdenesService),
-    // evitando duplicados si el proceso administrativo y las órdenes reales conviven.
+      // 3. Actualizar estado del contrato vinculado
+      if (proceso.contratoId && nuevoEstadoContrato) {
+        await tx.contrato.update({
+          where: { id: proceso.contratoId },
+          data: { estado: nuevoEstadoContrato },
+        });
+      }
+
+      // 4. Crear orden de InstalacionToma al entrar a esa etapa
+      if (nuevaEtapa === 'instalacion_toma' && proceso.contratoId) {
+        const existe = await tx.orden.findFirst({
+          where: { contratoId: proceso.contratoId, tipo: 'InstalacionToma', estado: { in: ['Pendiente', 'En proceso'] } },
+        });
+        if (!existe) {
+          await tx.orden.create({
+            data: {
+              contratoId: proceso.contratoId,
+              tipo: 'InstalacionToma',
+              prioridad: 'Normal',
+              notas: `Generada al avanzar proceso ${id} a instalacion_toma`,
+              origenAutomatico: true,
+              eventoOrigen: `proceso:${id}:instalacion_toma`,
+            },
+          });
+        }
+      }
+
+      // 5. Crear orden de InstalacionMedidor al entrar a esa etapa (si no existe ya)
+      if (nuevaEtapa === 'instalacion_medidor' && proceso.contratoId) {
+        const existe = await tx.orden.findFirst({
+          where: { contratoId: proceso.contratoId, tipo: 'InstalacionMedidor', estado: { in: ['Pendiente', 'En proceso'] } },
+        });
+        if (!existe) {
+          await tx.orden.create({
+            data: {
+              contratoId: proceso.contratoId,
+              tipo: 'InstalacionMedidor',
+              prioridad: 'Normal',
+              notas: `Generada al avanzar proceso ${id} a instalacion_medidor`,
+              origenAutomatico: true,
+              eventoOrigen: `proceso:${id}:instalacion_medidor`,
+            },
+          });
+        }
+      }
+
+      return p;
+    });
 
     return this.findOne(procesoActualizado.id);
   }
