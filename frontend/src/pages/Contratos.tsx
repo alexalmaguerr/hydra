@@ -24,6 +24,16 @@ import { Plus, Eye, ChevronRight, Hash, User, Droplets, FileText, SlidersHorizon
 import { PageHeader } from '@/components/PageHeader';
 import { KpiCard } from '@/components/KpiCard';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { useSearchParams } from 'react-router-dom';
@@ -146,6 +156,7 @@ const Contratos = () => {
   const { contratos: contextContratos, allowedZonaIds, timbrados, recibos, preFacturas, pagos } = useData();
 
   const [showWizard, setShowWizard] = useState(false);
+  const [confirmCloseWizard, setConfirmCloseWizard] = useState(false);
   const [detail, setDetail] = useState<string | null>(null);
   const [searchParams] = useSearchParams();
 
@@ -279,8 +290,14 @@ const Contratos = () => {
       </div>
 
       {/* Wizard de contratación (9 pasos) */}
-      <Dialog open={showWizard} onOpenChange={setShowWizard}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <Dialog
+        open={showWizard}
+        onOpenChange={(v) => { if (!v) setConfirmCloseWizard(true); }}
+      >
+        <DialogContent
+          className="max-w-3xl max-h-[90vh] overflow-y-auto"
+          onInteractOutside={(e) => e.preventDefault()}
+        >
           <DialogHeader>
             <DialogTitle>Alta de Contrato</DialogTitle>
             <DialogDescription>
@@ -289,10 +306,31 @@ const Contratos = () => {
           </DialogHeader>
           <WizardContratacion
             onComplete={() => setShowWizard(false)}
-            onCancel={() => setShowWizard(false)}
+            onCancel={() => setConfirmCloseWizard(true)}
           />
         </DialogContent>
       </Dialog>
+
+      {/* Confirmación al cerrar el wizard */}
+      <AlertDialog open={confirmCloseWizard} onOpenChange={setConfirmCloseWizard}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Cancelar el alta de contrato?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Se perderá todo el avance del formulario. Esta acción no se puede deshacer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Continuar capturando</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => { setConfirmCloseWizard(false); setShowWizard(false); }}
+            >
+              Sí, cancelar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Detail */}
       <Dialog open={!!detail} onOpenChange={() => setDetail(null)}>

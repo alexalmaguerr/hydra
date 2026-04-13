@@ -4,16 +4,36 @@ export interface PuntoServicioListItem {
   id: string;
   codigo: string;
   estado: string;
+  // Catálogos hardcoded (IDs numéricos)
+  administracion?: string | null;
+  tipoPuntoServicio?: string | null;
+  sectorHidraulicoId?: string | null;
+  calibreId?: string | null;
+  distritoId?: string | null;
+  zonaFacturacion?: string | null;
+  codigoRecorrido?: string | null;
+  libreta?: string | null;
+  claveCatastral?: string | null;
+  folioExpediente?: string | null;
+  estadoSuministro?: string | null;
+  fechaInstalacion?: string | null;
+  fechaCorte?: string | null;
+  coordenadaLat?: number | null;
+  coordenadaLon?: number | null;
+  cortePosible?: boolean;
+  noAccesible?: boolean;
+  deshabitado?: boolean;
+  posibilidadFraude?: boolean;
+  // Relaciones de BD
+  tipoSuministro?: { id: string; codigo: string; descripcion: string } | null;
+  estructuraTecnica?: { id: string; codigo: string; descripcion: string } | null;
+  tipoCorte?: { id: string; codigo: string; descripcion: string } | null;
   domicilio?: {
     id: string;
     calle: string | null;
     numExterior: string | null;
     codigoPostal: string | null;
   } | null;
-  tipoSuministro?: { id: string; codigo: string; descripcion: string } | null;
-  estructuraTecnica?: { id: string; codigo: string; descripcion: string } | null;
-  zonaFacturacion?: { id: string; codigo: string; descripcion: string } | null;
-  codigoRecorrido?: { id: string; codigo: string; descripcion: string } | null;
   tipoRelacionPadre?: {
     id: string;
     codigo: string;

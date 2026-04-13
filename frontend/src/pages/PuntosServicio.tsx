@@ -271,12 +271,9 @@ const INITIAL_FORM: FormState = {
   posibilidadFraude: false,
 };
 
-function formatDomicilio(
-  d: { calle: string | null; numExterior: string | null; codigoPostal: string | null } | null | undefined,
-): string {
-  if (!d) return '—';
-  const parts = [d.calle, d.numExterior, d.codigoPostal].filter(Boolean);
-  return parts.length ? parts.join(', ') : '—';
+function resolveById<T extends { id: string; nombre: string }>(list: T[], id: string | null | undefined): string {
+  if (!id) return '—';
+  return list.find((x) => x.id === String(id))?.nombre ?? id;
 }
 
 export default function PuntosServicio() {
@@ -398,25 +395,45 @@ export default function PuntosServicio() {
       ) : null}
 
       {!isLoading && !isError && rows.length > 0 ? (
-        <div className="rounded-md border">
+        <div className="rounded-md border overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Código</TableHead>
-                <TableHead>Estado</TableHead>
-                <TableHead>Domicilio</TableHead>
+                <TableHead>Administración</TableHead>
+                <TableHead>Estructura técnica</TableHead>
+                <TableHead>Sector hidráulico</TableHead>
+                <TableHead>Tipo de PS</TableHead>
                 <TableHead>Tipo suministro</TableHead>
+                <TableHead>Estado suministro</TableHead>
+                <TableHead>Calibre</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {rows.map((ps) => (
                 <TableRow key={ps.id}>
                   <TableCell className="font-mono font-medium">{ps.codigo}</TableCell>
-                  <TableCell>{ps.estado}</TableCell>
-                  <TableCell className="max-w-[240px] truncate text-muted-foreground">
-                    {formatDomicilio(ps.domicilio)}
+                  <TableCell className="text-sm">
+                    {resolveById(ADMINISTRACIONES, ps.administracion)}
                   </TableCell>
-                  <TableCell>{ps.tipoSuministro?.descripcion ?? '—'}</TableCell>
+                  <TableCell className="text-sm">
+                    {ps.estructuraTecnica?.descripcion ?? '—'}
+                  </TableCell>
+                  <TableCell className="text-sm">
+                    {resolveById(SECTORES_HIDRAULICOS, ps.sectorHidraulicoId)}
+                  </TableCell>
+                  <TableCell className="text-sm">
+                    {resolveById(TIPOS_PUNTO_SERVICIO, ps.tipoPuntoServicio)}
+                  </TableCell>
+                  <TableCell className="text-sm">
+                    {ps.tipoSuministro?.descripcion ?? '—'}
+                  </TableCell>
+                  <TableCell className="text-sm">
+                    {ps.estadoSuministro ?? '—'}
+                  </TableCell>
+                  <TableCell className="text-sm">
+                    {ps.calibreId ?? '—'}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
