@@ -5,12 +5,9 @@ import { ArrowLeft, Loader2, Plus, RefreshCw } from 'lucide-react';
 
 import {
   fetchCalibres,
-  fetchCodigosRecorrido,
   fetchEstructurasTecnicas,
-  fetchSectoresHidraulicos,
   fetchTiposCorte,
   fetchTiposSuministro,
-  fetchZonasFacturacion,
 } from '@/api/catalogos';
 import { createPuntoServicio, fetchPuntosServicio } from '@/api/puntos-servicio';
 import { PageHeader } from '@/components/PageHeader';
@@ -43,6 +40,8 @@ import {
   TableRow,
 } from '@/components/ui/table';
 
+// ── Catálogos hardcodeados ────────────────────────────────────────────────────
+
 const ADMINISTRACIONES = [
   { id: '1', nombre: 'QUERÉTARO' },
   { id: '2', nombre: 'SANTA ROSA JÁUREGUI' },
@@ -59,13 +58,133 @@ const ADMINISTRACIONES = [
   { id: '13', nombre: 'PINAL DE AMOLES-PEÑAMILLER' },
 ];
 
-const ESTADOS_SUMINISTRO = [
-  'Sin contrato',
-  'Con servicio',
-  'Cortado por deuda',
-  'Cortado baja temporal',
+const SECTORES_HIDRAULICOS = [
+  { id: '161', nombre: 'S.H - 001  LAS ROSAS' },
+  { id: '162', nombre: 'S.H - 002 LOS MOLINOS' },
+  { id: '163', nombre: 'S.H - 003 TECNOLOGICO - EL PORVENIR' },
+  { id: '164', nombre: 'S.H - 004 CERRITO - LA ESPAÑA' },
+  { id: '165', nombre: 'S.H - 005 SAN PABLO TECNOLOGICO' },
+  { id: '166', nombre: 'S.H - 006 ALAMOS' },
+  { id: '167', nombre: 'S.H - 007 BALCONES' },
+  { id: '168', nombre: 'S.H - 008 ARBOLEDAS GAMITOS' },
+  { id: '169', nombre: 'S.H - 009 JARDINES DEL PARQUE' },
+  { id: '170', nombre: 'S.H - 010 MENCHACA' },
+  { id: '171', nombre: 'S.H - 011 PEÑUELAS' },
+  { id: '172', nombre: 'S.H - 012 SAN PABLO P/A' },
+  { id: '173', nombre: 'S.H - 013 SAN PABLO P/B' },
+  { id: '174', nombre: 'S.H - 015 VIRREYES - ENSUEÑO' },
+  { id: '175', nombre: 'S.H - 016 LAS CAMPANAS - CENTRO' },
+  { id: '176', nombre: 'S.H - 017 CENTRO' },
+  { id: '177', nombre: 'S.H - 018 LA CRUZ P/B' },
+  { id: '178', nombre: 'S.H - 019 CALESA' },
+  { id: '179', nombre: 'S.H - 020 HERCULES' },
+  { id: '180', nombre: 'S.H - 021 EL CARRIZAL' },
+  { id: '181', nombre: 'S.H - 022 LA CRUZ P/A' },
+  { id: '182', nombre: 'S.H - 023 CARRETAS' },
+  { id: '183', nombre: 'S.H - 024 LOMA DORADA P/B' },
+  { id: '184', nombre: 'S.H - 025 MILENIO III FASE B P/A' },
+  { id: '185', nombre: 'S.H - 026 CASABLANCA - CIMATARIO I' },
+  { id: '186', nombre: 'S.H - 027 CIMATARIO - LA ESTRELLA' },
+  { id: '187', nombre: 'S.H - 028 ALAMEDAS - VILLAS DEL SOL' },
+  { id: '188', nombre: 'S.H - 029 MARQUES INFONAVIT' },
+  { id: '189', nombre: 'S.H - 030 CENTRO EXPOSITOR' },
+  { id: '190', nombre: 'S.H - 031 VISTA ALEGRE' },
+  { id: '191', nombre: 'S.H - 032 LA ALHAMBRA' },
+  { id: '192', nombre: 'S.H - 033 LAZARO CARDENAS' },
+  { id: '193', nombre: 'S.H - 034 COLINAS DEL CIMATARIO II' },
+  { id: '194', nombre: 'S.H - 035 LOMA DORADA P/A' },
+  { id: '195', nombre: 'S.H - 036 VISTA HERMOSA' },
+  { id: '196', nombre: 'S.H - 037 MILENIO III FASE A' },
+  { id: '197', nombre: 'S.H - 038 UNIDAD NACIONAL-VILLAS DE SANTIAGO NORTE' },
+  { id: '198', nombre: 'S.H - 039 VILLAS DE SANTIAGO SUR' },
+  { id: '199', nombre: 'S.H - 041 VERGEL - SAN PEDRITO LOS ARCOS' },
+  { id: '200', nombre: 'S.H - 042 LOMAS DE SAN PEDRITO I' },
+  { id: '201', nombre: 'S.H - 043 LOMAS DE SAN PEDRITO II' },
+  { id: '202', nombre: 'S.H - 044 LOMAS DE SAN PEDRITO III' },
+  { id: '203', nombre: 'S.H - 045 VALLE DE SAN PEDRITO' },
+  { id: '204', nombre: 'S.H - 046 MENCHACA II P/B' },
+  { id: '205', nombre: 'S.H - 047 SAN PEDRITO IV' },
+  { id: '206', nombre: 'S.H - 048 MENCHACA II P/A' },
+  { id: '207', nombre: 'S.H - 049 RENACIMIENTO' },
+  { id: '208', nombre: 'S.H - 050 PREPA NORTE' },
+  { id: '209', nombre: 'S.H - 051 LAS AMERICAS' },
+  { id: '210', nombre: 'S.H - 052 BOLAÑOS I' },
+  { id: '211', nombre: 'S.H - 053 BOLAÑOS II' },
+  { id: '212', nombre: 'S.H - 054 COLINAS DEL PARQUE' },
+  { id: '213', nombre: 'S.H - 055 LOMAS DEL MARQUES' },
+  { id: '214', nombre: 'S.H - 056 PEDREGAL' },
+  { id: '215', nombre: 'S.H - 057 RANCHO SAN ANTONIO' },
+  { id: '216', nombre: 'S.H - 058 JURICA CAPILLA' },
+  { id: '217', nombre: 'S.H - 059 JURICA MEZQUITE I' },
+  { id: '218', nombre: 'S.H - 060 JURICA MEZQUITE II' },
+  { id: '219', nombre: 'S.H - 061 LOMA BONITA II' },
+  { id: '220', nombre: 'S.H - 062 LOMA BONITA I' },
+  { id: '221', nombre: 'S.H - 063 CERRITO COLORADO II' },
+  { id: '222', nombre: 'S.H - 064 LA LOMA' },
+  { id: '223', nombre: 'S.H - 065 AZUCENAS' },
+  { id: '224', nombre: 'S.H - 066 CERRITO COLORADO I' },
+  { id: '225', nombre: 'S.H - 067 SATELITE' },
+  { id: '226', nombre: 'S.H - 068 PARQUE INDUSTRIAL BENITO JUAREZ' },
+  { id: '227', nombre: 'S.H - 069 SAUCES - INSURGENTES' },
+  { id: '228', nombre: 'S.H - 070 LA ESMERALDA' },
+  { id: '229', nombre: 'S.H - 071 EL ROCIO - EL SOL' },
+  { id: '230', nombre: 'S.H - 072 EL TINTERO' },
+  { id: '231', nombre: 'S.H - 073 CARRILLO' },
+  { id: '232', nombre: 'S.H - 074 LA OBRERA' },
+  { id: '233', nombre: 'S.H - 075 SANTA MONICA' },
+  { id: '234', nombre: 'S.H - 076 CARRILLO PUERTO II' },
+  { id: '235', nombre: 'S.H - 077 GENERAL ARTEAGA' },
+  { id: '236', nombre: 'S.H - 078 SANTA MARIA MAGDALENA' },
+  { id: '237', nombre: 'S.H - 079 LAS TERESAS' },
+  { id: '238', nombre: 'S.H - 080 LOMAS DE CASABLANCA P/B' },
+  { id: '239', nombre: 'S.H - 081 LOMAS DE CASABLANCA P/A' },
+  { id: '240', nombre: 'S.H - 082 REFORMA AGRARIA P/A' },
+  { id: '241', nombre: 'S.H - 083 REFORMA AGRARIA P/B' },
+  { id: '242', nombre: 'S.H - 084 LA JOYA' },
+  { id: '243', nombre: 'S.H - 085 JARDINES DE LA HACIENDA' },
+  { id: '244', nombre: 'S.H - 086 EL POCITO' },
+  { id: '245', nombre: 'S.H - 087 FORTIN BATAN' },
+  { id: '246', nombre: 'S.H - 088 CANDILES' },
+  { id: '247', nombre: 'S.H - 089 SAN CARLOS' },
+  { id: '248', nombre: 'S.H - 090 FRANCISCO VILLA' },
+  { id: '249', nombre: 'S.H - 091 TEJEDA III' },
+  { id: '250', nombre: 'S.H - 092 TEJEDA I' },
+  { id: '251', nombre: 'S.H - 093 TEJEDA II' },
+  { id: '252', nombre: 'S.H - 094 PUEBLO NUEVO' },
+  { id: '253', nombre: 'S.H - 096 COLINAS DEL SUR - CUMBRES DEL ROBLE' },
+  { id: '254', nombre: 'S.H - 097 CUMBRES DEL CIMATARIO' },
+  { id: '255', nombre: 'S.H - 098 RINCONADA - LOMAS DEL CIMATARIO' },
+  { id: '256', nombre: 'S.H - 099 PRADOS DEL CIMATARIO - PRADERAS DEL SOL' },
+  { id: '257', nombre: 'S.H - 100 TAQ - CENTRO SUR' },
+  { id: '258', nombre: 'S.H - 101 CUESTA BONITA - SANTA FE' },
+  { id: '259', nombre: 'S.H - 102 MILENIO III FASE B P/B' },
+  { id: '260', nombre: 'S.H - 103 LA CAÑADA SUR' },
+  { id: '261', nombre: 'S.H - 104 2 ABRIL' },
+  { id: '262', nombre: 'S.H - 105 CAMPESTRE ITALIANA' },
+  { id: '263', nombre: 'S.H - 106 CENTRO SUR' },
+  { id: '264', nombre: 'S.H - 107 MILENIO III FASE B P/M' },
+  { id: '265', nombre: 'S.H - 108 LA CAÑADA NORTE' },
+  { id: '266', nombre: 'S.H - 109 LOS ROBLES - JARDINES DE LA ALBORADA' },
+  { id: '267', nombre: 'S.H - 110 VALLE DE SAN PABLO' },
+  { id: '268', nombre: 'S.H - Sin Sector Hid.' },
+  { id: '15546', nombre: 'S.H - 000 SIN SECTOR' },
+  { id: '269', nombre: 'S.H - 014 JURICA PUEBLO' },
+  { id: '270', nombre: 'S.H - 040 SAN JOSE EL ALTO' },
+  { id: '271', nombre: 'S.H - Sin Sector Hid.' },
+  { id: '272', nombre: 'S.H - 095 SAN JOSE DE LOS OLVERA' },
+  { id: '273', nombre: 'S.H - Sin Sector Hid.' },
+  { id: '274', nombre: 'S.H - Sin Sector Hid.' },
+  { id: '275', nombre: 'S.H - Sin Sector Hid.' },
+  { id: '276', nombre: 'S.H - Sin Sector Hid.' },
+  { id: '277', nombre: 'S.H - Sin Sector Hid.' },
+  { id: '278', nombre: 'S.H - Sin Sector Hid.' },
+  { id: '279', nombre: 'S.H - Sin Sector Hid.' },
+  { id: '280', nombre: 'S.H - Sin Sector Hid.' },
+  { id: '281', nombre: 'S.H - 01 CHUVEJE-MANANTIAL' },
+  { id: '282', nombre: 'S.H - Sin Sector Hid.' },
+  { id: '283', nombre: 'S.H - Sin Sector' },
+  { id: '284', nombre: 'S.H - Sin Sector Hid.' },
 ];
-
 
 const DISTRITOS = [
   { id: '1', nombre: '01-DISTRITO NORORIENTE' },
@@ -91,6 +210,15 @@ const TIPOS_PUNTO_SERVICIO = [
   { id: '14', nombre: 'DOMÉSTICO CABECERA MEDIA' },
 ];
 
+const ESTADOS_SUMINISTRO = [
+  'Sin contrato',
+  'Con servicio',
+  'Cortado por deuda',
+  'Cortado baja temporal',
+];
+
+// ── Form state ────────────────────────────────────────────────────────────────
+
 interface FormState {
   codigo: string;
   claveCatastral: string;
@@ -101,9 +229,9 @@ interface FormState {
   calibreId: string;
   tipoPuntoServicio: string;
   tipoSuministroId: string;
-  zonaFacturacionId: string;
+  zonaFacturacion: string;
   distritoId: string;
-  codigoRecorridoId: string;
+  codigoRecorrido: string;
   tipoCorteId: string;
   estadoSuministro: string;
   fechaInstalacion: string;
@@ -127,9 +255,9 @@ const INITIAL_FORM: FormState = {
   calibreId: '',
   tipoPuntoServicio: '',
   tipoSuministroId: '',
-  zonaFacturacionId: '',
+  zonaFacturacion: '',
   distritoId: '',
-  codigoRecorridoId: '',
+  codigoRecorrido: '',
   tipoCorteId: '',
   estadoSuministro: '',
   fechaInstalacion: '',
@@ -161,15 +289,6 @@ export default function PuntosServicio() {
     (val: string | boolean) =>
       setForm((prev) => ({ ...prev, [field]: val }));
 
-  const onAdminChange = (adminId: string) => {
-    setForm((prev) => ({
-      ...prev,
-      administracion: adminId,
-      // Reset sector si ya no pertenece a la nueva administración
-      sectorHidraulicoId: '',
-    }));
-  };
-
   const closeDialog = () => {
     setOpen(false);
     setForm(INITIAL_FORM);
@@ -184,10 +303,6 @@ export default function PuntosServicio() {
     queryKey: ['estructuras-tecnicas'],
     queryFn: fetchEstructurasTecnicas,
   });
-  const { data: sectores = [] } = useQuery({
-    queryKey: ['sectores-hidraulicos'],
-    queryFn: fetchSectoresHidraulicos,
-  });
   const { data: calibres = [] } = useQuery({
     queryKey: ['calibres'],
     queryFn: fetchCalibres,
@@ -197,23 +312,10 @@ export default function PuntosServicio() {
     queryFn: fetchTiposSuministro,
   });
   const tiposSuministro = tiposSuministroRaw.filter((t) => t.codigo !== 'MIXTO');
-
-  const { data: zonas = [] } = useQuery({
-    queryKey: ['zonas-facturacion'],
-    queryFn: fetchZonasFacturacion,
-  });
-  const { data: recorridos = [] } = useQuery({
-    queryKey: ['codigos-recorrido'],
-    queryFn: fetchCodigosRecorrido,
-  });
   const { data: tiposCorte = [] } = useQuery({
     queryKey: ['tipos-corte'],
     queryFn: fetchTiposCorte,
   });
-
-  const sectoresFiltrados = form.administracion
-    ? sectores.filter((s) => s.administracionId === form.administracion)
-    : sectores;
 
   const rows = data?.data ?? [];
 
@@ -227,9 +329,6 @@ export default function PuntosServicio() {
         sectorHidraulicoId: form.sectorHidraulicoId || undefined,
         calibreId: form.calibreId || undefined,
         tipoSuministroId: form.tipoSuministroId || undefined,
-        zonaFacturacionId: form.zonaFacturacionId || undefined,
-        distritoId: form.distritoId || undefined,
-        codigoRecorridoId: form.codigoRecorridoId || undefined,
         tipoCorteId: form.tipoCorteId || undefined,
         estadoSuministro: form.estadoSuministro || undefined,
         fechaInstalacion: form.fechaInstalacion || undefined,
@@ -239,6 +338,7 @@ export default function PuntosServicio() {
         libreta: form.libreta || undefined,
         claveCatastral: form.claveCatastral || undefined,
         folioExpediente: form.folioExpediente || undefined,
+        distritoId: form.distritoId || undefined,
         cortePosible: form.cortePosible,
         noAccesible: form.noAccesible,
         deshabitado: form.deshabitado,
@@ -385,7 +485,7 @@ export default function PuntosServicio() {
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="space-y-1">
                   <Label>Administración</Label>
-                  <Select value={form.administracion} onValueChange={onAdminChange}>
+                  <Select value={form.administracion} onValueChange={set('administracion')}>
                     <SelectTrigger>
                       <SelectValue placeholder="Seleccionar administración" />
                     </SelectTrigger>
@@ -458,31 +558,26 @@ export default function PuntosServicio() {
                   <Label>Sector hidráulico</Label>
                   <Select value={form.sectorHidraulicoId} onValueChange={set('sectorHidraulicoId')}>
                     <SelectTrigger>
-                      <SelectValue placeholder={form.administracion ? 'Seleccionar sector' : 'Seleccione administración primero'} />
+                      <SelectValue placeholder="Seleccionar sector" />
                     </SelectTrigger>
                     <SelectContent>
-                      {sectoresFiltrados.map((s) => (
+                      {SECTORES_HIDRAULICOS.map((s) => (
                         <SelectItem key={s.id} value={s.id}>
-                          {s.codigo} – {s.nombre}
+                          {s.id} – {s.nombre}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-1">
-                  <Label>Zona de facturación</Label>
-                  <Select value={form.zonaFacturacionId} onValueChange={set('zonaFacturacionId')}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Seleccionar zona" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {zonas.map((z) => (
-                        <SelectItem key={z.id} value={z.id}>
-                          {z.codigo} – {z.descripcion}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Label htmlFor="ps-zona">Zona de facturación</Label>
+                  <Input
+                    id="ps-zona"
+                    value={form.zonaFacturacion}
+                    onChange={(e) => set('zonaFacturacion')(e.target.value)}
+                    placeholder="Zona de facturación"
+                    autoComplete="off"
+                  />
                 </div>
                 <div className="space-y-1">
                   <Label htmlFor="ps-lat">Latitud</Label>
@@ -533,19 +628,14 @@ export default function PuntosServicio() {
                   </Select>
                 </div>
                 <div className="space-y-1">
-                  <Label>Código de recorrido</Label>
-                  <Select value={form.codigoRecorridoId} onValueChange={set('codigoRecorridoId')}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Seleccionar recorrido" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {recorridos.map((r) => (
-                        <SelectItem key={r.id} value={r.id}>
-                          {r.codigo} – {r.descripcion}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Label htmlFor="ps-recorrido">Código de recorrido</Label>
+                  <Input
+                    id="ps-recorrido"
+                    value={form.codigoRecorrido}
+                    onChange={(e) => set('codigoRecorrido')(e.target.value)}
+                    placeholder="Código de recorrido"
+                    autoComplete="off"
+                  />
                 </div>
                 <div className="space-y-1">
                   <Label htmlFor="ps-libreta">Libreta</Label>
