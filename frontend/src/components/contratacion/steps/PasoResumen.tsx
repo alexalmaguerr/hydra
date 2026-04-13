@@ -98,12 +98,20 @@ export default function PasoResumen({ data, config }: StepProps) {
             </h4>
             <dl className="grid gap-2 text-sm sm:grid-cols-2">
               <div>
-                <dt className="text-muted-foreground">Nombre</dt>
-                <dd>{prop?.nombre?.trim() || '—'}</dd>
+                <dt className="text-muted-foreground">Nombre completo</dt>
+                <dd>{[prop?.paterno, prop?.materno, prop?.nombre].filter(Boolean).join(' ') || '—'}</dd>
               </div>
               <div>
                 <dt className="text-muted-foreground">RFC</dt>
                 <dd className="font-mono text-xs">{prop?.rfc?.trim() || '—'}</dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">Tipo de persona</dt>
+                <dd className="capitalize">{prop?.tipoPersona || '—'}</dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">Correo</dt>
+                <dd>{prop?.email?.trim() || '—'}</dd>
               </div>
             </dl>
           </div>
@@ -114,7 +122,7 @@ export default function PasoResumen({ data, config }: StepProps) {
             <dl className="grid gap-2 text-sm sm:grid-cols-2">
               <div>
                 <dt className="text-muted-foreground">Nombre / razón social</dt>
-                <dd>{fiscal?.nombre?.trim() || fiscal?.razonSocial?.trim() || '—'}</dd>
+                <dd>{[fiscal?.paterno, fiscal?.materno, fiscal?.nombre].filter(Boolean).join(' ') || fiscal?.razonSocial?.trim() || '—'}</dd>
               </div>
               <div>
                 <dt className="text-muted-foreground">RFC</dt>

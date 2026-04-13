@@ -26,12 +26,16 @@ export const WIZARD_STEPS: { key: WizardStep; label: string }[] = [
 
 export interface PersonaWizard {
   personaId?: string;
+  tipoPersona?: 'fisica' | 'moral' | '';
+  paterno?: string;
+  materno?: string;
   nombre?: string;
-  rfc?: string;
-  curp?: string;
-  email?: string;
-  telefono?: string;
   razonSocial?: string;
+  documentoIdentificacion?: string;
+  rfc?: string;
+  telefonos?: string;
+  email?: string;
+  usoCfdi?: string;
   regimenFiscal?: string;
 }
 
@@ -73,11 +77,11 @@ function stepIndex(step: WizardStep | number): number {
 }
 
 function hasPropietarioBasico(p?: PersonaWizard): boolean {
-  return !!(p?.nombre?.trim() || p?.personaId);
+  return !!(p?.personaId || (p?.nombre?.trim() && p?.rfc?.trim()));
 }
 
 function hasPersonaFiscalBasico(f?: PersonaWizard): boolean {
-  return !!(f?.nombre?.trim() || f?.rfc?.trim() || f?.personaId);
+  return !!(f?.personaId || (f?.nombre?.trim() && f?.rfc?.trim()));
 }
 
 function computeCanGoNext(step: number, data: WizardData): boolean {

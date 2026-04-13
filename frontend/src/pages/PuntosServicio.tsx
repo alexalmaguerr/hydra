@@ -1,7 +1,7 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Loader2, Plus, RefreshCw } from 'lucide-react';
+import { Loader2, Plus, RefreshCw, Trash2 } from 'lucide-react';
 
 import {
   fetchCalibres,
@@ -9,7 +9,17 @@ import {
   fetchTiposCorte,
   fetchTiposSuministro,
 } from '@/api/catalogos';
-import { createPuntoServicio, fetchPuntosServicio } from '@/api/puntos-servicio';
+import { createPuntoServicio, darBajaPuntoServicio, fetchPuntosServicio } from '@/api/puntos-servicio';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { PageHeader } from '@/components/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -243,6 +253,7 @@ interface FormState {
   noAccesible: boolean;
   deshabitado: boolean;
   posibilidadFraude: boolean;
+  ningunIndicador: boolean;
 }
 
 const INITIAL_FORM: FormState = {
@@ -269,7 +280,18 @@ const INITIAL_FORM: FormState = {
   noAccesible: false,
   deshabitado: false,
   posibilidadFraude: false,
+  ningunIndicador: false,
 };
+
+const REQUIRED_FIELDS: (keyof FormState)[] = [
+  'codigo',
+  'administracion',
+  'estructuraTecnicaId',
+  'sectorHidraulicoId',
+  'tipoPuntoServicio',
+  'tipoSuministroId',
+  'estadoSuministro',
+];
 
 function resolveById<T extends { id: string; nombre: string }>(list: T[], id: string | null | undefined): string {
   if (!id) return '—';
@@ -278,18 +300,51 @@ function resolveById<T extends { id: string; nombre: string }>(list: T[], id: st
 
 export default function PuntosServicio() {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [open, setOpen] = useState(false);
+  const [confirmCloseCreate, setConfirmCloseCreate] = useState(false);
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
+
+  useEffect(() => {
+    if (searchParams.get('new') === '1') {
+      setOpen(true);
+      navigate('/app/puntos-servicio', { replace: true });
+    }
+  }, [searchParams, navigate]);
+
+  const [submitted, setSubmitted] = useState(false);
 
   const set =
     (field: keyof FormState) =>
     (val: string | boolean) =>
       setForm((prev) => ({ ...prev, [field]: val }));
 
+  // Returns true if the field is required AND empty (after submit attempt)
+  const err = (field: keyof FormState) =>
+    submitted && REQUIRED_FIELDS.includes(field) && !String(form[field]).trim();
+
+  const isFormValid = REQUIRED_FIELDS.every((f) => String(form[f]).trim());
+
+  const handleNingunIndicador = (checked: boolean) => {
+    setForm((prev) => ({
+      ...prev,
+      ningunIndicador: checked,
+      ...(checked ? { cortePosible: false, noAccesible: false, deshabitado: false, posibilidadFraude: false } : {}),
+    }));
+  };
+
+  const handleIndicador = (field: 'cortePosible' | 'noAccesible' | 'deshabitado' | 'posibilidadFraude') =>
+    (checked: boolean) =>
+      setForm((prev) => ({ ...prev, [field]: checked, ningunIndicador: false }));
+
   const closeDialog = () => {
     setOpen(false);
     setForm(INITIAL_FORM);
+    setSubmitted(false);
   };
+
+  const [confirmBaja, setConfirmBaja] = useState<{ id: string; codigo: string } | null>(null);
 
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
     queryKey: ['puntos-servicio', 'catalogo'],
@@ -312,6 +367,22 @@ export default function PuntosServicio() {
   const { data: tiposCorte = [] } = useQuery({
     queryKey: ['tipos-corte'],
     queryFn: fetchTiposCorte,
+  });
+
+  const bajaMut = useMutation({
+    mutationFn: (id: string) => darBajaPuntoServicio(id),
+    onSuccess: async (_, id) => {
+      await queryClient.invalidateQueries({ queryKey: ['puntos-servicio'] });
+      toast.success('Punto de servicio dado de baja', {
+        description: `El registro fue marcado como Inactivo.`,
+      });
+      setConfirmBaja(null);
+    },
+    onError: (err: unknown) => {
+      const msg = err instanceof Error ? err.message : 'No se pudo dar de baja.';
+      toast.error('Error', { description: msg });
+      setConfirmBaja(null);
+    },
   });
 
   const rows = data?.data ?? [];
@@ -407,6 +478,7 @@ export default function PuntosServicio() {
                 <TableHead>Tipo suministro</TableHead>
                 <TableHead>Estado suministro</TableHead>
                 <TableHead>Calibre</TableHead>
+                <TableHead className="w-10" />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -434,6 +506,17 @@ export default function PuntosServicio() {
                   <TableCell className="text-sm">
                     {ps.calibreId ?? '—'}
                   </TableCell>
+                  <TableCell>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                      onClick={() => setConfirmBaja({ id: ps.id, codigo: ps.codigo })}
+                      title="Dar de baja"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -442,8 +525,11 @@ export default function PuntosServicio() {
       ) : null}
 
       {/* ── Modal ── */}
-      <Dialog open={open} onOpenChange={(v) => { if (!v) closeDialog(); else setOpen(true); }}>
-        <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
+      <Dialog open={open} onOpenChange={(v) => { if (!v) setConfirmCloseCreate(true); else setOpen(true); }}>
+        <DialogContent
+          className="sm:max-w-3xl max-h-[90vh] overflow-y-auto"
+          onInteractOutside={(e) => { e.preventDefault(); setConfirmCloseCreate(true); }}
+        >
           <DialogHeader>
             <DialogTitle>Nuevo punto de servicio</DialogTitle>
           </DialogHeader>
@@ -457,7 +543,7 @@ export default function PuntosServicio() {
               </p>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <div className="space-y-1">
-                  <Label htmlFor="ps-codigo">
+                  <Label htmlFor="ps-codigo" className={err('codigo') ? 'text-destructive' : ''}>
                     Código <span className="text-destructive">*</span>
                   </Label>
                   <Input
@@ -465,9 +551,10 @@ export default function PuntosServicio() {
                     value={form.codigo}
                     onChange={(e) => set('codigo')(e.target.value)}
                     placeholder="Ej: PS-10001"
-                    className="font-mono"
+                    className={`font-mono ${err('codigo') ? 'border-destructive' : ''}`}
                     autoComplete="off"
                   />
+                  {err('codigo') && <p className="text-xs text-destructive">Obligatorio</p>}
                 </div>
                 <div className="space-y-1">
                   <Label htmlFor="ps-catastral">Clave catastral</Label>
@@ -501,9 +588,11 @@ export default function PuntosServicio() {
               </p>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="space-y-1">
-                  <Label>Administración</Label>
+                  <Label className={err('administracion') ? 'text-destructive' : ''}>
+                    Administración <span className="text-destructive">*</span>
+                  </Label>
                   <Select value={form.administracion} onValueChange={set('administracion')}>
-                    <SelectTrigger>
+                    <SelectTrigger className={err('administracion') ? 'border-destructive' : ''}>
                       <SelectValue placeholder="Seleccionar administración" />
                     </SelectTrigger>
                     <SelectContent>
@@ -516,9 +605,11 @@ export default function PuntosServicio() {
                   </Select>
                 </div>
                 <div className="space-y-1">
-                  <Label>Tipo de estructura técnica</Label>
+                  <Label className={err('estructuraTecnicaId') ? 'text-destructive' : ''}>
+                    Tipo de estructura técnica <span className="text-destructive">*</span>
+                  </Label>
                   <Select value={form.estructuraTecnicaId} onValueChange={set('estructuraTecnicaId')}>
-                    <SelectTrigger>
+                    <SelectTrigger className={err('estructuraTecnicaId') ? 'border-destructive' : ''}>
                       <SelectValue placeholder="Seleccionar estructura" />
                     </SelectTrigger>
                     <SelectContent>
@@ -531,9 +622,11 @@ export default function PuntosServicio() {
                   </Select>
                 </div>
                 <div className="space-y-1">
-                  <Label>Tipo de suministro</Label>
+                  <Label className={err('tipoSuministroId') ? 'text-destructive' : ''}>
+                    Tipo de suministro <span className="text-destructive">*</span>
+                  </Label>
                   <Select value={form.tipoSuministroId} onValueChange={set('tipoSuministroId')}>
-                    <SelectTrigger>
+                    <SelectTrigger className={err('tipoSuministroId') ? 'border-destructive' : ''}>
                       <SelectValue placeholder="Seleccionar tipo" />
                     </SelectTrigger>
                     <SelectContent>
@@ -546,9 +639,11 @@ export default function PuntosServicio() {
                   </Select>
                 </div>
                 <div className="space-y-1">
-                  <Label>Tipo de punto de servicio</Label>
+                  <Label className={err('tipoPuntoServicio') ? 'text-destructive' : ''}>
+                    Tipo de punto de servicio <span className="text-destructive">*</span>
+                  </Label>
                   <Select value={form.tipoPuntoServicio} onValueChange={set('tipoPuntoServicio')}>
-                    <SelectTrigger>
+                    <SelectTrigger className={err('tipoPuntoServicio') ? 'border-destructive' : ''}>
                       <SelectValue placeholder="Seleccionar tipo" />
                     </SelectTrigger>
                     <SelectContent>
@@ -572,9 +667,11 @@ export default function PuntosServicio() {
               </p>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="space-y-1">
-                  <Label>Sector hidráulico</Label>
+                  <Label className={err('sectorHidraulicoId') ? 'text-destructive' : ''}>
+                    Sector hidráulico <span className="text-destructive">*</span>
+                  </Label>
                   <Select value={form.sectorHidraulicoId} onValueChange={set('sectorHidraulicoId')}>
-                    <SelectTrigger>
+                    <SelectTrigger className={err('sectorHidraulicoId') ? 'border-destructive' : ''}>
                       <SelectValue placeholder="Seleccionar sector" />
                     </SelectTrigger>
                     <SelectContent>
@@ -691,9 +788,11 @@ export default function PuntosServicio() {
               </p>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="space-y-1 sm:col-span-2">
-                  <Label>Estado del suministro</Label>
+                  <Label className={err('estadoSuministro') ? 'text-destructive' : ''}>
+                    Estado del suministro <span className="text-destructive">*</span>
+                  </Label>
                   <Select value={form.estadoSuministro} onValueChange={set('estadoSuministro')}>
-                    <SelectTrigger>
+                    <SelectTrigger className={err('estadoSuministro') ? 'border-destructive' : ''}>
                       <SelectValue placeholder="Seleccionar estado" />
                     </SelectTrigger>
                     <SelectContent>
@@ -759,47 +858,57 @@ export default function PuntosServicio() {
               <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Indicadores
               </p>
-              <div className="grid grid-cols-2 gap-y-3 sm:grid-cols-4">
+              <div className="grid grid-cols-2 gap-y-3 sm:grid-cols-3">
                 <label className="flex cursor-pointer items-center gap-2">
                   <Checkbox
                     checked={form.cortePosible}
-                    onCheckedChange={(v) => set('cortePosible')(!!v)}
+                    onCheckedChange={(v) => handleIndicador('cortePosible')(!!v)}
                   />
                   <span className="text-sm">Corte posible</span>
                 </label>
                 <label className="flex cursor-pointer items-center gap-2">
                   <Checkbox
                     checked={form.noAccesible}
-                    onCheckedChange={(v) => set('noAccesible')(!!v)}
+                    onCheckedChange={(v) => handleIndicador('noAccesible')(!!v)}
                   />
                   <span className="text-sm">No accesible</span>
                 </label>
                 <label className="flex cursor-pointer items-center gap-2">
                   <Checkbox
                     checked={form.deshabitado}
-                    onCheckedChange={(v) => set('deshabitado')(!!v)}
+                    onCheckedChange={(v) => handleIndicador('deshabitado')(!!v)}
                   />
                   <span className="text-sm">Deshabitado</span>
                 </label>
                 <label className="flex cursor-pointer items-center gap-2">
                   <Checkbox
                     checked={form.posibilidadFraude}
-                    onCheckedChange={(v) => set('posibilidadFraude')(!!v)}
+                    onCheckedChange={(v) => handleIndicador('posibilidadFraude')(!!v)}
                   />
                   <span className="text-sm">Posibilidad de fraude</span>
+                </label>
+                <label className="flex cursor-pointer items-center gap-2">
+                  <Checkbox
+                    checked={form.ningunIndicador}
+                    onCheckedChange={(v) => handleNingunIndicador(!!v)}
+                  />
+                  <span className="text-sm text-muted-foreground">Ninguno</span>
                 </label>
               </div>
             </section>
           </div>
 
           <DialogFooter className="gap-2 sm:gap-0">
-            <Button type="button" variant="outline" onClick={closeDialog}>
+            <Button type="button" variant="outline" onClick={() => setConfirmCloseCreate(true)}>
               Cancelar
             </Button>
             <Button
               type="button"
-              disabled={!form.codigo.trim() || createMut.isPending}
-              onClick={() => createMut.mutate()}
+              disabled={createMut.isPending}
+              onClick={() => {
+                setSubmitted(true);
+                if (isFormValid) createMut.mutate();
+              }}
             >
               {createMut.isPending ? (
                 <>
@@ -814,14 +923,49 @@ export default function PuntosServicio() {
         </DialogContent>
       </Dialog>
 
-      <div>
-        <Button variant="ghost" size="sm" asChild>
-          <Link to="/app/contratos">
-            <ArrowLeft className="mr-1 h-4 w-4" />
-            Volver a contratos
-          </Link>
-        </Button>
-      </div>
+      {/* Confirmación cerrar modal de creación */}
+      <AlertDialog open={confirmCloseCreate} onOpenChange={setConfirmCloseCreate}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Cancelar el registro?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Se perderán todos los datos capturados. Esta acción no se puede deshacer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Continuar capturando</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => { setConfirmCloseCreate(false); closeDialog(); }}
+            >
+              Sí, cancelar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirmación dar de baja */}
+      <AlertDialog open={!!confirmBaja} onOpenChange={(v) => { if (!v) setConfirmBaja(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Dar de baja este punto de servicio?</AlertDialogTitle>
+            <AlertDialogDescription>
+              El punto <span className="font-mono font-semibold">{confirmBaja?.codigo}</span> será
+              marcado como <strong>Inactivo</strong>. Podrá reactivarse posteriormente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => confirmBaja && bajaMut.mutate(confirmBaja.id)}
+              disabled={bajaMut.isPending}
+            >
+              {bajaMut.isPending ? 'Procesando…' : 'Dar de baja'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

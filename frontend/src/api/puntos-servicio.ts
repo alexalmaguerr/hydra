@@ -96,3 +96,10 @@ export function createPuntoServicio(dto: CreatePuntoServicioDto) {
     body: JSON.stringify(dto),
   });
 }
+
+export function darBajaPuntoServicio(id: string) {
+  return apiRequest<PuntoServicioListItem>(`/puntos-servicio/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ estado: 'Inactivo' }),
+  });
+}

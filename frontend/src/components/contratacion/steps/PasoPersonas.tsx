@@ -4,32 +4,65 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
-const DEMO_PROPIETARIO: PersonaWizard = {
-  nombre: 'Juan Pérez García',
+// ── Demo data ─────────────────────────────────────────────────────────────────
+
+const DEMO_TITULAR: PersonaWizard = {
+  tipoPersona: 'fisica',
+  paterno: 'Pérez',
+  materno: 'García',
+  nombre: 'Juan',
   rfc: 'PEGJ800101ABC',
-  curp: 'PEGJ800101HQRRRC01',
+  documentoIdentificacion: 'INE-ABC123456',
+  telefonos: '4421234567',
   email: 'juan.perez@ejemplo.com',
-  telefono: '4421234567',
-  razonSocial: '',
-  regimenFiscal: 'Persona Física con Actividad Empresarial',
+  usoCfdi: 'G03 - Gastos en general',
+  regimenFiscal: '605 - Sueldos y Salarios e Ingresos Asimilados',
 };
 
-const DEMO_FISCAL: PersonaWizard = {
-  nombre: 'Juan Pérez García',
-  rfc: 'PEGJ800101ABC',
-  curp: 'PEGJ800101HQRRRC01',
-  email: 'juan.perez@ejemplo.com',
-  telefono: '4421234567',
-  razonSocial: '',
-  regimenFiscal: 'Persona Física con Actividad Empresarial',
-};
+const DEMO_FISCAL: PersonaWizard = { ...DEMO_TITULAR };
 
 const DEMO_CONTACTO: PersonaWizard = {
-  nombre: 'María López Herrera',
+  tipoPersona: 'fisica',
+  paterno: 'López',
+  materno: 'Herrera',
+  nombre: 'María',
+  rfc: 'LOHM900202XYZ',
+  telefonos: '4429876543',
   email: 'maria.lopez@ejemplo.com',
-  telefono: '4429876543',
 };
+
+// ── PersonaBlock ──────────────────────────────────────────────────────────────
+
+function Field({
+  label,
+  required,
+  error,
+  children,
+}: {
+  label: string;
+  required?: boolean;
+  error?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <Label className={error ? 'text-destructive' : ''}>
+        {label}
+        {required && <span className="ml-0.5 text-destructive">*</span>}
+      </Label>
+      {children}
+      {error && <p className="text-xs text-destructive">Campo obligatorio</p>}
+    </div>
+  );
+}
 
 function PersonaBlock({
   title,
@@ -38,6 +71,7 @@ function PersonaBlock({
   idPrefix,
   required,
   disabled,
+  showErrors,
 }: {
   title: string;
   value: PersonaWizard | undefined;
@@ -45,10 +79,13 @@ function PersonaBlock({
   idPrefix: string;
   required?: boolean;
   disabled?: boolean;
+  showErrors?: boolean;
 }) {
   const v = value ?? {};
   const patch = (partial: Partial<PersonaWizard>) => onChange({ ...v, ...partial });
-  const nombreMissing = required && !v.nombre?.trim();
+
+  const err = (field: keyof PersonaWizard) =>
+    required && showErrors && !v[field]?.toString().trim();
 
   return (
     <div className={`space-y-3 rounded-lg border bg-muted/20 p-4 ${disabled ? 'opacity-60' : ''}`}>
@@ -57,99 +94,164 @@ function PersonaBlock({
         {required && <span className="ml-1 text-destructive">*</span>}
       </h3>
       <div className="grid gap-3 sm:grid-cols-2">
+
+        {/* Tipo de persona */}
         <div className="space-y-1.5 sm:col-span-2">
-          <Label htmlFor={`${idPrefix}-nombre`}>
-            Nombre{required && <span className="ml-0.5 text-destructive">*</span>}
+          <Label className={err('tipoPersona') ? 'text-destructive' : ''}>
+            Tipo de persona{required && <span className="ml-0.5 text-destructive">*</span>}
           </Label>
+          <Select
+            value={v.tipoPersona ?? ''}
+            onValueChange={(val) => patch({ tipoPersona: val as 'fisica' | 'moral' })}
+            disabled={disabled}
+          >
+            <SelectTrigger className={err('tipoPersona') ? 'border-destructive' : ''}>
+              <SelectValue placeholder="Seleccionar tipo" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="fisica">Persona física</SelectItem>
+              <SelectItem value="moral">Persona moral</SelectItem>
+            </SelectContent>
+          </Select>
+          {err('tipoPersona') && <p className="text-xs text-destructive">Campo obligatorio</p>}
+        </div>
+
+        {/* Paterno */}
+        <Field label="Apellido paterno" required={required} error={!!err('paterno')}>
+          <Input
+            id={`${idPrefix}-paterno`}
+            value={v.paterno ?? ''}
+            onChange={(e) => patch({ paterno: e.target.value })}
+            disabled={disabled}
+            className={err('paterno') ? 'border-destructive' : ''}
+            autoComplete="family-name"
+          />
+        </Field>
+
+        {/* Materno */}
+        <div className="space-y-1.5">
+          <Label>Apellido materno</Label>
+          <Input
+            id={`${idPrefix}-materno`}
+            value={v.materno ?? ''}
+            onChange={(e) => patch({ materno: e.target.value })}
+            disabled={disabled}
+            autoComplete="off"
+          />
+        </div>
+
+        {/* Nombre */}
+        <Field label="Nombre(s)" required={required} error={!!err('nombre')}>
           <Input
             id={`${idPrefix}-nombre`}
             value={v.nombre ?? ''}
             onChange={(e) => patch({ nombre: e.target.value })}
-            autoComplete="name"
             disabled={disabled}
-            className={nombreMissing ? 'border-destructive focus-visible:ring-destructive' : ''}
+            className={err('nombre') ? 'border-destructive' : ''}
+            autoComplete="given-name"
           />
-          {nombreMissing && (
-            <p className="text-xs text-destructive">El nombre es obligatorio</p>
-          )}
-        </div>
+        </Field>
+
+        {/* Razón Social */}
         <div className="space-y-1.5">
-          <Label htmlFor={`${idPrefix}-rfc`}>RFC</Label>
+          <Label>Razón social</Label>
+          <Input
+            id={`${idPrefix}-rs`}
+            value={v.razonSocial ?? ''}
+            onChange={(e) => patch({ razonSocial: e.target.value })}
+            disabled={disabled}
+          />
+        </div>
+
+        {/* Documento de identificación */}
+        <div className="space-y-1.5 sm:col-span-2">
+          <Label>Documento de identificación</Label>
+          <Input
+            id={`${idPrefix}-doc`}
+            value={v.documentoIdentificacion ?? ''}
+            onChange={(e) => patch({ documentoIdentificacion: e.target.value })}
+            disabled={disabled}
+            placeholder="Ej: INE, Pasaporte"
+          />
+        </div>
+
+        {/* RFC */}
+        <Field label="RFC" required={required} error={!!err('rfc')}>
           <Input
             id={`${idPrefix}-rfc`}
             value={v.rfc ?? ''}
             onChange={(e) => patch({ rfc: e.target.value })}
-            className="font-mono text-sm"
-            autoComplete="off"
             disabled={disabled}
+            className={`font-mono text-sm ${err('rfc') ? 'border-destructive' : ''}`}
+            placeholder="Sin RFC: XAXX010101000"
+            autoComplete="off"
           />
-        </div>
+        </Field>
+
+        {/* Teléfonos */}
         <div className="space-y-1.5">
-          <Label htmlFor={`${idPrefix}-curp`}>CURP</Label>
+          <Label>Teléfonos de contacto</Label>
           <Input
-            id={`${idPrefix}-curp`}
-            value={v.curp ?? ''}
-            onChange={(e) => patch({ curp: e.target.value })}
-            className="font-mono text-sm"
-            autoComplete="off"
+            id={`${idPrefix}-tel`}
+            value={v.telefonos ?? ''}
+            onChange={(e) => patch({ telefonos: e.target.value })}
             disabled={disabled}
+            autoComplete="tel"
           />
         </div>
+
+        {/* Correo */}
         <div className="space-y-1.5">
-          <Label htmlFor={`${idPrefix}-email`}>Correo</Label>
+          <Label>Correo electrónico</Label>
           <Input
             id={`${idPrefix}-email`}
             type="email"
             value={v.email ?? ''}
             onChange={(e) => patch({ email: e.target.value })}
+            disabled={disabled}
             autoComplete="email"
-            disabled={disabled}
           />
         </div>
+
+        {/* Uso del CFDI */}
         <div className="space-y-1.5">
-          <Label htmlFor={`${idPrefix}-tel`}>Teléfono</Label>
+          <Label>Uso del CFDI</Label>
           <Input
-            id={`${idPrefix}-tel`}
-            value={v.telefono ?? ''}
-            onChange={(e) => patch({ telefono: e.target.value })}
-            autoComplete="tel"
+            id={`${idPrefix}-cfdi`}
+            value={v.usoCfdi ?? ''}
+            onChange={(e) => patch({ usoCfdi: e.target.value })}
             disabled={disabled}
+            placeholder="Ej: G03 - Gastos en general"
           />
         </div>
-        {(idPrefix === 'fiscal' || idPrefix === 'prop') && (
-          <>
-            <div className="space-y-1.5 sm:col-span-2">
-              <Label htmlFor={`${idPrefix}-rs`}>Razón social (opcional)</Label>
-              <Input
-                id={`${idPrefix}-rs`}
-                value={v.razonSocial ?? ''}
-                onChange={(e) => patch({ razonSocial: e.target.value })}
-                disabled={disabled}
-              />
-            </div>
-            <div className="space-y-1.5 sm:col-span-2">
-              <Label htmlFor={`${idPrefix}-reg`}>Régimen fiscal (opcional)</Label>
-              <Input
-                id={`${idPrefix}-reg`}
-                value={v.regimenFiscal ?? ''}
-                onChange={(e) => patch({ regimenFiscal: e.target.value })}
-                disabled={disabled}
-              />
-            </div>
-          </>
-        )}
+
+        {/* Régimen fiscal */}
+        <div className="space-y-1.5 sm:col-span-2">
+          <Label>Régimen fiscal</Label>
+          <Input
+            id={`${idPrefix}-reg`}
+            value={v.regimenFiscal ?? ''}
+            onChange={(e) => patch({ regimenFiscal: e.target.value })}
+            disabled={disabled}
+            placeholder="Ej: 605 - Sueldos y Salarios"
+          />
+        </div>
       </div>
     </div>
   );
 }
 
+// ── PasoPersonas ──────────────────────────────────────────────────────────────
+
 export default function PasoPersonas({ data, updateData }: StepProps) {
   const [fiscalIgualTitular, setFiscalIgualTitular] = useState(false);
+  const [showErrors, setShowErrors] = useState(false);
 
   const handlePropietarioChange = (next: PersonaWizard) => {
-    updateData({ propietario: next });
     if (fiscalIgualTitular) {
       updateData({ propietario: next, personaFiscal: { ...next } });
+    } else {
+      updateData({ propietario: next });
     }
   };
 
@@ -162,8 +264,9 @@ export default function PasoPersonas({ data, updateData }: StepProps) {
 
   const fillDemo = () => {
     setFiscalIgualTitular(false);
+    setShowErrors(false);
     updateData({
-      propietario: { ...DEMO_PROPIETARIO },
+      propietario: { ...DEMO_TITULAR },
       personaFiscal: { ...DEMO_FISCAL },
       personaContacto: { ...DEMO_CONTACTO },
     });
@@ -177,10 +280,17 @@ export default function PasoPersonas({ data, updateData }: StepProps) {
             Personas
           </h2>
           <p className="text-sm text-muted-foreground">
-            Propietario/titular y persona fiscal son obligatorios. Contacto es opcional.
+            Titular y persona fiscal son obligatorios (<span className="text-destructive">*</span>).
+            Contacto es opcional.
           </p>
         </div>
-        <Button type="button" variant="outline" size="sm" onClick={fillDemo} className="shrink-0 text-xs">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={fillDemo}
+          className="shrink-0 text-xs"
+        >
           Prellenar demo
         </Button>
       </div>
@@ -191,9 +301,9 @@ export default function PasoPersonas({ data, updateData }: StepProps) {
         value={data.propietario}
         onChange={handlePropietarioChange}
         required
+        showErrors={showErrors}
       />
 
-      {/* Checkbox fiscal = titular */}
       <label className="flex cursor-pointer items-center gap-2 px-1">
         <Checkbox
           checked={fiscalIgualTitular}
@@ -209,6 +319,7 @@ export default function PasoPersonas({ data, updateData }: StepProps) {
         onChange={(next) => updateData({ personaFiscal: next })}
         required
         disabled={fiscalIgualTitular}
+        showErrors={showErrors}
       />
 
       <PersonaBlock

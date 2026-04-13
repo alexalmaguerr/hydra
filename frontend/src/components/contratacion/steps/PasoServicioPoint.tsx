@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Loader2, Plus, RefreshCw, Search, X } from 'lucide-react';
 
@@ -31,6 +32,7 @@ function isValid(form: DomicilioFormValue & { codigo: string }): boolean {
 
 export default function PasoServicioPoint({ data, updateData }: StepProps) {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [q, setQ] = useState('');
   const [showCreate, setShowCreate] = useState(false);
   const [domicilioForm, setDomicilioForm] = useState<DomicilioFormValue>(DOMICILIO_FORM_EMPTY);
@@ -169,7 +171,7 @@ export default function PasoServicioPoint({ data, updateData }: StepProps) {
             type="button"
             size="sm"
             className="bg-[#007BFF] hover:bg-blue-600 text-white"
-            onClick={() => setShowCreate(true)}
+            onClick={() => navigate('/app/puntos-servicio?new=1')}
           >
             <Plus className="mr-1.5 h-4 w-4" aria-hidden />
             Crear nuevo
