@@ -20,7 +20,32 @@ import {
 import StatusBadge from '@/components/StatusBadge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Plus, Eye, ChevronRight, Hash, User, Droplets, FileText, SlidersHorizontal, Download, TrendingUp, GitBranch, ScrollText } from 'lucide-react';
+import { Plus, Eye, ChevronRight, Hash, User, Droplets, FileText, SlidersHorizontal, Download, TrendingUp, GitBranch, ScrollText, Users } from 'lucide-react';
+import { TIPOS_CONTRATACION_BY_ADMIN } from '@/config/tipos-contratacion';
+
+const ADMINISTRACIONES_MAP: Record<string, string> = {
+  '1': 'QUERÉTARO', '2': 'SANTA ROSA JÁUREGUI', '3': 'CORREGIDORA',
+  '4': 'PEDRO ESCOBEDO', '5': 'TEQUISQUIAPAN', '6': 'EZEQUIEL MONTES',
+  '7': 'AMEALCO DE BONFIL', '8': 'HUIMILPAN', '9': 'CADEREYTA DE MONTES-SAN JOAQUÍN',
+  '10': 'COLÓN-TOLIMÁN', '11': 'JALPAN DE SERRA-LANDA DE MATAMOROS-ARROYO SECO',
+  '12': 'EL MARQUÉS', '13': 'PINAL DE AMOLES-PEÑAMILLER',
+};
+
+function getTipoContratacionDesc(id: string | null | undefined): string {
+  if (!id) return '—';
+  for (const tipos of Object.values(TIPOS_CONTRATACION_BY_ADMIN)) {
+    const found = tipos.find((t) => t.id === id);
+    if (found) return found.descripcion;
+  }
+  return id;
+}
+
+function getAdminForTipo(id: string | null | undefined): string | undefined {
+  if (!id) return undefined;
+  for (const [adminId, tipos] of Object.entries(TIPOS_CONTRATACION_BY_ADMIN)) {
+    if (tipos.some((t) => t.id === id)) return adminId;
+  }
+}
 import { PageHeader } from '@/components/PageHeader';
 import { KpiCard } from '@/components/KpiCard';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -460,7 +485,7 @@ const Contratos = () => {
                     <TabsList className="h-auto bg-transparent p-0 gap-0 border-0 flex">
                       {([
                         { value: 'general',     icon: Hash,        label: 'General' },
-                        { value: 'titular',     icon: User,        label: 'Titular' },
+                        { value: 'titular',     icon: Users,       label: 'Personas' },
                         { value: 'servicio',    icon: Droplets,    label: 'Servicio' },
                         { value: 'texto-contrato', icon: ScrollText, label: 'Texto contrato' },
                         { value: 'facturacion', icon: FileText,    label: 'Facturación' },
@@ -483,14 +508,25 @@ const Contratos = () => {
 
                     {/* ── General ── */}
                     <TabsContent value="general" className="mt-0 space-y-5">
+                      <div className="flex items-center justify-between">
+                        <h2 className="text-sm font-semibold">Información del contrato</h2>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-1.5 text-xs"
+                          onClick={() => {/* TODO: open edit dialog */}}
+                        >
+                          <Pencil className="h-3.5 w-3.5" /> Editar
+                        </Button>
+                      </div>
                       <div className="grid grid-cols-2 gap-5">
                         <section className="space-y-2">
                           <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground px-0.5">Contrato</h3>
                           <div className="rounded-lg border divide-y">
                             <Row label="Estado" value={<StatusBadge status={selected.estado} />} />
                             <Row label="Fecha de alta" value={selected.fecha} />
-                            <Row label="Tipo" value={selected.tipoContrato} />
-                            <Row label="Servicio" value={selected.tipoServicio} />
+                            <Row label="Tipo de contratación" value={getTipoContratacionDesc(selected.tipoContratacionId)} />
+                            <Row label="Tipo de servicio" value={selected.tipoServicio || '—'} />
                             <Row label="Domiciliado" value={selected.domiciliado ? 'Sí' : 'No'} />
                             {selected.fechaReconexionPrevista && (
                               <Row label="Reconexión prevista" value={selected.fechaReconexionPrevista} />
@@ -501,10 +537,7 @@ const Contratos = () => {
                                 <CeaNumInput
                                   contratoId={selected.id}
                                   initial={selected.ceaNumContrato ?? ''}
-                                  onSaved={(v) => {
-                                    // optimistically update local state
-                                    (selected as any).ceaNumContrato = v;
-                                  }}
+                                  onSaved={(v) => { (selected as any).ceaNumContrato = v; }}
                                 />
                               }
                             />
@@ -513,38 +546,68 @@ const Contratos = () => {
                         <section className="space-y-2">
                           <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground px-0.5">Configuración</h3>
                           <div className="rounded-lg border divide-y">
-                            <Row label="Administración" value={mock.administracion} />
+                            <Row
+                              label="Administración"
+                              value={
+                                (() => {
+                                  const adminId = getAdminForTipo(selected.tipoContratacionId);
+                                  return adminId ? ADMINISTRACIONES_MAP[adminId] ?? adminId : '—';
+                                })()
+                              }
+                            />
                             <Row label="Zona" value={selected.zonaId || '—'} />
-                            <Row label="Consumo promedio" value={`${mock.consumoPromedio} m³`} />
-                            <Row label="Envío de factura" value={mock.envioFactura} />
-                            <Row label="Tipo de cliente" value={mock.tipoCliente} />
-                            <Row label="Jubilado / Pensionado" value={mock.jubilado ? 'Sí' : 'No'} />
+                            <Row label="Punto de servicio" value={<span className="font-mono text-xs">{selected.puntoServicioId || '—'}</span>} />
+                            <Row label="Ruta" value={selected.rutaId || '—'} />
+                            <Row label="Toma" value={<span className="font-mono text-xs">{selected.tomaId || '—'}</span>} />
+                            <Row label="Medidor" value={<span className="font-mono text-xs">{selected.medidorId || '—'}</span>} />
                           </div>
                         </section>
                       </div>
                     </TabsContent>
 
-                    {/* ── Titular ── */}
+                    {/* ── Personas ── */}
                     <TabsContent value="titular" className="mt-0 space-y-5">
-                      <div className="grid grid-cols-2 gap-5">
-                        <section className="space-y-2">
-                          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground px-0.5">Datos personales</h3>
+                      {/* Titular / Propietario */}
+                      <div>
+                        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 px-0.5">Titular / Propietario</h3>
+                        <div className="grid grid-cols-2 gap-5">
                           <div className="rounded-lg border divide-y">
-                            <Row label="Nombre completo" value={selected.nombre} />
+                            <Row label="Nombre completo" value={selected.nombre || '—'} />
                             <Row label="RFC" value={<span className="font-mono">{selected.rfc || '—'}</span>} />
-                            <Row label="Persona" value={mock.juridica ? 'Jurídica' : 'Física'} />
+                            <Row label="Tipo de persona" value={mock.juridica ? 'Moral' : 'Física'} />
+                            <Row label="Razón social" value={selected.razonSocial || '—'} />
+                            <Row label="Régimen fiscal" value={selected.regimenFiscal || '—'} />
+                          </div>
+                          <div className="rounded-lg border divide-y">
+                            <Row label="Teléfono" value={mock.movil || '—'} />
+                            <Row label="Correo electrónico" value={mock.email1 || '—'} />
                             <Row label="Dirección" value={selected.direccion || '—'} />
                           </div>
-                        </section>
-                        <section className="space-y-2">
-                          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground px-0.5">Contacto</h3>
+                        </div>
+                      </div>
+                      {/* Persona Fiscal */}
+                      <div>
+                        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 px-0.5">Persona Fiscal</h3>
+                        <div className="grid grid-cols-2 gap-5">
                           <div className="rounded-lg border divide-y">
-                            <Row label="Teléfono fijo" value={mock.telFijo || '—'} />
-                            <Row label="Móvil" value={mock.movil || '—'} />
-                            <Row label="Email principal" value={mock.email1 || '—'} />
-                            <Row label="Email secundario" value={mock.email2 || '—'} />
+                            <Row label="Nombre / Razón social" value={selected.razonSocial || selected.nombre || '—'} />
+                            <Row label="RFC" value={<span className="font-mono">{selected.rfc || '—'}</span>} />
+                            <Row label="Régimen fiscal" value={selected.regimenFiscal || '—'} />
                           </div>
-                        </section>
+                          <div className="rounded-lg border divide-y">
+                            <Row label="Correo electrónico" value={mock.email1 || '—'} />
+                            <Row label="Uso CFDI" value="—" />
+                          </div>
+                        </div>
+                      </div>
+                      {/* Contacto */}
+                      <div>
+                        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 px-0.5">Contacto</h3>
+                        <div className="rounded-lg border divide-y max-w-sm">
+                          <Row label="Nombre" value={mock.movil ? '—' : '—'} />
+                          <Row label="Teléfono" value={mock.movil || '—'} />
+                          <Row label="Correo" value={mock.email2 || '—'} />
+                        </div>
                       </div>
                     </TabsContent>
 
@@ -715,23 +778,25 @@ const Contratos = () => {
 
 // ── ProcesosTab ─────────────────────────────────────────────────────────────
 
-/** Must match backend ETAPAS_FLUJO in procesos-contratacion.service.ts */
+/** Etapas visibles en el flujo simplificado (solicitud y factibilidad se omiten) */
 const ETAPAS = [
-  'solicitud',
-  'factibilidad',
   'contrato',
   'instalacion_toma',
   'instalacion_medidor',
   'alta',
 ];
 
+/** Map etapas previas al índice 0 para que el stepper las trate como paso anterior al Contrato */
+function resolveEtapaIdx(etapaActual: string): number {
+  if (etapaActual === 'solicitud' || etapaActual === 'factibilidad') return -1;
+  return ETAPAS.indexOf(etapaActual);
+}
+
 function etapaLabel(e: string) {
   const labels: Record<string, string> = {
-    solicitud: 'Solicitud',
-    factibilidad: 'Factibilidad',
     contrato: 'Contrato',
-    instalacion_toma: 'Instalación toma',
-    instalacion_medidor: 'Instalación medidor',
+    instalacion_toma: 'Instalación\ntoma',
+    instalacion_medidor: 'Instalación\nmedidor',
     alta: 'Alta',
   };
   return labels[e] ?? e;
@@ -772,14 +837,13 @@ function ProcesosTab({ contratoId, useApi }: { contratoId: string; useApi: boole
     id: 'proc-mock-1',
     contratoId,
     tipoContratacionId: null,
-    etapaActual: 'factibilidad',
+    etapaActual: 'contrato',
     estado: 'en_curso',
     creadoPor: 'SISTEMA',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     historial: [
-      { id: 'h1', procesoId: 'proc-mock-1', etapa: 'solicitud', estado: 'completada', nota: 'Solicitud recibida', fechaInicio: new Date().toISOString(), fechaFin: new Date().toISOString() },
-      { id: 'h2', procesoId: 'proc-mock-1', etapa: 'factibilidad', estado: 'en_curso', nota: null, fechaInicio: new Date().toISOString(), fechaFin: null },
+      { id: 'h1', procesoId: 'proc-mock-1', etapa: 'contrato', estado: 'en_curso', nota: 'Contrato generado', fechaInicio: new Date().toISOString(), fechaFin: null },
     ],
   };
 
@@ -796,44 +860,14 @@ function ProcesosTab({ contratoId, useApi }: { contratoId: string; useApi: boole
     );
   }
 
-  // Empty state — both when API has no data and when no API
-  if (procesos.length === 0) {
-    return (
-      <div className="text-center py-14 text-sm text-muted-foreground space-y-3">
-        <GitBranch className="w-10 h-10 mx-auto opacity-20" />
-        <p className="font-medium">Sin procesos de contratación</p>
-        <p className="text-xs max-w-xs mx-auto">
-          Este contrato aún no tiene un proceso formal iniciado. Puedes iniciar uno para dar seguimiento a las etapas de alta.
-        </p>
-        <Button size="sm" className="bg-[#007BFF] hover:bg-blue-600 text-white mt-2"
-          onClick={() => useApi ? crearMut.mutate() : undefined}
-          disabled={crearMut.isPending}
-        >
-          <Plus className="w-3.5 h-3.5 mr-1.5" />
-          {crearMut.isPending ? 'Iniciando…' : 'Iniciar proceso'}
-        </Button>
-        {!useApi && (
-          <p className="text-[11px] text-muted-foreground/60 pt-1">Vista previa (sin API conectada)</p>
-        )}
-      </div>
-    );
-  }
-
-  const displayProcesos = useApi ? procesos : [MOCK_PROCESO];
+  const displayProcesos = procesos.length > 0 ? procesos : [MOCK_PROCESO];
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">{displayProcesos.length} proceso(s) registrado(s)</p>
-        {useApi && (
-          <Button size="sm" variant="outline" onClick={() => crearMut.mutate()} disabled={crearMut.isPending}>
-            <Plus className="w-3.5 h-3.5 mr-1.5" /> Nuevo proceso
-          </Button>
-        )}
-      </div>
 
       {displayProcesos.map((proceso) => {
-        const etapaIdx = ETAPAS.indexOf(proceso.etapaActual);
+        const etapaIdx = resolveEtapaIdx(proceso.etapaActual);
+        const historialVisible = (proceso.historial ?? []).filter((h) => ETAPAS.includes(h.etapa));
         const isCancelado = proceso.estado === 'cancelado';
         const isCompletado = proceso.estado === 'completado';
 
@@ -904,11 +938,11 @@ function ProcesosTab({ contratoId, useApi }: { contratoId: string; useApi: boole
             </div>
 
             {/* Historial */}
-            {proceso.historial && proceso.historial.length > 0 && (
+            {historialVisible.length > 0 && (
               <div className="border-t px-5 py-3">
                 <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">Historial de etapas</p>
                 <div className="space-y-1.5">
-                  {proceso.historial.map((h) => (
+                  {historialVisible.map((h) => (
                     <div key={h.id} className="flex items-start gap-2.5 text-xs">
                       <div className={`w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 ${h.estado === 'completada' ? 'bg-emerald-500' : h.estado === 'en_curso' ? 'bg-blue-500' : 'bg-muted-foreground'}`} />
                       <div className="flex-1">

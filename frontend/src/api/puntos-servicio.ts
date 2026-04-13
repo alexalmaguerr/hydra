@@ -43,6 +43,8 @@ export interface PuntoServicioListItem {
   } | null;
   puntoServicioPadre?: { id: string; codigo: string } | null;
   _count?: { contratos: number; puntosServicioHijos?: number };
+  createdAt?: string | null;
+  updatedAt?: string | null;
 }
 
 export interface PuntosServicioListResponse {

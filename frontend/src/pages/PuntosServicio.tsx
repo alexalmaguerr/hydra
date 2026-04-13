@@ -478,6 +478,7 @@ export default function PuntosServicio() {
                 <TableHead>Tipo suministro</TableHead>
                 <TableHead>Estado suministro</TableHead>
                 <TableHead>Calibre</TableHead>
+                <TableHead>Creado</TableHead>
                 <TableHead className="w-10" />
               </TableRow>
             </TableHeader>
@@ -505,6 +506,16 @@ export default function PuntosServicio() {
                   </TableCell>
                   <TableCell className="text-sm">
                     {ps.calibreId ?? '—'}
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                    {ps.createdAt
+                      ? new Date(ps.createdAt).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })
+                      : '—'}
+                    {ps.updatedAt && ps.updatedAt !== ps.createdAt && (
+                      <span className="block text-[11px] opacity-70">
+                        Act. {new Date(ps.updatedAt).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
+                      </span>
+                    )}
                   </TableCell>
                   <TableCell>
                     <Button
