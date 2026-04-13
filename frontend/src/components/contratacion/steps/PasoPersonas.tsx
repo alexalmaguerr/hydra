@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { PersonaWizard, StepProps } from '../hooks/useWizardState';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -11,6 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Paperclip, X } from 'lucide-react';
 
 // ── Demo data ─────────────────────────────────────────────────────────────────
 
@@ -20,7 +21,7 @@ const DEMO_TITULAR: PersonaWizard = {
   materno: 'García',
   nombre: 'Juan',
   rfc: 'PEGJ800101ABC',
-  documentoIdentificacion: 'INE-ABC123456',
+  documentoIdentificacion: '',
   telefonos: '4421234567',
   email: 'juan.perez@ejemplo.com',
   usoCfdi: 'G03 - Gastos en general',
@@ -32,14 +33,12 @@ const DEMO_FISCAL: PersonaWizard = { ...DEMO_TITULAR };
 const DEMO_CONTACTO: PersonaWizard = {
   tipoPersona: 'fisica',
   paterno: 'López',
-  materno: 'Herrera',
   nombre: 'María',
-  rfc: 'LOHM900202XYZ',
   telefonos: '4429876543',
   email: 'maria.lopez@ejemplo.com',
 };
 
-// ── PersonaBlock ──────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function Field({
   label,
@@ -63,6 +62,71 @@ function Field({
     </div>
   );
 }
+
+// ── DocumentoUpload ───────────────────────────────────────────────────────────
+
+function DocumentoUpload({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: string;
+  onChange: (name: string) => void;
+  disabled?: boolean;
+}) {
+  const ref = useRef<HTMLInputElement>(null);
+
+  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) onChange(file.name);
+  };
+
+  return (
+    <div className="space-y-1.5">
+      <Label>Documento de identificación oficial</Label>
+      <p className="text-xs text-muted-foreground">
+        Puede ser acta de nacimiento, INE o pasaporte.
+      </p>
+      <div className="flex items-center gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={disabled}
+          onClick={() => ref.current?.click()}
+          className="gap-1.5"
+        >
+          <Paperclip className="h-3.5 w-3.5" />
+          {value ? 'Cambiar archivo' : 'Seleccionar archivo'}
+        </Button>
+        {value && (
+          <span className="flex items-center gap-1 rounded-md border bg-muted/40 px-2 py-1 text-xs">
+            <Paperclip className="h-3 w-3 text-muted-foreground" />
+            <span className="max-w-[200px] truncate">{value}</span>
+            <button
+              type="button"
+              className="ml-1 text-muted-foreground hover:text-foreground"
+              onClick={() => { onChange(''); if (ref.current) ref.current.value = ''; }}
+              disabled={disabled}
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </span>
+        )}
+      </div>
+      <input
+        ref={ref}
+        type="file"
+        className="hidden"
+        accept=".pdf,.jpg,.jpeg,.png"
+        onChange={handleFile}
+        disabled={disabled}
+      />
+    </div>
+  );
+}
+
+// ── PersonaBlock (propietario / fiscal) ───────────────────────────────────────
 
 function PersonaBlock({
   title,
@@ -163,18 +227,6 @@ function PersonaBlock({
           />
         </div>
 
-        {/* Documento de identificación */}
-        <div className="space-y-1.5 sm:col-span-2">
-          <Label>Documento de identificación</Label>
-          <Input
-            id={`${idPrefix}-doc`}
-            value={v.documentoIdentificacion ?? ''}
-            onChange={(e) => patch({ documentoIdentificacion: e.target.value })}
-            disabled={disabled}
-            placeholder="Ej: INE, Pasaporte"
-          />
-        </div>
-
         {/* RFC */}
         <Field label="RFC" required={required} error={!!err('rfc')}>
           <Input
@@ -234,6 +286,69 @@ function PersonaBlock({
             onChange={(e) => patch({ regimenFiscal: e.target.value })}
             disabled={disabled}
             placeholder="Ej: 605 - Sueldos y Salarios"
+          />
+        </div>
+
+        {/* Documento de identificación oficial */}
+        <div className="sm:col-span-2">
+          <DocumentoUpload
+            value={v.documentoIdentificacion ?? ''}
+            onChange={(name) => patch({ documentoIdentificacion: name })}
+            disabled={disabled}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── ContactoBlock ──────────────────────────────────────────────────────────────
+
+function ContactoBlock({
+  value,
+  onChange,
+}: {
+  value: PersonaWizard | undefined;
+  onChange: (next: PersonaWizard) => void;
+}) {
+  const v = value ?? {};
+  const patch = (partial: Partial<PersonaWizard>) => onChange({ ...v, ...partial });
+
+  return (
+    <div className="space-y-3 rounded-lg border bg-muted/20 p-4">
+      <h3 className="text-sm font-semibold">Contacto (opcional)</h3>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="space-y-1.5">
+          <Label>Apellido paterno</Label>
+          <Input
+            value={v.paterno ?? ''}
+            onChange={(e) => patch({ paterno: e.target.value })}
+            autoComplete="family-name"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label>Nombre(s)</Label>
+          <Input
+            value={v.nombre ?? ''}
+            onChange={(e) => patch({ nombre: e.target.value })}
+            autoComplete="given-name"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label>Teléfonos</Label>
+          <Input
+            value={v.telefonos ?? ''}
+            onChange={(e) => patch({ telefonos: e.target.value })}
+            autoComplete="tel"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label>Correo electrónico</Label>
+          <Input
+            type="email"
+            value={v.email ?? ''}
+            onChange={(e) => patch({ email: e.target.value })}
+            autoComplete="email"
           />
         </div>
       </div>
@@ -322,9 +437,7 @@ export default function PasoPersonas({ data, updateData }: StepProps) {
         showErrors={showErrors}
       />
 
-      <PersonaBlock
-        title="Contacto (opcional)"
-        idPrefix="contacto"
+      <ContactoBlock
         value={data.personaContacto}
         onChange={(next) => updateData({ personaContacto: next })}
       />

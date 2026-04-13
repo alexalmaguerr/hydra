@@ -41,24 +41,40 @@ export default function PasoOrdenes({ data, updateData }: StepProps) {
           <Switch
             id="orden-toma"
             checked={toma}
-            onCheckedChange={(checked) => updateData({ generarOrdenInstalacionToma: checked })}
+            onCheckedChange={(checked) =>
+              updateData({
+                generarOrdenInstalacionToma: checked,
+                generarOrdenInstalacionMedidor: checked ? false : medidor,
+              })
+            }
             aria-label="Generar orden de instalación de toma"
           />
         </div>
 
         <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
           <div className="space-y-1">
-            <Label htmlFor="orden-medidor" className="text-base">
+            <Label
+              htmlFor="orden-medidor"
+              className={`text-base ${toma ? 'text-muted-foreground' : ''}`}
+            >
               Generar orden de instalación de medidor
             </Label>
             <p className="text-sm text-muted-foreground">
-              Programa la instalación o colocación del medidor según corresponda.
+              {toma
+                ? 'Se generará automáticamente al completar la instalación de toma.'
+                : 'Programa la instalación o colocación del medidor según corresponda.'}
             </p>
           </div>
           <Switch
             id="orden-medidor"
             checked={medidor}
-            onCheckedChange={(checked) => updateData({ generarOrdenInstalacionMedidor: checked })}
+            disabled={toma}
+            onCheckedChange={(checked) =>
+              updateData({
+                generarOrdenInstalacionMedidor: checked,
+                generarOrdenInstalacionToma: checked ? false : toma,
+              })
+            }
             aria-label="Generar orden de instalación de medidor"
           />
         </div>

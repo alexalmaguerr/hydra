@@ -60,6 +60,7 @@ export default function PasoServicioPoint({ data, updateData }: StepProps) {
     updateData({
       puntoServicioId: ps.id,
       puntoServicioCodigo: ps.codigo?.trim() || ps.id,
+      administracion: ps.administracion ?? undefined,
     });
   };
 

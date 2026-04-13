@@ -42,6 +42,7 @@ export interface PersonaWizard {
 export interface WizardData {
   puntoServicioId?: string;
   puntoServicioCodigo?: string;
+  administracion?: string;
   propietario?: PersonaWizard;
   personaFiscal?: PersonaWizard;
   personaContacto?: PersonaWizard;
