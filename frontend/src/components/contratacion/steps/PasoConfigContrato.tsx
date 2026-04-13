@@ -82,12 +82,41 @@ export default function PasoConfigContrato({ data, updateData }: StepProps) {
         </p>
       </div>
 
-      {adminNombre && (
-        <p className="rounded-md bg-muted/50 px-3 py-2 text-sm">
-          <span className="text-muted-foreground">Administración: </span>
-          <span className="font-medium">{adminNombre}</span>
-        </p>
-      )}
+      {/* ── Selector de administración (siempre visible) ──────────────── */}
+      <div className="space-y-2">
+        <Label htmlFor="wizard-admin">
+          Administración <span className="text-destructive">*</span>
+        </Label>
+        <Select
+          value={adminId ?? ''}
+          onValueChange={(v) => {
+            updateData({
+              administracion: v,
+              tipoContratacionId: undefined,
+              documentosRecibidos: [],
+              variablesCapturadas: {},
+              conceptosOverride: undefined,
+            });
+          }}
+        >
+          <SelectTrigger id="wizard-admin">
+            <SelectValue placeholder="Seleccione administración…" />
+          </SelectTrigger>
+          <SelectContent>
+            {Object.entries(ADMINISTRACIONES).map(([id, nombre]) => (
+              <SelectItem key={id} value={id}>
+                {nombre}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {adminNombre && (
+          <p className="text-xs text-muted-foreground">
+            {adminId && `Derivada del punto de servicio: `}
+            <span className="font-medium">{adminNombre}</span>
+          </p>
+        )}
+      </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
         {/* ── Tipo de contratación (combobox) ─────────────────────────── */}
@@ -96,7 +125,7 @@ export default function PasoConfigContrato({ data, updateData }: StepProps) {
 
           {!adminId ? (
             <p className="rounded-md border border-dashed bg-muted/20 px-3 py-2.5 text-sm text-muted-foreground">
-              Seleccione primero un punto de servicio con administración asignada.
+              Seleccione la administración primero.
             </p>
           ) : tiposList.length === 0 ? (
             <p className="text-sm text-muted-foreground">
