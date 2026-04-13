@@ -77,12 +77,17 @@ function stepIndex(step: WizardStep | number): number {
   return i >= 0 ? i : 0;
 }
 
+function hasPersonaBasico(p?: PersonaWizard): boolean {
+  const tieneNombre = !!(p?.nombre?.trim() || p?.paterno?.trim());
+  return !!(p?.personaId || (tieneNombre && p?.rfc?.trim()));
+}
+
 function hasPropietarioBasico(p?: PersonaWizard): boolean {
-  return !!(p?.personaId || (p?.nombre?.trim() && p?.rfc?.trim()));
+  return hasPersonaBasico(p);
 }
 
 function hasPersonaFiscalBasico(f?: PersonaWizard): boolean {
-  return !!(f?.personaId || (f?.nombre?.trim() && f?.rfc?.trim()));
+  return hasPersonaBasico(f);
 }
 
 function computeCanGoNext(step: number, data: WizardData): boolean {

@@ -57,9 +57,10 @@ export default function PasoServicioPoint({ data, updateData }: StepProps) {
   }, [rows, q]);
 
   const handleSelect = (ps: PuntoServicioListItem) => {
+    const codigo = ps.codigo?.trim() || `PS-${ps.id.slice(0, 8)}`;
     updateData({
       puntoServicioId: ps.id,
-      puntoServicioCodigo: ps.codigo?.trim() || ps.id,
+      puntoServicioCodigo: codigo,
       administracion: ps.administracion ?? undefined,
     });
   };

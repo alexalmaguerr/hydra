@@ -25,17 +25,20 @@ export interface WizardContratacionProps {
 function buildCreateContratoDto(data: WizardData): CreateContratoDto {
   const fecha = new Date().toISOString().split('T')[0];
   const prop = data.propietario;
+  const nombreCompleto = [prop?.paterno, prop?.materno, prop?.nombre]
+    .filter(Boolean).join(' ').trim() || '';
   const dto: CreateContratoDto = {
     puntoServicioId: data.puntoServicioId || undefined,
     actividadId: data.actividadId || undefined,
-    tipoContratacionId: data.tipoContratacionId || undefined,
+    // No enviamos tipoContratacionId al backend hasta que los catálogos estén sincronizados
+    tipoContratacionId: undefined,
     referenciaContratoAnterior: data.referenciaContratoAnterior?.trim() || undefined,
     tipoContrato: '',
     tipoServicio: '',
-    nombre: prop?.nombre?.trim() ?? '',
+    nombre: nombreCompleto,
     rfc: prop?.rfc?.trim() ?? '',
     direccion: '',
-    contacto: prop?.telefono?.trim() || prop?.email?.trim() || '',
+    contacto: prop?.telefonos?.trim() || prop?.email?.trim() || '',
     estado: 'Pendiente de alta',
     fecha,
     variablesCapturadas: Object.keys(data.variablesCapturadas).length ? { ...data.variablesCapturadas } : undefined,
@@ -52,25 +55,22 @@ function buildCreateContratoDto(data: WizardData): CreateContratoDto {
   if (pf && (pf.nombre?.trim() || pf.rfc?.trim() || pf.personaId)) {
     dto.personaFiscal = {
       personaId: pf.personaId,
-      nombre: pf.nombre?.trim() || undefined,
+      nombre: [pf.paterno, pf.materno, pf.nombre].filter(Boolean).join(' ').trim() || undefined,
       rfc: pf.rfc?.trim() || undefined,
-      curp: pf.curp?.trim() || undefined,
       email: pf.email?.trim() || undefined,
-      telefono: pf.telefono?.trim() || undefined,
+      telefono: pf.telefonos?.trim() || undefined,
       razonSocial: pf.razonSocial?.trim() || undefined,
       regimenFiscal: pf.regimenFiscal?.trim() || undefined,
     };
   }
 
   const pc = data.personaContacto;
-  if (pc && (pc.nombre?.trim() || pc.rfc?.trim() || pc.personaId)) {
+  if (pc && (pc.nombre?.trim() || pc.paterno?.trim() || pc.personaId)) {
     dto.personaContacto = {
       personaId: pc.personaId,
-      nombre: pc.nombre?.trim() || undefined,
-      rfc: pc.rfc?.trim() || undefined,
-      curp: pc.curp?.trim() || undefined,
+      nombre: [pc.paterno, pc.nombre].filter(Boolean).join(' ').trim() || undefined,
       email: pc.email?.trim() || undefined,
-      telefono: pc.telefono?.trim() || undefined,
+      telefono: pc.telefonos?.trim() || undefined,
       razonSocial: pc.razonSocial?.trim() || undefined,
       regimenFiscal: pc.regimenFiscal?.trim() || undefined,
     };
@@ -83,13 +83,11 @@ function buildCreateContratoDto(data: WizardData): CreateContratoDto {
 }
 
 function canCreateContract(data: WizardData): boolean {
-  return (
-    !!data.puntoServicioId?.trim() &&
-    !!(data.propietario?.nombre?.trim() || data.propietario?.personaId) &&
-    !!(data.personaFiscal?.nombre?.trim() || data.personaFiscal?.rfc?.trim() || data.personaFiscal?.personaId) &&
-    !!data.tipoContratacionId?.trim() &&
-    !!data.actividadId?.trim()
-  );
+  const prop = data.propietario;
+  const fiscal = data.personaFiscal;
+  const tieneNombreProp = !!(prop?.nombre?.trim() || prop?.paterno?.trim() || prop?.personaId);
+  const tieneNombreFiscal = !!(fiscal?.nombre?.trim() || fiscal?.paterno?.trim() || fiscal?.rfc?.trim() || fiscal?.personaId);
+  return !!data.puntoServicioId?.trim() && tieneNombreProp && tieneNombreFiscal;
 }
 
 const stepComponents = [
