@@ -118,7 +118,8 @@ export function WizardContratacion({ onComplete, onCancel }: WizardContratacionP
     isFirstStep,
   } = useWizardState();
 
-  const { data: config } = useTipoContratacionConfig(data.tipoContratacionId);
+  // No usamos config del backend por ahora (catálogos de tipos son hardcoded)
+  const { data: config } = useTipoContratacionConfig(undefined);
 
   const createMutation = useMutation({
     mutationFn: (dto: CreateContratoDto) => createContrato(dto),

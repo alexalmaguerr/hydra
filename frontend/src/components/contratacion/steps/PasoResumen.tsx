@@ -42,8 +42,9 @@ function formatValor(v: string | number | boolean): string {
 }
 
 export default function PasoResumen({ data, config }: StepProps) {
+  // Billing no llama al backend — catálogos son hardcoded por ahora
   const { preview, isLoading: billingLoading } = useBillingPreview({
-    tipoContratacionId: data.tipoContratacionId,
+    tipoContratacionId: undefined,
     variables: data.variablesCapturadas,
     conceptosOverride: data.conceptosOverride,
   });

@@ -5,7 +5,7 @@ import type { StepProps } from '@/components/contratacion/hooks/useWizardState';
 
 export default function PasoConfirmacion({ data }: StepProps) {
   const { preview, isLoading } = useBillingPreview({
-    tipoContratacionId: data.tipoContratacionId,
+    tipoContratacionId: undefined,
     variables: data.variablesCapturadas,
     conceptosOverride: data.conceptosOverride,
   });
