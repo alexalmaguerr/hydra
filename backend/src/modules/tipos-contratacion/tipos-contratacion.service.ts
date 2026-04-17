@@ -53,9 +53,15 @@ export class TiposContratacionService {
     const page = params.page ?? 1;
     const limit = params.limit ?? 50;
     const adminId = params.administracionId?.trim();
+    // Tipos sin administración (NULL) son catálogo global y deben ofrecerse en cualquier administración;
+    // los que tienen administración restringen a esa sede.
     const where: Record<string, unknown> = {
       ...(params.activo !== undefined && { activo: params.activo === 'true' }),
-      ...(adminId ? { administracionId: adminId } : {}),
+      ...(adminId
+        ? {
+            OR: [{ administracionId: adminId }, { administracionId: null }],
+          }
+        : {}),
     };
     const [data, total] = await Promise.all([
       this.prisma.tipoContratacion.findMany({
