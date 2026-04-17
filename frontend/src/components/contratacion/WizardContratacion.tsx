@@ -1,6 +1,6 @@
-import React, { useCallback, useEffect, useMemo, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Check } from 'lucide-react';
+import { Check, Save } from 'lucide-react';
 import { createContrato, type CreateContratoDto, type CreateContratoResponseDto } from '@/api/contratos';
 import { fetchProceso } from '@/api/procesos-contratacion';
 import { toast } from '@/components/ui/sonner';
@@ -158,6 +158,7 @@ const stepComponents = [
 
 export function WizardContratacion({ onComplete, onCancel, procesoPrecargaId }: WizardContratacionProps) {
   const queryClient = useQueryClient();
+  const [guardandoBorrador, setGuardandoBorrador] = useState(false);
   const {
     currentStep,
     data,
@@ -342,6 +343,35 @@ export function WizardContratacion({ onComplete, onCancel, procesoPrecargaId }: 
       : 'Crear Contrato'
     : 'Siguiente';
 
+  async function handleGuardarBorrador() {
+    setGuardandoBorrador(true);
+    const prop = data.propietario;
+    const nombreCompleto = [prop?.paterno, prop?.materno, prop?.nombre].filter(Boolean).join(' ').trim();
+    const fecha = new Date().toISOString().split('T')[0];
+    try {
+      await createContrato({
+        tipoContrato: 'NORMAL',
+        tipoServicio: 'AGUA_POTABLE',
+        nombre: nombreCompleto || 'Sin nombre',
+        rfc: prop?.rfc?.trim() || 'XAXX010101000',
+        direccion: '',
+        contacto: prop?.telefonos?.trim() || prop?.email?.trim() || '',
+        estado: 'Pendiente de alta',
+        fecha,
+        puntoServicioId: data.puntoServicioId || undefined,
+        variablesCapturadas: Object.keys(data.variablesCapturadas).length ? { ...data.variablesCapturadas } : undefined,
+      });
+      await queryClient.invalidateQueries({ queryKey: ['contratos'] });
+      toast.success('Borrador guardado', { description: 'El contrato quedó como "Pendiente de alta". Puedes completarlo desde la lista de contratos.' });
+      onComplete();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'No se pudo guardar el borrador.';
+      toast.error('Error al guardar borrador', { description: message });
+    } finally {
+      setGuardandoBorrador(false);
+    }
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <nav aria-label="Progreso del asistente de contratación" className="w-full overflow-x-auto pb-2">
@@ -402,14 +432,27 @@ export function WizardContratacion({ onComplete, onCancel, procesoPrecargaId }: 
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-4">
-        <Button type="button" variant="ghost" onClick={onCancel} disabled={createMutation.isPending}>
-          Cancelar
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button type="button" variant="ghost" onClick={onCancel} disabled={createMutation.isPending || guardandoBorrador}>
+            Cancelar
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="gap-1.5 border-dashed text-muted-foreground hover:text-foreground"
+            onClick={handleGuardarBorrador}
+            disabled={createMutation.isPending || guardandoBorrador}
+          >
+            <Save className="h-3.5 w-3.5" />
+            {guardandoBorrador ? 'Guardando…' : 'Guardar borrador'}
+          </Button>
+        </div>
         <div className="flex flex-wrap gap-2">
-          <Button type="button" variant="outline" onClick={prev} disabled={isFirstStep || createMutation.isPending}>
+          <Button type="button" variant="outline" onClick={prev} disabled={isFirstStep || createMutation.isPending || guardandoBorrador}>
             Anterior
           </Button>
-          <Button type="button" onClick={handlePrimary} disabled={primaryDisabled}>
+          <Button type="button" onClick={handlePrimary} disabled={primaryDisabled || guardandoBorrador}>
             {primaryLabel}
           </Button>
         </div>

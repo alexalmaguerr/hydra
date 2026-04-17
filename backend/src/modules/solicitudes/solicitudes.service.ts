@@ -168,7 +168,7 @@ export class SolicitudesService {
         rfc: sol.propRfc || 'XAXX010101000',
         direccion: sol.predioResumen,       // ← ubicación del predio como valor por defecto
         contacto: sol.propTelefono || '',
-        estado: 'Activo',
+        estado: 'Pendiente de alta',
         fecha: new Date().toISOString().split('T')[0],
         tipoContratacionId: sol.tipoContratacionId ?? null,
         domiciliado: false,

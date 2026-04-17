@@ -8,6 +8,7 @@ import {
   fetchTextoContratoPreview,
   getContratoPdfUrl,
   crearFacturaContratacion,
+  cancelarContrato,
   hasApi,
 } from '@/api/contratos';
 import { toast } from '@/components/ui/sonner';
@@ -41,6 +42,7 @@ import {
   Check,
   Pencil,
   PlayCircle,
+  Trash2,
 } from 'lucide-react';
 import { fetchAdministraciones } from '@/api/catalogos';
 import { fetchTiposContratacion, type TipoContratacion } from '@/api/tipos-contratacion';
@@ -182,9 +184,23 @@ const Contratos = () => {
   const [confirmCloseWizard, setConfirmCloseWizard] = useState(false);
   const [detail, setDetail] = useState<string | null>(null);
   const [resumingContratoId, setResumingContratoId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState('');
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
+
+  const cancelarMutation = useMutation({
+    mutationFn: (id: string) => cancelarContrato(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['contratos'] });
+      toast.success('Contrato cancelado');
+      setDeletingId(null);
+    },
+    onError: () => {
+      toast.error('No se pudo cancelar el contrato');
+      setDeletingId(null);
+    },
+  });
 
   const { data: apiContratos = [], isLoading } = useQuery({
     queryKey: ['contratos'],
@@ -487,6 +503,12 @@ const Contratos = () => {
                           <PlayCircle className={`h-4 w-4 ${resumingContratoId === c.id ? 'opacity-50' : 'text-[#007BFF]'}`} />
                         </Button>
                       )}
+                      <Button variant="ghost" size="sm" onClick={() => setDetail(c.id)} title="Abrir ficha (editar en detalle)">
+                        <Pencil className="h-4 w-4 text-muted-foreground" />
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={() => setDeletingId(c.id)} title="Cancelar contrato">
+                        <Trash2 className="h-4 w-4 text-destructive/70 hover:text-destructive" />
+                      </Button>
                     </div>
                   </td>
                 </tr>
@@ -503,6 +525,27 @@ const Contratos = () => {
           </tbody>
         </table>
       </div>
+
+      {/* Confirmación de cancelación de contrato */}
+      <AlertDialog open={!!deletingId} onOpenChange={(o) => { if (!o) setDeletingId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Cancelar este contrato?</AlertDialogTitle>
+            <AlertDialogDescription>
+              El contrato cambiará de estado a "Cancelado". Esta acción puede deshacerse editando el estado desde el detalle del contrato.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>No, conservar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => deletingId && cancelarMutation.mutate(deletingId)}
+            >
+              Sí, cancelar contrato
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Wizard de contratación (9 pasos) */}
       <Dialog

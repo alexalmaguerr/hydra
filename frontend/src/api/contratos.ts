@@ -236,4 +236,11 @@ export async function previewFacturacion(
   });
 }
 
+export async function cancelarContrato(id: string): Promise<ContratoDto> {
+  return apiRequest<ContratoDto>(`/contratos/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ estado: 'Cancelado' }),
+  });
+}
+
 export { hasApi };
