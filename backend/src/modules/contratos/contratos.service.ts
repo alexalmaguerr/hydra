@@ -78,6 +78,22 @@ const ESTADOS_CORTADOS = ['Cortado', 'cortado'];
 // Estados de baja que bloquean la mayoria de tramites
 const ESTADOS_BAJA = ['BajaTemp', 'BajaDef', 'Baja Temporal', 'Baja Definitiva'];
 
+/** Domicilio con catálogos INEGI incluidos (PDF / impresión). */
+type DomicilioInegiRelationPdf = {
+  direccionConcatenada: string | null;
+  calle: string;
+  numExterior: string | null;
+  numInterior: string | null;
+  entreCalle1: string | null;
+  entreCalle2: string | null;
+  codigoPostal: string | null;
+  referencia: string | null;
+  coloniaINEGI: { nombre: string } | null;
+  localidadINEGI: { nombre: string } | null;
+  municipioINEGI: { nombre: string; estado: { nombre: string } } | null;
+  estadoINEGI: { nombre: string } | null;
+};
+
 @Injectable()
 export class ContratosService {
   constructor(
@@ -990,8 +1006,20 @@ export class ContratosService {
 
   /** Genera el HTML del contrato para impresión/PDF (usa snapshot si existe). */
   async getContratoPdf(contratoId: string): Promise<string> {
+    const domicilioInclude = {
+      coloniaINEGI: true,
+      localidadINEGI: true,
+      municipioINEGI: { include: { estado: true } },
+      estadoINEGI: true,
+    } as const;
+
     const c = await this.prisma.contrato.findUnique({
       where: { id: contratoId },
+      include: {
+        domicilio: { include: domicilioInclude },
+        puntoServicio: { include: { domicilio: { include: domicilioInclude } } },
+        actividad: true,
+      },
     });
     if (!c) throw new NotFoundException('Contrato no encontrado');
 
@@ -1003,10 +1031,33 @@ export class ContratosService {
       body = preview.texto;
     }
 
+    const calibreId = this.readVariablesCapturadasString(
+      c.variablesCapturadas,
+      'calibreMedidorId',
+    );
+    let calibreDescripcion = '';
+    if (calibreId.length > 0) {
+      const cal = await this.prisma.catalogoCalibre.findUnique({
+        where: { id: calibreId },
+        select: { descripcion: true, codigo: true },
+      });
+      calibreDescripcion =
+        cal?.descripcion?.trim() || cal?.codigo?.trim() || calibreId;
+    }
+
     const numeroContrato = c.ceaNumContrato?.trim() || c.id;
+    const domTitular =
+      this.formatDomicilioForPdf(c.domicilio) || c.direccion?.trim() || '';
+    const bloqueIntroPartesHtml = this.buildIntroPartesHtml(c.nombre, domTitular);
+    const bloqueDatosInstalacionHtml = this.buildDatosInstalacionHtml(c, {
+      calibreMedidorLabel: calibreDescripcion,
+    });
+
     return this.wrapTextoHtml(body, c.nombre, c.fecha, {
       numeroContrato,
       incluirSegundaCopia: true,
+      bloqueIntroPartesHtml,
+      bloqueDatosInstalacionHtml,
     });
   }
 
@@ -1044,6 +1095,130 @@ export class ContratosService {
   }
 
   // ─── Private helpers ───────────────────────────────────────────────
+
+  private readVariablesCapturadasString(
+    captured: Prisma.JsonValue | null | undefined,
+    key: string,
+  ): string {
+    if (
+      !captured ||
+      typeof captured !== 'object' ||
+      Array.isArray(captured)
+    ) {
+      return '';
+    }
+    const v = (captured as Record<string, unknown>)[key];
+    if (v == null) return '';
+    const s = String(v).trim();
+    return s;
+  }
+
+  private formatDomicilioForPdf(d: DomicilioInegiRelationPdf | null): string {
+    if (!d) return '';
+    const dc = d.direccionConcatenada?.trim();
+    if (dc) return dc;
+    const parts: string[] = [];
+    const line1 = [d.calle?.trim(), d.numExterior?.trim(), d.numInterior?.trim()]
+      .filter(Boolean)
+      .join(' ');
+    if (line1) parts.push(line1);
+    const e1 = d.entreCalle1?.trim();
+    const e2 = d.entreCalle2?.trim();
+    if (e1 || e2) {
+      parts.push(
+        `Entre calles: ${[e1, e2].filter(Boolean).join(' y ')}`.trim(),
+      );
+    }
+    if (d.coloniaINEGI?.nombre?.trim()) {
+      parts.push(`Col. ${d.coloniaINEGI.nombre.trim()}`);
+    }
+    if (d.localidadINEGI?.nombre?.trim()) {
+      parts.push(d.localidadINEGI.nombre.trim());
+    }
+    const mun = d.municipioINEGI?.nombre?.trim();
+    const edo =
+      d.estadoINEGI?.nombre?.trim() ??
+      d.municipioINEGI?.estado?.nombre?.trim();
+    if (mun && edo) parts.push(`${mun}, ${edo}`);
+    else if (mun) parts.push(mun);
+    else if (edo) parts.push(edo);
+    if (d.codigoPostal?.trim()) parts.push(`C.P. ${d.codigoPostal.trim()}`);
+    if (d.referencia?.trim()) parts.push(`Ref.: ${d.referencia.trim()}`);
+    return parts.join(', ').trim();
+  }
+
+  private buildIntroPartesHtml(nombre: string, domicilioTitular: string): string {
+    const safeNombre = this.escapeHtmlPlain(String(nombre ?? ''));
+    const safeDom = this.escapeHtmlPlain(
+      domicilioTitular.trim().length > 0 ? domicilioTitular.trim() : '—',
+    );
+    return `<div class="intro-partes"><p>Por una parte <strong>LA COMISIÓN</strong> (Comisión Estatal de Aguas), en los términos del ordenamiento jurídico aplicable, y por la otra <strong>EL USUARIO</strong> <strong>${safeNombre}</strong>, con domicilio en <strong>${safeDom}</strong>, convienen en celebrar el presente contrato conforme a las declaraciones y cláusulas siguientes.</p></div>`;
+  }
+
+  private buildDatosInstalacionHtml(
+    c: {
+      direccion: string;
+      tipoContrato: string;
+      tipoServicio: string;
+      rfc: string;
+      unidadesServidas: number | null;
+      variablesCapturadas: Prisma.JsonValue | null;
+      domicilio: DomicilioInegiRelationPdf | null;
+      puntoServicio: {
+        diametroToma: string | null;
+        domicilio: DomicilioInegiRelationPdf | null;
+      } | null;
+      actividad: { descripcion: string } | null;
+    },
+    opts: { calibreMedidorLabel: string },
+  ): string {
+    const dirServ =
+      this.formatDomicilioForPdf(c.puntoServicio?.domicilio ?? null) ||
+      this.formatDomicilioForPdf(c.domicilio) ||
+      c.direccion?.trim() ||
+      '';
+
+    const diametroPunto = c.puntoServicio?.diametroToma?.trim() ?? '';
+    const diametro =
+      diametroPunto.length > 0
+        ? diametroPunto
+        : opts.calibreMedidorLabel.trim();
+
+    const fechaInst = this.readVariablesCapturadasString(
+      c.variablesCapturadas,
+      'fechaInstalacionConexion',
+    );
+    const tipoUsuario = [c.tipoContrato, c.tipoServicio]
+      .map((s) => String(s ?? '').trim())
+      .filter(Boolean)
+      .join(' · ');
+    const giro = c.actividad?.descripcion?.trim() ?? '';
+    const unidades =
+      c.unidadesServidas != null && c.unidadesServidas >= 0
+        ? String(c.unidadesServidas)
+        : '';
+
+    const rows: { k: string; v: string }[] = [
+      { k: 'Dirección del suministro', v: dirServ },
+      { k: 'Diámetro de la toma / calibre', v: diametro },
+      { k: 'Fecha de instalación de la conexión', v: fechaInst },
+      { k: 'Tipo de contrato / servicio', v: tipoUsuario },
+      { k: 'Actividad o giro', v: giro },
+      { k: 'Unidades servidas', v: unidades },
+      { k: 'RFC', v: c.rfc?.trim() ?? '' },
+    ];
+    const any = rows.some((r) => r.v.length > 0);
+    if (!any) return '';
+
+    const inner = rows
+      .filter((r) => r.v.length > 0)
+      .map(
+        (r) =>
+          `<p class="inst-row"><span class="inst-k">${this.escapeHtmlPlain(r.k)}:</span> ${this.escapeHtmlPlain(r.v)}</p>`,
+      )
+      .join('');
+    return `<div class="datos-instalacion"><h2>Datos de instalación</h2>${inner}</div>`;
+  }
 
   /**
    * Variables fijas del contrato + `variablesCapturadas` (plantilla/cláusulas pueden usar `{{clave}}`).
@@ -1231,7 +1406,13 @@ export class ContratosService {
     body: string,
     nombre: string,
     fecha: string,
-    opts?: { numeroContrato?: string | null; incluirSegundaCopia?: boolean },
+    opts?: {
+      numeroContrato?: string | null;
+      incluirSegundaCopia?: boolean;
+      /** HTML ya escapado (solo etiquetas seguras generadas en servidor). */
+      bloqueIntroPartesHtml?: string;
+      bloqueDatosInstalacionHtml?: string;
+    },
   ): string {
     const escapedBody = body
       .replace(/&/g, '&amp;')
@@ -1245,6 +1426,8 @@ export class ContratosService {
     const safeNum = this.escapeHtmlPlain(rawNum.length > 0 ? rawNum : '—');
     const incluir2 = opts?.incluirSegundaCopia !== false;
     const sig = this.contratoPrintSignaturesHtml();
+    const intro = opts?.bloqueIntroPartesHtml ?? '';
+    const datosInst = opts?.bloqueDatosInstalacionHtml ?? '';
 
     const contractSection = (copyLabel: string | null) => `
   <section class="hoja-contrato">
@@ -1256,6 +1439,8 @@ export class ContratosService {
     </header>
     <p class="interlocutor"><span class="lbl">Nombre del titular / usuario:</span> ${safeNombre}</p>
     <p class="interlocutor"><span class="lbl">Fecha del contrato:</span> ${safeFecha}</p>
+    ${intro}
+    ${datosInst}
     <div class="body-text">${escapedBody}</div>
     ${sig}
   </section>`;
@@ -1279,6 +1464,11 @@ export class ContratosService {
     .num-contrato { text-align: center; font-size: 11pt; margin: 0.25em 0 0.75em; }
     .interlocutor { font-size: 10.5pt; margin: 0.2em 0; }
     .interlocutor .lbl { color: #444; }
+    .intro-partes { font-size: 10.5pt; text-align: justify; margin: 0.65em 0 0.35em; }
+    .datos-instalacion { margin: 0.85em 0; padding: 0.65em 0.85em; border: 1px solid #333; background: #fafafa; page-break-inside: avoid; }
+    .datos-instalacion h2 { font-size: 11pt; margin: 0 0 0.45em; text-align: center; font-weight: bold; }
+    .inst-row { margin: 0.12em 0; font-size: 10.5pt; text-align: justify; }
+    .inst-k { font-weight: bold; color: #333; }
     .body-text { text-align: justify; margin-top: 1em; }
     .duplicado { margin-top: 1.25em; font-size: 10pt; font-style: italic; text-align: justify; }
     table.firmas { width: 100%; margin-top: 2.5em; border-collapse: collapse; }

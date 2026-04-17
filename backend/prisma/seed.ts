@@ -541,37 +541,8 @@ async function seedCatalogosContratacion() {
   }
   console.log('Conceptos de cobro sembrados:', conceptosCobro.map(c => c.codigo).join(', '));
 
-  // Cláusulas contractuales base (T13)
-  const clausulas = [
-    {
-      codigo: 'DERECHOS_USUARIO',
-      titulo: 'Derechos del Usuario',
-      contenido: 'El usuario tiene derecho a recibir el servicio en condiciones adecuadas de presión, continuidad y calidad conforme a la normativa vigente.',
-    },
-    {
-      codigo: 'OBLIGACIONES_USUARIO',
-      titulo: 'Obligaciones del Usuario',
-      contenido: 'El usuario está obligado a pagar puntualmente los cargos por servicio, conservar en buen estado las instalaciones y permitir la revisión del medidor.',
-    },
-    {
-      codigo: 'CAUSAS_CORTE',
-      titulo: 'Causas de Interrupción del Servicio',
-      contenido: 'El organismo operador podrá interrumpir el servicio por falta de pago, mal uso de las instalaciones, fraude o situaciones de emergencia técnica.',
-    },
-    {
-      codigo: 'VIGENCIA',
-      titulo: 'Vigencia del Contrato',
-      contenido: 'El presente contrato tendrá vigencia indefinida a partir de su firma, pudiendo ser rescindido por cualquiera de las partes con aviso previo de 30 días naturales.',
-    },
-  ];
-  for (const cl of clausulas) {
-    await prisma.clausulaContractual.upsert({
-      where: { codigo: cl.codigo },
-      update: { titulo: cl.titulo, contenido: cl.contenido },
-      create: cl,
-    });
-  }
-  console.log('Cláusulas contractuales sembradas:', clausulas.map(c => c.codigo).join(', '));
+  // ── Cláusulas contractuales Hydra (texto legal real) ─────────────────────
+  await seedClausulasHydra();
 }
 
 async function seedCatalogosActividadRelacionPS() {
@@ -1137,6 +1108,290 @@ async function seedInegiQueretaro() {
   console.log('INEGI Querétaro: 1 estado, 2 municipios, 3 localidades,', colonias.length + coloniasMarques.length, 'colonias');
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// Cláusulas Hydra + Plantilla completa
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function seedClausulasHydra() {
+  const clausulas: { codigo: string; titulo: string; contenido: string; orden: number }[] = [
+    {
+      codigo: 'HYDRA_01_PRIMERA',
+      titulo: 'PRIMERA — Objeto del contrato',
+      orden: 1,
+      contenido:
+        'PRIMERA: Este contrato tiene por objeto establecer las disposiciones generales que regulan la prestación de los servicios integrales de agua potable, sin detrimento a lo dispuesto en la Ley que Regula la Prestación de los Servicios de Agua Potable, Alcantarillado y Saneamiento del Estado de Querétaro, así como las disposiciones normativas aplicables que se encuentren vigentes.',
+    },
+    {
+      codigo: 'HYDRA_02_SEGUNDA',
+      titulo: 'SEGUNDA — Obligación de suministro',
+      orden: 2,
+      contenido:
+        'SEGUNDA: "LA COMISIÓN", se obliga a suministrar a "EL USUARIO" de los Servicios Integrales de Agua Potable, en el domicilio antes señalado en los términos de lo dispuesto en la Ley que Regula la Prestación de los Servicios de Agua Potable, Alcantarillado y Saneamiento del Estado de Querétaro.',
+    },
+    {
+      codigo: 'HYDRA_03_TERCERA',
+      titulo: 'TERCERA — Uso racional del agua',
+      orden: 3,
+      contenido:
+        'TERCERA.- Es obligación de "EL USUARIO" hacer uso del Agua exclusivamente para el fin contratado, comprometiéndose a utilizarla racionalmente; esto es, teniendo en cuenta que el agua es un líquido vital, que tiene un alto costo la infraestructura que se requiere y que existe escasez del líquido y rezago en grupos sociales considerables.',
+    },
+    {
+      codigo: 'HYDRA_04_CUARTA',
+      titulo: 'CUARTA — Obligación de pago',
+      orden: 4,
+      contenido:
+        'CUARTA.- Por la prestación de los servicios que dispone la Ley que Regula la Prestación de los Servicios de Agua Potable, Alcantarillado y Saneamiento del Estado de Querétaro, "EL USUARIO" está obligado al pago de los servicios que fijan los precios aprobados por "LA COMISIÓN", así como las contribuciones que deberán aportar los beneficiados por la realización de las obras que requieran.',
+    },
+    {
+      codigo: 'HYDRA_05_QUINTA',
+      titulo: 'QUINTA — Fijación de precios',
+      orden: 5,
+      contenido:
+        'QUINTA.- Los precios para el cobro de los servicios se fijarán tomando en consideración los costos de construcción, operación, administración, mantenimiento, sustitución y conservación, el volumen de agua consumido y el uso autorizado y, en su caso, el volumen de agua residual descargado conforme el gasto máximo instantáneo o el determinado conforme el medidor volumétrico instalado por "LA COMISIÓN" para tal efecto.',
+    },
+    {
+      codigo: 'HYDRA_06_SEXTA',
+      titulo: 'SEXTA — Determinación presuntiva',
+      orden: 6,
+      contenido:
+        'SEXTA.- "LA COMISIÓN" podrá determinar presuntivamente el pago de los Servicios Integrales de Agua Potable, de conformidad con lo dispuesto en la Ley que Regula la Prestación de los Servicios de Agua Potable, Alcantarillado y Saneamiento del Estado de Querétaro, el "USUARIO" está obligado al pago de los servicios públicos con base en los precios autorizados, incluso para el caso de que su consumo sea de cero m3.',
+    },
+    {
+      codigo: 'HYDRA_07_SEPTIMA',
+      titulo: 'SÉPTIMA — Emisión de recibos y pago',
+      orden: 7,
+      contenido:
+        'SÉPTIMA.- "LA COMISIÓN" emitirá dentro de los treinta días naturales siguientes al de la prestación de los servicios correspondientes, o bien en el periodo que para tal efecto determine, el recibo que contenga el nombre del usuario, el domicilio, el o los servicios proporcionados, el período de prestación, el volumen utilizado, el precio aplicable, la fecha límite para realizar el pago y el monto a pagar; mismo que se entregará al menos con ocho días de anticipación a la fecha límite de pago en el domicilio donde se presta el servicio. "EL USUARIO" se obliga a pasar a las oficinas de "LA COMISIÓN" a recoger el duplicado de la factura cuando por cualquier circunstancia no tenga factura en su domicilio dentro de los periodos usuales en los que hace su pago.\n\n"EL USUARIO" estará obligado al pago del monto total amparado en el recibo respectivo, incluyendo los adeudos que por algún motivo no hubiesen sido cubiertos.\n\nEn caso de que por cualquier causa imputable a "EL USUARIO", no se pagara el importe señalado en el recibo correspondiente dentro del plazo otorgado, por única vez y cobrando los recargos correspondientes en términos de las disposiciones fiscales aplicables, en el recibo siguiente se le desglosará el concepto de adeudo anterior.\n\n"EL USUARIO" estará obligado al pago del monto total amparado en el recibo respectivo, incluyendo el adeudo referido.\n\n"LA COMISIÓN" está facultada para limitar la prestación de los servicios cuando por causa imputable a "EL USUARIO" no se hayan pagado plena y oportunamente los recibos correspondientes. El pago parcial del monto adeudado no será motivo para dejar de aplicar lo dispuesto en el presente párrafo.\n\nInvariablemente, los pagos se realizarán en los lugares que para tal efecto indique el propio recibo, en el entendido que esta condición no podrá ser esgrimida como causal para justificar la omisión del pago respectivo.',
+    },
+    {
+      codigo: 'HYDRA_08_OCTAVA',
+      titulo: 'OCTAVA — Limitación de servicio por adeudo',
+      orden: 8,
+      contenido:
+        'OCTAVA.- "LA COMISIÓN" y "EL USUARIO" convienen expresamente, en que la primera podrá limitar el servicio cuando por causa imputable a "EL USUARIO" no se hayan pagado los recibos correspondientes a dos o más meses consecutivos. En caso de que el recibo no sea pagado por causas imputables a "LA COMISIÓN" dentro del plazo correspondiente, no procederá el cobro de recargo ni la supresión o limitación de los servicios.',
+    },
+    {
+      codigo: 'HYDRA_09_NOVENA',
+      titulo: 'NOVENA — Facultad de cobro',
+      orden: 9,
+      contenido:
+        'NOVENA.- "LA COMISIÓN", dentro de su ámbito de competencia, tendrá facultades para realizar el cobro de los precios, determinar los adeudos a su favor, por la prestación de los servicios públicos a su cargo y para proceder a su cobro podrán aplicarse supletoriamente las disposiciones contenidas en el Código Fiscal del Estado de Querétaro que regulan el procedimiento administrativo de ejecución.\n\n"LA COMISIÓN" será quien realice la determinación, liquidación y ejecución del cobro de los precios.',
+    },
+    {
+      codigo: 'HYDRA_10_DECIMA',
+      titulo: 'DÉCIMA — Cambio de propietario',
+      orden: 10,
+      contenido:
+        'DÉCIMA.- "EL USUARIO" tendrá la obligación de informar a "LA COMISIÓN" el cambio de propietario, de giro comercial o industrial o la baja de estos últimos, dentro de los 30 días siguientes a la fecha en que suceda, a efecto de pagar los adeudos pendientes y se inscribirá el nuevo Usuario en el padrón correspondiente. En caso de que "EL USUARIO" no cumpla con esta obligación, será responsable solidaria y mancomunadamente con "EL USUARIO" anterior, por los adeudos pendientes, así como de los que se continúen causando.',
+    },
+    {
+      codigo: 'HYDRA_11_DECIMA_PRIMERA',
+      titulo: 'DÉCIMA PRIMERA — Instalación de tomas y medidores',
+      orden: 11,
+      contenido:
+        'DÉCIMA PRIMERA.- Las tomas deberán instalarse frente al acceso de los predios, giros o establecimientos, y los aparatos medidores en el lugar visible que defina "LA COMISIÓN", de tal forma que facilite las lecturas, pruebas de funcionamiento y posible cambio de aparato. "EL USUARIO" se obliga a permitir al personal de "LA COMISIÓN" quien deberá identificarse de forma previa, el acceso a los lugares del inmueble donde están colocadas las tuberías, accesorios, medidor y aparato de consumo para la práctica de inspecciones de las instalaciones hidráulicas.',
+    },
+    {
+      codigo: 'HYDRA_12_DECIMA_SEGUNDA',
+      titulo: 'DÉCIMA SEGUNDA — Verificación de instalación',
+      orden: 12,
+      contenido:
+        'DÉCIMA SEGUNDA.- "LA COMISIÓN" verificará antes de otorgar el suministro, si la instalación hidráulica de "EL USUARIO" reúne las condiciones de uso y funcionamiento establecidas para el efecto y que dicha instalación cumple con las disposiciones técnicas en vigor. Si la verificación o revisión, arroja resultados satisfactorios, "LA COMISIÓN" podrá iniciar el suministro dando aviso a "EL USUARIO". En caso contrario, éste realizará las reparaciones materiales necesarias para la conexión de sus servicios y sólo se iniciará con el suministro, hasta que dicha instalación cumpla con las disposiciones técnicas en vigor, debiendo "EL USUARIO" cubrir el importe de su excedente resultante en el primer recibo de consumo de sus servicios.',
+    },
+    {
+      codigo: 'HYDRA_13_DECIMA_TERCERA',
+      titulo: 'DÉCIMA TERCERA — Modificaciones al predio',
+      orden: 13,
+      contenido:
+        'DÉCIMA TERCERA.- Cualquier modificación que se pretenda hacer en el predio, giro o establecimiento, que afecte al Sistema de Agua Potable, queda sujeto a la autorización de "LA COMISIÓN", de acuerdo con las condiciones que ésta determine. Queda prohibida la instalación de equipos de succión directa en la tubería de los predios conectados al sistema.',
+    },
+    {
+      codigo: 'HYDRA_14_DECIMA_CUARTA',
+      titulo: 'DÉCIMA CUARTA — Prohibición de operación por usuario',
+      orden: 14,
+      contenido:
+        'DÉCIMA CUARTA.- En ningún caso "EL USUARIO" o persona extraña a "LA COMISIÓN" podrá operar por sí mismo el cambio del sistema, instalación, supresión o conexión para los servicios integrales de Agua Potable.',
+    },
+    {
+      codigo: 'HYDRA_15_DECIMA_QUINTA',
+      titulo: 'DÉCIMA QUINTA — Dispositivos de medición',
+      orden: 15,
+      contenido:
+        'DÉCIMA QUINTA.- Las Modificaciones o implementación de accesorios y/o dispositivos de medición, aplicados a las tomas de los predios, quedan sujetas a la autorización y aplicación invariablemente por parte de "LA COMISIÓN", considerando las características particulares del predio, modernización de los sistemas, eficientización aplicando avances tecnológicos, normativas vigentes o cualesquiera situaciones que afecten en beneficio de un mejor servicio el sistema de Agua Potable, la medición del servicio o la calidad del agua suministrada.',
+    },
+    // ── Cláusulas 16-26: no recuperadas por OCR del documento escaneado. ──
+    // Agregar texto real cuando se disponga de una copia completa.
+    { codigo: 'HYDRA_16_DECIMA_SEXTA', titulo: 'DÉCIMA SEXTA', orden: 16, contenido: '[Pendiente — texto no recuperado del escaneo Hydra. Completar manualmente.]' },
+    { codigo: 'HYDRA_17_DECIMA_SEPTIMA', titulo: 'DÉCIMA SÉPTIMA', orden: 17, contenido: '[Pendiente — texto no recuperado del escaneo Hydra. Completar manualmente.]' },
+    { codigo: 'HYDRA_18_DECIMA_OCTAVA', titulo: 'DÉCIMA OCTAVA', orden: 18, contenido: '[Pendiente — texto no recuperado del escaneo Hydra. Completar manualmente.]' },
+    { codigo: 'HYDRA_19_DECIMA_NOVENA', titulo: 'DÉCIMA NOVENA', orden: 19, contenido: '[Pendiente — texto no recuperado del escaneo Hydra. Completar manualmente.]' },
+    { codigo: 'HYDRA_20_VIGESIMA', titulo: 'VIGÉSIMA', orden: 20, contenido: '[Pendiente — texto no recuperado del escaneo Hydra. Completar manualmente.]' },
+    { codigo: 'HYDRA_21_VIGESIMA_PRIMERA', titulo: 'VIGÉSIMA PRIMERA', orden: 21, contenido: '[Pendiente — texto no recuperado del escaneo Hydra. Completar manualmente.]' },
+    { codigo: 'HYDRA_22_VIGESIMA_SEGUNDA', titulo: 'VIGÉSIMA SEGUNDA', orden: 22, contenido: '[Pendiente — texto no recuperado del escaneo Hydra. Completar manualmente.]' },
+    { codigo: 'HYDRA_23_VIGESIMA_TERCERA', titulo: 'VIGÉSIMA TERCERA', orden: 23, contenido: '[Pendiente — texto no recuperado del escaneo Hydra. Completar manualmente.]' },
+    { codigo: 'HYDRA_24_VIGESIMA_CUARTA', titulo: 'VIGÉSIMA CUARTA', orden: 24, contenido: '[Pendiente — texto no recuperado del escaneo Hydra. Completar manualmente.]' },
+    { codigo: 'HYDRA_25_VIGESIMA_QUINTA', titulo: 'VIGÉSIMA QUINTA', orden: 25, contenido: '[Pendiente — texto no recuperado del escaneo Hydra. Completar manualmente.]' },
+    { codigo: 'HYDRA_26_VIGESIMA_SEXTA', titulo: 'VIGÉSIMA SEXTA', orden: 26, contenido: '[Pendiente — texto no recuperado del escaneo Hydra. Completar manualmente.]' },
+    // ── Fin placeholders ──
+    {
+      codigo: 'HYDRA_27_VIGESIMA_SEPTIMA',
+      titulo: 'VIGÉSIMA SÉPTIMA — Jurisdicción',
+      orden: 27,
+      contenido:
+        'VIGÉSIMA SÉPTIMA.- "LAS PARTES" convienen desde ahora en someter cualquier controversia de índole legal que se suscite con motivo de la interpretación o cumplimiento de las estipulaciones contenidas en este contrato, a los tribunales competentes de la Ciudad de Santiago de Querétaro Qro., y renunciar a cualquier otra jurisdicción que les corresponda en razón de su domicilio presente o futuro.',
+    },
+    {
+      codigo: 'HYDRA_28_VIGESIMA_OCTAVA',
+      titulo: 'VIGÉSIMA OCTAVA — Lectura del medidor',
+      orden: 28,
+      contenido:
+        'VIGÉSIMA OCTAVA.- La lectura del servicio medido, para determinar el consumo de agua de "EL USUARIO", se hará por periodos mensuales, "EL USUARIO" se obliga a mantener el medidor en la parte exterior del límite frontal del predio, para facilitar al empleado la lectura del servicio medido.\n\nEn caso de que por razones de modificación de la construcción se implique la remoción del aparato medidor, "EL USUARIO" estará obligado a dar aviso oportuno a "LA COMISIÓN".',
+    },
+    {
+      codigo: 'HYDRA_29_VIGESIMA_NOVENA',
+      titulo: 'VIGÉSIMA NOVENA — Veracidad de datos',
+      orden: 29,
+      contenido:
+        'VIGÉSIMA NOVENA.- "EL USUARIO" bajo protesta de decir verdad, declara que los datos proporcionados para la integración y suscripción del presente contrato son fidedignos, en caso de haber proporcionado algún dato falso se hará acreedor a las sanciones que le corresponden, en términos de la Legislación vigente aplicable.',
+    },
+    {
+      codigo: 'HYDRA_30_TRIGESIMA',
+      titulo: 'TRIGÉSIMA — Fuerza mayor y estiaje',
+      orden: 30,
+      contenido:
+        'TRIGÉSIMA.- Las partes acuerdan que la Comisión Estatal de Aguas proporcionará el servicio de agua potable con regularidad salvo en las épocas de estiaje, en caso de contingencia, sustitución de redes, fallas en los pozos, por lo que el usuario acepta que las condiciones de las fuentes de abastecimiento podrían variar y no responsabiliza a la Comisión por causas de fuerza mayor, contingencias o casos fortuitos.',
+    },
+    {
+      codigo: 'HYDRA_31_TRIGESIMA_PRIMERA',
+      titulo: 'TRIGÉSIMA PRIMERA — No acredita propiedad',
+      orden: 31,
+      contenido:
+        'TRIGÉSIMA PRIMERA.- El presente contrato no constituye, bajo ninguna circunstancia, una acreditación legal de propiedad, ni genera derecho de propiedad alguno a favor de ninguna de las partes sobre el bien inmueble o mueble al que hace referencia, sirve principalmente como evidencia de pago por un servicio, no como título de propiedad.',
+    },
+  ];
+
+  for (const cl of clausulas) {
+    await prisma.clausulaContractual.upsert({
+      where: { codigo: cl.codigo },
+      update: { titulo: cl.titulo, contenido: cl.contenido },
+      create: { codigo: cl.codigo, titulo: cl.titulo, contenido: cl.contenido, version: '1.0' },
+    });
+  }
+  console.log(`Cláusulas Hydra sembradas: ${clausulas.length}`);
+
+  // Vincular todas las cláusulas a todos los tipos de contratación existentes
+  const tipos = await prisma.tipoContratacion.findMany({ select: { id: true, codigo: true } });
+  const clausulasDb = await prisma.clausulaContractual.findMany({
+    where: { codigo: { startsWith: 'HYDRA_' } },
+    select: { id: true, codigo: true },
+  });
+
+  const ordenMap = new Map(clausulas.map((c) => [c.codigo, c.orden]));
+  let linkCount = 0;
+  for (const tipo of tipos) {
+    for (const cl of clausulasDb) {
+      const orden = ordenMap.get(cl.codigo) ?? 0;
+      await prisma.clausulaTipoContratacion.upsert({
+        where: { tipoContratacionId_clausulaId: { tipoContratacionId: tipo.id, clausulaId: cl.id } },
+        update: { orden },
+        create: { tipoContratacionId: tipo.id, clausulaId: cl.id, obligatorio: true, orden },
+      });
+      linkCount++;
+    }
+  }
+  console.log(`Vínculos cláusula→tipo creados: ${linkCount} (${tipos.length} tipos × ${clausulasDb.length} cláusulas)`);
+}
+
+async function seedPlantillaHydra() {
+  const contenido = `CONTRATO DE PRESTACIÓN DE SERVICIOS INTEGRALES DE AGUA POTABLE, QUE CELEBRAN LA COMISIÓN ESTATAL DE AGUAS, CON DOMICILIO EN {{direccionComision}}, A QUIEN EN EL CUERPO DE ESTE CONTRATO SE LE DENOMINARÁ "LA COMISIÓN", Y {{nombre}}, CON DOMICILIO EN {{direccion}}, C.P. {{codigoPostal}}, A QUIEN SE LE DENOMINARÁ "EL USUARIO".
+
+El presente Contrato se sujetará a las siguientes
+
+CLÁUSULAS
+
+PRIMERA: Este contrato tiene por objeto establecer las disposiciones generales que regulan la prestación de los servicios integrales de agua potable, sin detrimento a lo dispuesto en la Ley que Regula la Prestación de los Servicios de Agua Potable, Alcantarillado y Saneamiento del Estado de Querétaro, así como las disposiciones normativas aplicables que se encuentren vigentes.
+
+SEGUNDA: "LA COMISIÓN", se obliga a suministrar a "EL USUARIO" de los Servicios Integrales de Agua Potable, en el domicilio antes señalado en los términos de lo dispuesto en la Ley que Regula la Prestación de los Servicios de Agua Potable, Alcantarillado y Saneamiento del Estado de Querétaro.
+
+TERCERA.- Es obligación de "EL USUARIO" hacer uso del Agua exclusivamente para el fin contratado, comprometiéndose a utilizarla racionalmente; esto es, teniendo en cuenta que el agua es un líquido vital, que tiene un alto costo la infraestructura que se requiere y que existe escasez del líquido y rezago en grupos sociales considerables.
+
+CUARTA.- Por la prestación de los servicios que dispone la Ley que Regula la Prestación de los Servicios de Agua Potable, Alcantarillado y Saneamiento del Estado de Querétaro, "EL USUARIO" está obligado al pago de los servicios que fijan los precios aprobados por "LA COMISIÓN", así como las contribuciones que deberán aportar los beneficiados por la realización de las obras que requieran.
+
+QUINTA.- Los precios para el cobro de los servicios se fijarán tomando en consideración los costos de construcción, operación, administración, mantenimiento, sustitución y conservación, el volumen de agua consumido y el uso autorizado y, en su caso, el volumen de agua residual descargado conforme el gasto máximo instantáneo o el determinado conforme el medidor volumétrico instalado por "LA COMISIÓN" para tal efecto.
+
+SEXTA.- "LA COMISIÓN" podrá determinar presuntivamente el pago de los Servicios Integrales de Agua Potable, de conformidad con lo dispuesto en la Ley que Regula la Prestación de los Servicios de Agua Potable, Alcantarillado y Saneamiento del Estado de Querétaro, el "USUARIO" está obligado al pago de los servicios públicos con base en los precios autorizados, incluso para el caso de que su consumo sea de cero m3.
+
+SÉPTIMA.- "LA COMISIÓN" emitirá dentro de los treinta días naturales siguientes al de la prestación de los servicios correspondientes, o bien en el periodo que para tal efecto determine, el recibo que contenga el nombre del usuario, el domicilio, el o los servicios proporcionados, el período de prestación, el volumen utilizado, el precio aplicable, la fecha límite para realizar el pago y el monto a pagar; mismo que se entregará al menos con ocho días de anticipación a la fecha límite de pago en el domicilio donde se presta el servicio. "EL USUARIO" se obliga a pasar a las oficinas de "LA COMISIÓN" a recoger el duplicado de la factura cuando por cualquier circunstancia no tenga factura en su domicilio dentro de los periodos usuales en los que hace su pago.
+
+"EL USUARIO" estará obligado al pago del monto total amparado en el recibo respectivo, incluyendo los adeudos que por algún motivo no hubiesen sido cubiertos.
+
+En caso de que por cualquier causa imputable a "EL USUARIO", no se pagara el importe señalado en el recibo correspondiente dentro del plazo otorgado, por única vez y cobrando los recargos correspondientes en términos de las disposiciones fiscales aplicables, en el recibo siguiente se le desglosará el concepto de adeudo anterior.
+
+"EL USUARIO" estará obligado al pago del monto total amparado en el recibo respectivo, incluyendo el adeudo referido.
+
+"LA COMISIÓN" está facultada para limitar la prestación de los servicios cuando por causa imputable a "EL USUARIO" no se hayan pagado plena y oportunamente los recibos correspondientes. El pago parcial del monto adeudado no será motivo para dejar de aplicar lo dispuesto en el presente párrafo.
+
+Invariablemente, los pagos se realizarán en los lugares que para tal efecto indique el propio recibo, en el entendido que esta condición no podrá ser esgrimida como causal para justificar la omisión del pago respectivo.
+
+OCTAVA.- "LA COMISIÓN" y "EL USUARIO" convienen expresamente, en que la primera podrá limitar el servicio cuando por causa imputable a "EL USUARIO" no se hayan pagado los recibos correspondientes a dos o más meses consecutivos. En caso de que el recibo no sea pagado por causas imputables a "LA COMISIÓN" dentro del plazo correspondiente, no procederá el cobro de recargo ni la supresión o limitación de los servicios.
+
+NOVENA.- "LA COMISIÓN", dentro de su ámbito de competencia, tendrá facultades para realizar el cobro de los precios, determinar los adeudos a su favor, por la prestación de los servicios públicos a su cargo y para proceder a su cobro podrán aplicarse supletoriamente las disposiciones contenidas en el Código Fiscal del Estado de Querétaro que regulan el procedimiento administrativo de ejecución.
+
+"LA COMISIÓN" será quien realice la determinación, liquidación y ejecución del cobro de los precios.
+
+DÉCIMA.- "EL USUARIO" tendrá la obligación de informar a "LA COMISIÓN" el cambio de propietario, de giro comercial o industrial o la baja de estos últimos, dentro de los 30 días siguientes a la fecha en que suceda, a efecto de pagar los adeudos pendientes y se inscribirá el nuevo Usuario en el padrón correspondiente. En caso de que "EL USUARIO" no cumpla con esta obligación, será responsable solidaria y mancomunadamente con "EL USUARIO" anterior, por los adeudos pendientes, así como de los que se continúen causando.
+
+DÉCIMA PRIMERA.- Las tomas deberán instalarse frente al acceso de los predios, giros o establecimientos, y los aparatos medidores en el lugar visible que defina "LA COMISIÓN", de tal forma que facilite las lecturas, pruebas de funcionamiento y posible cambio de aparato. "EL USUARIO" se obliga a permitir al personal de "LA COMISIÓN" quien deberá identificarse de forma previa, el acceso a los lugares del inmueble donde están colocadas las tuberías, accesorios, medidor y aparato de consumo para la práctica de inspecciones de las instalaciones hidráulicas.
+
+DÉCIMA SEGUNDA.- "LA COMISIÓN" verificará antes de otorgar el suministro, si la instalación hidráulica de "EL USUARIO" reúne las condiciones de uso y funcionamiento establecidas para el efecto y que dicha instalación cumple con las disposiciones técnicas en vigor. Si la verificación o revisión, arroja resultados satisfactorios, "LA COMISIÓN" podrá iniciar el suministro dando aviso a "EL USUARIO". En caso contrario, éste realizará las reparaciones materiales necesarias para la conexión de sus servicios y sólo se iniciará con el suministro, hasta que dicha instalación cumpla con las disposiciones técnicas en vigor, debiendo "EL USUARIO" cubrir el importe de su excedente resultante en el primer recibo de consumo de sus servicios.
+
+DÉCIMA TERCERA.- Cualquier modificación que se pretenda hacer en el predio, giro o establecimiento, que afecte al Sistema de Agua Potable, queda sujeto a la autorización de "LA COMISIÓN", de acuerdo con las condiciones que ésta determine. Queda prohibida la instalación de equipos de succión directa en la tubería de los predios conectados al sistema.
+
+DÉCIMA CUARTA.- En ningún caso "EL USUARIO" o persona extraña a "LA COMISIÓN" podrá operar por sí mismo el cambio del sistema, instalación, supresión o conexión para los servicios integrales de Agua Potable.
+
+DÉCIMA QUINTA.- Las Modificaciones o implementación de accesorios y/o dispositivos de medición, aplicados a las tomas de los predios, quedan sujetas a la autorización y aplicación invariablemente por parte de "LA COMISIÓN", considerando las características particulares del predio, modernización de los sistemas, eficientización aplicando avances tecnológicos, normativas vigentes o cualesquiera situaciones que afecten en beneficio de un mejor servicio el sistema de Agua Potable, la medición del servicio o la calidad del agua suministrada.
+
+[Cláusulas DÉCIMA SEXTA a VIGÉSIMA SEXTA — pendientes de escaneo completo del documento original Hydra.]
+
+VIGÉSIMA SÉPTIMA.- "LAS PARTES" convienen desde ahora en someter cualquier controversia de índole legal que se suscite con motivo de la interpretación o cumplimiento de las estipulaciones contenidas en este contrato, a los tribunales competentes de la Ciudad de Santiago de Querétaro Qro., y renunciar a cualquier otra jurisdicción que les corresponda en razón de su domicilio presente o futuro.
+
+VIGÉSIMA OCTAVA.- La lectura del servicio medido, para determinar el consumo de agua de "EL USUARIO", se hará por periodos mensuales, "EL USUARIO" se obliga a mantener el medidor en la parte exterior del límite frontal del predio, para facilitar al empleado la lectura del servicio medido.
+
+En caso de que por razones de modificación de la construcción se implique la remoción del aparato medidor, "EL USUARIO" estará obligado a dar aviso oportuno a "LA COMISIÓN".
+
+VIGÉSIMA NOVENA.- "EL USUARIO" bajo protesta de decir verdad, declara que los datos proporcionados para la integración y suscripción del presente contrato son fidedignos, en caso de haber proporcionado algún dato falso se hará acreedor a las sanciones que le corresponden, en términos de la Legislación vigente aplicable.
+
+TRIGÉSIMA.- Las partes acuerdan que la Comisión Estatal de Aguas proporcionará el servicio de agua potable con regularidad salvo en las épocas de estiaje, en caso de contingencia, sustitución de redes, fallas en los pozos, por lo que el usuario acepta que las condiciones de las fuentes de abastecimiento podrían variar y no responsabiliza a la Comisión por causas de fuerza mayor, contingencias o casos fortuitos.
+
+TRIGÉSIMA PRIMERA.- El presente contrato no constituye, bajo ninguna circunstancia, una acreditación legal de propiedad, ni genera derecho de propiedad alguno a favor de ninguna de las partes sobre el bien inmueble o mueble al que hace referencia, sirve principalmente como evidencia de pago por un servicio, no como título de propiedad.`;
+
+  const variables: Record<string, string> = {
+    nombre: 'Nombre del titular / usuario',
+    direccion: 'Dirección del titular',
+    codigoPostal: 'Código postal del titular',
+    rfc: 'RFC del titular',
+    direccionComision: 'Dirección de la oficina CEA',
+    fecha: 'Fecha del contrato',
+    contacto: 'Teléfono / email del titular',
+    razonSocial: 'Razón social (persona moral)',
+    regimenFiscal: 'Régimen fiscal',
+  };
+
+  await prisma.plantillaContrato.upsert({
+    where: { id: 'PLANTILLA_HYDRA_CEA_V1' },
+    update: { contenido, variables: variables as unknown as Prisma.InputJsonValue, nombre: 'Contrato CEA — Servicios Integrales de Agua Potable (Hydra)', version: '1.0' },
+    create: {
+      id: 'PLANTILLA_HYDRA_CEA_V1',
+      nombre: 'Contrato CEA — Servicios Integrales de Agua Potable (Hydra)',
+      version: '1.0',
+      contenido,
+      variables: variables as unknown as Prisma.InputJsonValue,
+      activo: true,
+    },
+  });
+  console.log('Plantilla Hydra CEA V1 sembrada');
+}
+
 main()
   .then(() => seedUser())
   .then(() => seedCatalogoTramites())
@@ -1148,6 +1403,7 @@ main()
   .then(() => seedFormasPagoOficinas())
   .then(() => seedSectoresClasesVariables())
   .then(() => seedInegiQueretaro())
+  .then(() => seedPlantillaHydra())
   .catch((e) => {
     console.error(e);
     process.exit(1);
