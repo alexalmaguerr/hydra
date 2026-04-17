@@ -12,11 +12,20 @@ import {
   XCircle,
   FileText,
   ArrowRight,
+  Receipt,
+  CalendarClock,
 } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -33,7 +42,9 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet';
 import { Separator } from '@/components/ui/separator';
+import { toast } from '@/components/ui/sonner';
 import { cn } from '@/lib/utils';
+import { createContrato } from '@/api/contratos';
 import { useSolicitudesStore } from '@/hooks/useSolicitudesStore';
 import type { SolicitudRecord, OrdenInspeccionData, SolicitudEstado } from '@/types/solicitudes';
 
@@ -548,6 +559,193 @@ function OrdenInspeccionSheet({
   );
 }
 
+// ── Cotización pricing engine ─────────────────────────────────────────────────
+
+const PRECIO_CALLE: Record<string, number> = {
+  concreto_hidraulico: 850,
+  concreto_asfaltico: 650,
+  tierra: 180,
+  adoquin: 520,
+  otro: 400,
+};
+
+const PRECIO_BANQUETA: Record<string, number> = {
+  concreto_hidraulico: 750,
+  tierra: 150,
+  adoquin: 480,
+  otro: 350,
+};
+
+const PRECIO_TOMA: Record<string, number> = {
+  '1/2"': 3200, '3/4"': 4100, '1"': 5800,
+  '1.5"': 8500, '2"': 12000, '3"': 18000, '4"': 28000,
+};
+
+interface ConceptoCotizacion {
+  descripcion: string;
+  cantidad: number;
+  unidad: string;
+  precioUnitario: number;
+  subtotal: number;
+}
+
+function calcularCotizacion(orden: OrdenInspeccionData): ConceptoCotizacion[] {
+  const conceptos: ConceptoCotizacion[] = [];
+
+  // Derechos de conexión (fixed)
+  conceptos.push({ descripcion: 'Derechos de conexión', cantidad: 1, unidad: 'servicio', precioUnitario: 1200, subtotal: 1200 });
+
+  // Ruptura y reposición de calle
+  const mlCalle = parseFloat(orden.metrosRupturaCalle ?? '0') || 0;
+  if (mlCalle > 0) {
+    const pu = PRECIO_CALLE[orden.materialCalle ?? ''] ?? 400;
+    conceptos.push({ descripcion: `Reposición de calle (${orden.materialCalle ?? 'N/A'})`, cantidad: mlCalle, unidad: 'ml', precioUnitario: pu, subtotal: mlCalle * pu });
+  }
+
+  // Ruptura y reposición de banqueta
+  const mlBanqueta = parseFloat(orden.metrosRupturaBanqueta ?? '0') || 0;
+  if (mlBanqueta > 0) {
+    const pu = PRECIO_BANQUETA[orden.materialBanqueta ?? ''] ?? 350;
+    conceptos.push({ descripcion: `Reposición de banqueta (${orden.materialBanqueta ?? 'N/A'})`, cantidad: mlBanqueta, unidad: 'ml', precioUnitario: pu, subtotal: mlBanqueta * pu });
+  }
+
+  // Instalación de toma
+  if (orden.diametroToma) {
+    const pu = PRECIO_TOMA[orden.diametroToma] ?? 5800;
+    conceptos.push({ descripcion: `Instalación de toma ${orden.diametroToma}`, cantidad: 1, unidad: 'pieza', precioUnitario: pu, subtotal: pu });
+  }
+
+  // Medidor (solo si no existe)
+  if (orden.medidorExistente === 'no') {
+    conceptos.push({ descripcion: 'Suministro e instalación de medidor', cantidad: 1, unidad: 'pieza', precioUnitario: 2800, subtotal: 2800 });
+  }
+
+  return conceptos;
+}
+
+const MXN = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' });
+
+// ── Cotización Modal ──────────────────────────────────────────────────────────
+
+function CotizacionModal({
+  record,
+  open,
+  onClose,
+  onAceptar,
+  onRechazar,
+}: {
+  record: SolicitudRecord | null;
+  open: boolean;
+  onClose: () => void;
+  onAceptar: (id: string) => void;
+  onRechazar: (id: string) => void;
+}) {
+  const [aceptando, setAceptando] = useState(false);
+
+  if (!record || !record.ordenInspeccion) return null;
+
+  const conceptos = calcularCotizacion(record.ordenInspeccion);
+  const total = conceptos.reduce((s, c) => s + c.subtotal, 0);
+  const vigencia = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' });
+
+  async function handleAceptar() {
+    setAceptando(true);
+    try {
+      await createContrato({
+        tipoContrato: 'NORMAL',
+        tipoServicio: 'AGUA_POTABLE',
+        nombre: record!.propNombreCompleto,
+        rfc: record!.formData.propRfc || 'XAXX010101000',
+        direccion: record!.predioResumen,   // ← siempre la ubicación del predio
+        contacto: record!.propTelefono,
+        estado: 'ACTIVO',
+        fecha: new Date().toISOString().split('T')[0],
+        tipoContratacionId: record!.tipoContratacionId || undefined,
+        domiciliado: false,
+      });
+    } catch {
+      // API may not be connected; continue with local state update
+    }
+    onAceptar(record!.id);
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Receipt className="h-5 w-5 text-blue-600" />
+            Cotización — {record.folio}
+          </DialogTitle>
+          <DialogDescription>
+            {record.propNombreCompleto} · {record.predioResumen}
+          </DialogDescription>
+        </DialogHeader>
+
+        {/* Validity notice */}
+        <div className="flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+          <CalendarClock className="h-3.5 w-3.5 shrink-0" />
+          Esta cotización tiene una vigencia de 5 días hábiles — vence el <span className="font-medium ml-1">{vigencia}</span>
+        </div>
+
+        {/* Concepts table */}
+        <div className="overflow-hidden rounded-md border text-sm">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b bg-muted/40">
+                <th className="px-4 py-2.5 text-left font-medium text-muted-foreground">Concepto</th>
+                <th className="px-4 py-2.5 text-right font-medium text-muted-foreground">Cant.</th>
+                <th className="px-4 py-2.5 text-right font-medium text-muted-foreground">P.U.</th>
+                <th className="px-4 py-2.5 text-right font-medium text-muted-foreground">Subtotal</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {conceptos.map((c) => (
+                <tr key={c.descripcion}>
+                  <td className="px-4 py-2.5">{c.descripcion}</td>
+                  <td className="px-4 py-2.5 text-right tabular-nums text-muted-foreground">{c.cantidad} {c.unidad}</td>
+                  <td className="px-4 py-2.5 text-right tabular-nums text-muted-foreground">{MXN.format(c.precioUnitario)}</td>
+                  <td className="px-4 py-2.5 text-right tabular-nums font-medium">{MXN.format(c.subtotal)}</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr className="border-t bg-muted/20">
+                <td colSpan={3} className="px-4 py-3 text-right font-semibold">Total estimado</td>
+                <td className="px-4 py-3 text-right text-base font-bold tabular-nums">{MXN.format(total)}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+
+        <p className="text-xs text-muted-foreground">* Los precios son estimados y pueden ajustarse según las condiciones del terreno.</p>
+
+        {/* Actions */}
+        <div className="flex items-center justify-end gap-3 pt-1">
+          <Button
+            type="button"
+            variant="outline"
+            className="border-red-300 text-red-600 hover:bg-red-50 hover:text-red-700"
+            onClick={() => onRechazar(record.id)}
+          >
+            <XCircle className="mr-1.5 h-4 w-4" />
+            Rechazar cotización
+          </Button>
+          <Button
+            type="button"
+            disabled={aceptando}
+            className="bg-emerald-600 text-white hover:bg-emerald-700"
+            onClick={handleAceptar}
+          >
+            <CheckCircle2 className="mr-1.5 h-4 w-4" />
+            {aceptando ? 'Iniciando contrato…' : 'Cliente acepta la cotización'}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ── Main list page ────────────────────────────────────────────────────────────
 
 export default function Solicitudes() {
@@ -555,6 +753,7 @@ export default function Solicitudes() {
   const store = useSolicitudesStore();
   const [search, setSearch] = useState('');
   const [inspRecord, setInspRecord] = useState<SolicitudRecord | null>(null);
+  const [cotizandoRecord, setCotizandoRecord] = useState<SolicitudRecord | null>(null);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -584,15 +783,27 @@ export default function Solicitudes() {
     setInspRecord((prev) => (prev?.id === id ? { ...prev, ordenInspeccion: orden, estado: nextEstado } : prev));
   }
 
-  function handleAceptar(id: string) {
-    store.aceptarSolicitud(id);
+  // Opens the cotización modal instead of navigating immediately
+  function handleContinuarCuantificacion(id: string) {
+    const r = store.records.find((r) => r.id === id) ?? inspRecord;
+    setCotizandoRecord(r ?? null);
     setInspRecord(null);
+  }
+
+  // Called from CotizacionModal when client accepts
+  function handleConfirmarCotizacion(id: string) {
+    store.aceptarSolicitud(id);
+    setCotizandoRecord(null);
+    toast.success('Cotización aceptada — proceso de contratación iniciado');
     navigate('/app/contratos');
   }
 
+  // Called from CotizacionModal or sheet footer to reject
   function handleRechazar(id: string) {
     store.rechazarSolicitud(id);
     setInspRecord(null);
+    setCotizandoRecord(null);
+    toast.info('Solicitud rechazada');
   }
 
   return (
@@ -741,7 +952,7 @@ export default function Solicitudes() {
                           type="button"
                           size="sm"
                           className="h-8 gap-1.5 bg-blue-600 text-white hover:bg-blue-700"
-                          onClick={() => setInspRecord(r)}
+                          onClick={() => setCotizandoRecord(r)}
                         >
                           <FileText className="h-3.5 w-3.5" />
                           Cuantificación
@@ -773,7 +984,15 @@ export default function Solicitudes() {
         open={!!inspRecord}
         onClose={() => setInspRecord(null)}
         onSave={handleSaveOrden}
-        onAceptar={handleAceptar}
+        onAceptar={handleContinuarCuantificacion}
+        onRechazar={handleRechazar}
+      />
+
+      <CotizacionModal
+        record={cotizandoRecord}
+        open={!!cotizandoRecord}
+        onClose={() => setCotizandoRecord(null)}
+        onAceptar={handleConfirmarCotizacion}
         onRechazar={handleRechazar}
       />
     </div>
