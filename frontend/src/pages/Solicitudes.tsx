@@ -748,10 +748,11 @@ function CotizacionModal({
     try {
       // Backend /aceptar creates the Contrato and links it to this Solicitud
       await apiAceptarSolicitud(record!.id);
-    } catch {
-      // API unavailable; continue to update local state only
+      onAceptar(record!.id);
+    } catch (err) {
+      setAceptando(false);
+      toast.error('Error al aceptar', { description: err instanceof Error ? err.message : 'No se pudo crear el contrato. Verifica la conexión con el servidor.' });
     }
-    onAceptar(record!.id);
   }
 
   return (
@@ -900,6 +901,7 @@ export default function Solicitudes() {
   // Called from CotizacionModal when client accepts (API call is inside the modal)
   function handleConfirmarCotizacion(_id: string) {
     queryClient.invalidateQueries({ queryKey: ['solicitudes'] });
+    queryClient.invalidateQueries({ queryKey: ['contratos'] });
     setCotizandoRecord(null);
     toast.success('Cotización aceptada — proceso de contratación iniciado');
     navigate('/app/contratos');
