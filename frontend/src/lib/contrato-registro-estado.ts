@@ -3,6 +3,7 @@
  * La fuente de verdad sigue siendo `contrato.estado` en backend; esto es solo presentación.
  */
 export type FlujoRegistroEstadoKey =
+  | 'pendiente_alta'
   | 'pago_pendiente'
   | 'instalacion_conexion'
   | 'instalacion_medidor'
@@ -32,11 +33,10 @@ export function mapEstadoContratoToFlujoRegistro(estado: string | null | undefin
   ) {
     return { key: 'instalacion_medidor', label: 'Instalación de medidor' };
   }
-  if (
-    lower === 'pendiente de alta' ||
-    lower.includes('pendiente de pago') ||
-    lower.includes('pago')
-  ) {
+  if (lower === 'pendiente de alta') {
+    return { key: 'pendiente_alta', label: 'Pendiente de alta' };
+  }
+  if (lower.includes('pendiente de pago') || lower.includes('pago')) {
     return { key: 'pago_pendiente', label: 'Pago pendiente' };
   }
 

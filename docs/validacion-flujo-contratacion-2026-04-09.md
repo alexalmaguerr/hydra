@@ -14,19 +14,19 @@ Documento de brechas entre el flujo operativo deseado (lista de pasos + notas SI
 |----------------------|--------|--------|
 | Inspección cuando aplica | Parcial | Existen `Factibilidad` / `Construccion` / `Toma` en territorio-obra, pero el alta de contrato en UI no las encadena ni crea hitos de inspección en `ProcesoContratacion`. |
 | Cuantificación del costo | Parcial | `CostoContrato` y motor tarifario (otras tareas); no hay flujo guiado en el wizard de alta. |
-| 1. Punto de servicio | Parcial | `Contrato.puntoServicioId` y modelo `PuntoServicio` existen; el wizard solo ofrece **toma** (`tomaId`). |
-| 2. Persona propietaria | Parcial | `RolPersonaContrato` + `Persona`; el alta usa `nombre`/`rfc` en el contrato sin crear rol ni persona. |
-| 3. Persona fiscal | Parcial | Campos fiscales en `Contrato` (`razonSocial`, `regimenFiscal`, etc.) y personas; sin flujo dedicado en wizard. |
-| 3.1 Contacto opcional | Parcial | Campo `contacto` en contrato; no como rol `CONTACTO` en `RolPersonaContrato`. |
-| 3.2 Contrato padre | Parcial | `referenciaContratoAnterior` en schema y `update` en servicio; no en wizard. |
-| 4. Actividad | Parcial | `actividadId` / `CatalogoActividad`; no en wizard. |
-| 5. Tipo de contratación | Parcial | `tipoContratacionId` y catálogos; wizard usa `tipoContrato`/`tipoServicio` como strings genéricos (Agua/Doméstico, etc.), no catálogo `TipoContratacion`. |
-| 6. Superficie, unidades, personas | Parcial | Campos en `Contrato` (`superficiePredio`, `superficieConstruida`, `unidadesServidas`, `personasHabitanVivienda`); no en wizard. |
-| 7. Documentos recibidos | Parcial | `DocumentoRequeridoTipoContratacion` define requisitos; `Documento` está ligado a `Tramite`, no a un checklist de contratación en el alta. |
+| 1. Punto de servicio | Implementado | `PasoServicioPoint` + `puntoServicioId` en `POST /contratos` (`WizardContratacion` / `buildCreateContratoDto`). |
+| 2. Persona propietaria | Parcial | Wizard `PasoPersonas`; `POST /contratos` crea `Persona` + `RolPersonaContrato` (PROPIETARIO) salvo `omitirRegistroPersonaTitular`. |
+| 3. Persona fiscal | Implementado | `personaFiscal` en wizard y DTO; alta hace upsert de rol FISCAL cuando aplica (`contratos.service.ts`). |
+| 3.1 Contacto opcional | Implementado | `personaContacto` opcional en wizard y DTO; rol CONTACTO en alta cuando hay datos suficientes. |
+| 3.2 Contrato padre | Implementado | `referenciaContratoAnterior` en `PasoConfigContrato` (obligatorio si el tipo catalogado es individualización/condominio). |
+| 4. Actividad | Implementado | Selector en `PasoConfigContrato` + `actividadId` en alta. |
+| 5. Tipo de contratación | Implementado | Catálogo por administración en `PasoConfigContrato`; `tipoContratacionId` en alta (además de `tipoContrato` / `tipoServicio` como strings operativos). |
+| 6. Superficie, unidades, personas | Implementado | Campos opcionales en `PasoConfigContrato` y envío en `CreateContratoDto` (`superficiePredio`, `superficieConstruida`, `unidadesServidas`, `personasHabitanVivienda`). |
+| 7. Documentos recibidos | Implementado | Checklist desde `GET /tipos-contratacion/:id/configuracion` (`documentos`); validación de obligatorios en `POST /contratos`. |
 | 8. Factura contratación timbrada + convenio | Implementado (flag) | `POST /contratos/:id/factura-contratacion` genera `Timbrado` sin consumo + `CostoContrato` con conceptos del tipo; controlado por `FEATURE_FACTURACION_CONTRATACION`. Checkbox en wizard. |
-| 9. Orden instalación toma | Parcial | `Orden.tipo` admite valores como `InstalacionToma`; no se genera desde el wizard ni regla única documentada en contrato. |
-| 10. Orden instalación medidor | Parcial | Se puede crear manualmente; **auto:** al marcar orden `InstalacionToma` como `Ejecutada` (`OrdenesService.updateEstado`). |
-| 11. Estados pendiente toma / pendiente zona | Faltante | El alta pone `estado: 'Pendiente de alta'` (`Contratos.tsx`). No hay estados nominales “pendiente de toma” / “pendiente de zona” ni transiciones automáticas al crear órdenes. |
+| 9. Orden instalación toma | Implementado | Paso **Órdenes** del wizard (`PasoOrdenes`); flag `generarOrdenInstalacionToma` en `POST /contratos` crea orden de instalación de toma. |
+| 10. Orden instalación medidor | Implementado | Flag `generarOrdenInstalacionMedidor` (excluyente con toma en UI); creación en alta y **auto** al ejecutar toma (`OrdenesService.updateEstado`). |
+| 11. Estados pendiente toma / pendiente zona | Implementado | En `contratos.service.ts` (alta): si `generarOrdenInstalacionToma` → `estado` **Pendiente de toma**; si solo medidor → **Pendiente de zona**; si no hay órdenes en el alta, el body puede enviar `Pendiente de alta` y el backend lo respeta. El wizard documenta el estado previsto en `PasoOrdenes`. |
 | 12. Imprimir contrato (titular) | Implementado | `GET /contratos/:id/contrato-pdf` devuelve HTML imprimible (usa snapshot o preview); botón "Imprimir / PDF" en tab Texto contrato. |
 | 13. Asignar zona + código recorrido → Alta | Parcial | `zonaId`, `rutaId` en `Contrato`; asignación manual. **No** hay regla automática “al asignar ruta → estado Activo”. |
 | Al atender orden toma → auto orden medidor + pendiente zona | Parcial | Auto orden medidor: **sí** en `ordenes.service.ts`. Cambio de estado contrato a “pendiente de zona”: **no** en el mismo flujo. |
@@ -50,7 +50,7 @@ Documento de brechas entre el flujo operativo deseado (lista de pasos + notas SI
 
 - Auto orden medidor al ejecutar toma: `backend/src/modules/ordenes/ordenes.service.ts` (`updateEstado`, `autoGenerarOrdenMedidor`).
 - Auto orden medidor al avanzar proceso: `backend/src/modules/procesos-contratacion/procesos-contratacion.service.ts` (`avanzarEtapa`).
-- Wizard alta 3 pasos: `frontend/src/pages/Contratos.tsx`.
+- Asistente de alta: `frontend/src/components/contratacion/WizardContratacion.tsx` (desde detalle / flujo de contratos en UI).
 - Modelo contrato: `backend/prisma/schema.prisma` (`Contrato`).
 
 ## Actualización implementada (misma fecha, iteración de entrega)
@@ -76,7 +76,19 @@ Documento de brechas entre el flujo operativo deseado (lista de pasos + notas SI
 - **`Contrato.textoContratoSnapshot`** (campo `Text?`): se captura automáticamente al crear el contrato, resolviendo el snapshot de cláusulas para reimpresión fiel.
 - **`GET /contratos/:id/contrato-pdf`**: devuelve HTML print-ready con el texto del snapshot (o preview si no hay snapshot). El frontend abre en nueva pestaña para imprimir/guardar PDF vía navegador.
 - **`POST /contratos/:id/factura-contratacion`**: genera `Timbrado` (estado Pendiente, sin consumo) + registros `CostoContrato` con los conceptos de cobro del tipo de contratación. Controlado por `FEATURE_FACTURACION_CONTRATACION=true`.
-- **Wizard**: checkbox "Generar factura de contratación al crear" (visible solo con flag activo); campo `generarFacturaContratacion` en DTO.
+- **Wizard**: checkbox "Generar factura de contratación al crear el contrato" en el paso **Facturación** (`PasoFacturacion.tsx`, visible solo con `VITE_FEATURE_FACTURACION_CONTRATACION=true`); por defecto marcado; envía `generarFacturaContratacion` en el POST de alta cuando aplica.
 - **Tab Facturación** en detalle: botón "Facturar contratación" (visible solo con flag) para generar la factura post-alta.
 - **Tab Texto contrato** en detalle: botón "Imprimir / PDF" que abre el endpoint HTML en nueva pestaña.
 - **Feature flag**: `FEATURE_FACTURACION_CONTRATACION` (backend) / `VITE_FEATURE_FACTURACION_CONTRATACION` (frontend), default `false`.
+
+### Documentación del sistema anterior en el repo (2026-04-16)
+
+Para alinear la matriz anterior con implementación y PDF de contrato, usar el índice `docs/contratacion-indice-documentacion-sistema-anterior.md` (rutas bajo `_DocumentacIon_Interna_Sistema_Anterior/`, consultas SQL legado y formatos PDF de contratación).
+
+### Matriz principal — revisión 2026-04-16 (código actual)
+
+Se actualizaron las filas **1–11** de la tabla “Matriz paso → implementación” para reflejar el wizard (`WizardContratacion`, pasos bajo `frontend/src/components/contratacion/steps/`) y el comportamiento de `POST /contratos` en `backend/src/modules/contratos/contratos.service.ts` (estado inicial según flags de órdenes, checklist de documentos, campos de predio opcionales).
+
+**2026-04-16 (visibilidad en listado):** si el alta envía `distritoId` en `variablesCapturadas`, el servicio de contratos **rellena `zonaId`** desde el distrito cuando no vino en el DTO. En la pantalla `Contratos`, si hay filtro por zonas del contexto, los contratos **Pendiente de alta** sin `zonaId` siguen listándose para no “perder” altas recientes hasta asignar zona/ruta.
+
+**2026-04-16 (reanudar registro y columna “Estado (flujo)”):** la columna de flujo ya no muestra “Pago pendiente” para el estado persistido **Pendiente de alta** (solo para estados ligados a pago). En listado y ficha, contratos **Pendiente de alta** tienen acción **Continuar contratación** (y **Editar** reanuda el mismo asistente): se localiza el `ProcesoContratacion` abierto del contrato, se abre el wizard con `?new=1&procesoId=…`, y si no hubiera proceso se intenta `POST /procesos-contratacion`.
