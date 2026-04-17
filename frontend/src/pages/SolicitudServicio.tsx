@@ -22,7 +22,7 @@ import { Separator } from '@/components/ui/separator';
 import { toast } from '@/components/ui/sonner';
 import DomicilioPickerForm from '@/components/contratacion/DomicilioPickerForm';
 import { fetchAdministraciones, fetchDistritos, fetchGruposActividad, fetchActividades, type DistritoCatalogo, type CatalogoGrupoActividad, type CatalogoActividad } from '@/api/catalogos';
-import { fetchTiposContratacion, type TipoContratacion } from '@/api/tipos-contratacion';
+import { fetchTiposContratacion, fetchTipoContratacionConfiguracion, type TipoContratacion } from '@/api/tipos-contratacion';
 import { hasApi } from '@/api/contratos';
 import { cn } from '@/lib/utils';
 import type { DomicilioFormValue, SolicitudEstado, SolicitudRecord, SolicitudState } from '@/types/solicitudes';
@@ -226,30 +226,47 @@ type StepKey = typeof STEPS[number]['key'];
 
 // ── Per-step validation ───────────────────────────────────────────────────────
 
+function validDir(d: { estadoINEGIId: string; municipioINEGIId: string; coloniaINEGIId: string; calle: string; numExterior: string }) {
+  return !!(d.estadoINEGIId && d.municipioINEGIId && d.coloniaINEGIId && d.calle.trim() && d.numExterior.trim());
+}
+
 function canAdvance(step: number, form: SolicitudState): boolean {
   switch (step) {
-    case 0: // Predio — estado, municipio, colonia, calle y num. exterior obligatorios
-      return !!(
-        form.predioDir.estadoINEGIId &&
-        form.predioDir.municipioINEGIId &&
-        form.predioDir.coloniaINEGIId &&
-        form.predioDir.calle.trim() &&
-        form.predioDir.numExterior.trim()
-      );
-    case 1: // Propietario
+    case 0: // Predio
+      return validDir(form.predioDir);
+
+    case 1: { // Propietario
       if (!form.propTipoPersona) return false;
-      if (form.propTipoPersona === 'moral') return !!form.propRazonSocial.trim();
-      return !!(form.propPaterno.trim() || form.propNombre.trim());
-    case 2: // Fiscal
-      return !!form.requiereFactura;
+      if (form.propTipoPersona === 'moral' && !form.propRazonSocial.trim()) return false;
+      if (form.propTipoPersona === 'fisica' && (!form.propPaterno.trim() || !form.propNombre.trim())) return false;
+      if (!form.propCorreo.trim() || !form.propTelefono.trim()) return false;
+      return validDir(form.propDir);
+    }
+
+    case 2: { // Fiscal
+      if (!form.requiereFactura) return false;
+      if (form.requiereFactura === 'no') return true;
+      // requiere factura = si
+      if (!form.mismosDatosProp) return false;
+      if (!form.fiscalTipoPersona) return false;
+      if (form.fiscalTipoPersona === 'moral' && !form.fiscalRazonSocial.trim()) return false;
+      if (!form.fiscalRfc.trim() || !form.fiscalCorreo.trim()) return false;
+      if (!validDir(form.fiscalDir)) return false;
+      if (!form.fiscalRegimenFiscal || !form.fiscalUsoCfdi) return false;
+      return true;
+    }
+
     case 3: // Solicitud
       if (!form.usoDomestico || !form.hayTuberias) return false;
       if (form.usoDomestico === 'no') return !!form.noDomHayInfra;
       return true;
+
     case 4: // Contratación
       return !!(form.adminId && form.tipoContratacionId && form.distritoId && form.grupoActividadId && form.actividadId);
-    case 5: // Resumen — always ok
+
+    case 5: // Resumen
       return true;
+
     default:
       return true;
   }
@@ -734,6 +751,16 @@ function StepContratacion({ form, set }: { form: SolicitudState; set: (p: Partia
   const tiposList: TipoContratacion[] = tiposRes?.data ?? [];
   const selectedTipo = tiposList.find((t) => t.id === form.tipoContratacionId);
 
+  const { data: tipoConfig, isLoading: configLoading } = useQuery({
+    queryKey: ['tipo-contratacion-config', form.tipoContratacionId],
+    queryFn: () => fetchTipoContratacionConfiguracion(form.tipoContratacionId),
+    enabled: useApi && !!form.tipoContratacionId,
+    staleTime: 10 * 60 * 1000,
+  });
+
+  const variables = tipoConfig?.variables ?? [];
+  const documentos = tipoConfig?.documentos ?? [];
+
   return (
     <div className="space-y-5">
       <div className="grid gap-4 sm:grid-cols-2">
@@ -875,6 +902,87 @@ function StepContratacion({ form, set }: { form: SolicitudState; set: (p: Partia
         <div className="rounded-md border bg-muted/30 px-3 py-2.5 text-sm">
           <span className="font-medium">{selectedTipo.descripcion?.trim() || selectedTipo.nombre}</span>
           <span className="ml-2 font-mono text-xs text-muted-foreground">({selectedTipo.codigo})</span>
+        </div>
+      )}
+
+      {/* Variables de Contratación */}
+      {form.tipoContratacionId && (
+        <div className="space-y-3">
+          <p className="text-sm font-medium">Variables de Contratación:</p>
+          <div className="rounded-md border bg-background p-4">
+            {configLoading ? (
+              <p className="text-xs text-muted-foreground">Cargando variables…</p>
+            ) : variables.length === 0 ? (
+              <p className="text-xs text-muted-foreground">Sin variables configuradas para este tipo.</p>
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-2">
+                {variables
+                  .slice()
+                  .sort((a, b) => a.orden - b.orden)
+                  .map((v) => (
+                    <Field
+                      key={v.id}
+                      label={`${v.tipoVariable.nombre}${v.tipoVariable.unidad ? ` (${v.tipoVariable.unidad})` : ''}`}
+                      required={v.obligatorio}
+                    >
+                      <Input
+                        className="h-9"
+                        placeholder={v.valorDefecto ?? ''}
+                        value={(form.variablesCapturadas[v.tipoVariable.codigo] as string) ?? ''}
+                        onChange={(e) =>
+                          set({
+                            variablesCapturadas: {
+                              ...form.variablesCapturadas,
+                              [v.tipoVariable.codigo]: e.target.value,
+                            },
+                          })
+                        }
+                      />
+                    </Field>
+                  ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Documentos Presentados */}
+      {form.tipoContratacionId && (
+        <div className="space-y-3">
+          <p className="text-sm font-medium">Documentos Presentados:</p>
+          <div className="rounded-md border bg-background p-4">
+            {configLoading ? (
+              <p className="text-xs text-muted-foreground">Cargando documentos…</p>
+            ) : documentos.length === 0 ? (
+              <p className="text-xs text-muted-foreground">Sin documentos requeridos configurados.</p>
+            ) : (
+              <div className="space-y-2">
+                {documentos.map((doc) => {
+                  const checked = form.documentosRecibidos.includes(doc.id);
+                  return (
+                    <label key={doc.id} className="flex cursor-pointer items-center gap-2.5 text-sm">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 rounded border-input accent-primary"
+                        checked={checked}
+                        onChange={(e) =>
+                          set({
+                            documentosRecibidos: e.target.checked
+                              ? [...form.documentosRecibidos, doc.id]
+                              : form.documentosRecibidos.filter((id) => id !== doc.id),
+                          })
+                        }
+                      />
+                      <span className={doc.obligatorio ? 'font-medium' : ''}>
+                        {doc.nombreDocumento.toUpperCase()}
+                        {doc.obligatorio && <span className="ml-1 text-destructive">*</span>}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -1339,8 +1447,21 @@ export default function SolicitudServicio() {
       if (currentStep === 1 && patch.propDir) {
         patch = { ...patch, propDir: await resolveDir(patch.propDir) };
       }
-      if (currentStep === 2 && patch.fiscalDir) {
-        patch = { ...patch, fiscalDir: await resolveDir(patch.fiscalDir) };
+      if (currentStep === 2) {
+        if (patch.mismosDatosProp === 'si') {
+          // Copy propietario data into fiscal fields (mirrors handleMismosDatos)
+          const resolvedPropDir = await resolveDir({ ...form.propDir });
+          patch = {
+            ...patch,
+            fiscalTipoPersona: form.propTipoPersona,
+            fiscalRazonSocial: form.propRazonSocial,
+            fiscalRfc: form.propRfc,
+            fiscalCorreo: form.propCorreo,
+            fiscalDir: resolvedPropDir ?? { ...form.propDir },
+          };
+        } else if (patch.fiscalDir) {
+          patch = { ...patch, fiscalDir: await resolveDir(patch.fiscalDir) };
+        }
       }
 
       setForm((prev) => ({ ...prev, ...patch }));
@@ -1437,7 +1558,9 @@ export default function SolicitudServicio() {
                 ? `Editar solicitud — ${existingRecord.folio}`
                 : 'CEA-FUS01 — Nueva Solicitud de Servicios'}
             </h1>
-            <p className="text-xs text-muted-foreground">Los campos con * son obligatorios.</p>
+            <p className="inline-flex items-center gap-1 text-xs font-medium text-destructive bg-destructive/10 border border-destructive/30 rounded-md px-2 py-0.5">
+              <span className="text-sm font-bold leading-none">*</span> Los campos marcados son obligatorios
+            </p>
           </div>
         </div>
         {!isEditMode && (
