@@ -841,7 +841,6 @@ export default function SolicitudServicio() {
 
   const [form, setForm] = useState<SolicitudState>(existingRecord?.formData ?? SOLICITUD_STATE_EMPTY);
   const [currentStep, setCurrentStep] = useState(0);
-  const [isPrellenando, setIsPrellenando] = useState(false);
 
   function set(patch: Partial<SolicitudState>) {
     setForm((prev) => ({ ...prev, ...patch }));
@@ -861,33 +860,14 @@ export default function SolicitudServicio() {
   const canNext = canAdvance(currentStep, form);
 
   function handlePrellenar() {
-    if (isPrellenando) return;
     const tipos = TIPOS_CONTRATACION_BY_ADMIN['1'] ?? [];
     const tipoId = tipos[0]?.id ?? '';
-    setIsPrellenando(true);
-    setForm(SOLICITUD_STATE_EMPTY);
-    setCurrentStep(0);
-
-    const DELAY = 700;
-
-    function fillStep(step: number) {
-      if (step >= MOCK_STEP_DATA.length) {
-        setIsPrellenando(false);
-        toast.success('Datos de demo cargados');
-        return;
-      }
-      const patch = step === 3
-        ? { ...MOCK_STEP_DATA[step], tipoContratacionId: tipoId }
-        : MOCK_STEP_DATA[step];
-      setForm((prev) => ({ ...prev, ...patch }));
-      setCurrentStep(step);
-      setTimeout(() => {
-        setCurrentStep(step + 1);
-        setTimeout(() => fillStep(step + 1), 150);
-      }, DELAY);
-    }
-
-    setTimeout(() => fillStep(0), 100);
+    const stepData = MOCK_STEP_DATA[currentStep];
+    if (!stepData) return;
+    const patch = currentStep === 3
+      ? { ...stepData, tipoContratacionId: tipoId }
+      : stepData;
+    setForm((prev) => ({ ...prev, ...patch }));
   }
 
   function handleNext() {
@@ -946,12 +926,11 @@ export default function SolicitudServicio() {
             type="button"
             variant="outline"
             size="sm"
-            disabled={isPrellenando}
             className="gap-1.5 border-dashed text-muted-foreground hover:text-foreground"
             onClick={handlePrellenar}
           >
-            <Wand2 className={cn('h-3.5 w-3.5', isPrellenando && 'animate-spin')} />
-            {isPrellenando ? `Cargando ${STEPS[Math.min(currentStep, STEPS.length - 2)]?.label}…` : 'Prellenar demo'}
+            <Wand2 className="h-3.5 w-3.5" />
+            Prellenar demo
           </Button>
         )}
       </div>
