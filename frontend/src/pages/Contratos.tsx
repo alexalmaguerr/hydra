@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { mapEstadoContratoToFlujoRegistro } from '@/lib/contrato-registro-estado';
 import { useData } from '@/context/DataContext';
@@ -40,6 +40,7 @@ import {
   ArrowUp,
   Check,
   Pencil,
+  PlayCircle,
 } from 'lucide-react';
 import { fetchAdministraciones } from '@/api/catalogos';
 import { fetchTiposContratacion, type TipoContratacion } from '@/api/tipos-contratacion';
@@ -180,6 +181,7 @@ const Contratos = () => {
   const [showWizard, setShowWizard] = useState(false);
   const [confirmCloseWizard, setConfirmCloseWizard] = useState(false);
   const [detail, setDetail] = useState<string | null>(null);
+  const [resumingContratoId, setResumingContratoId] = useState<string | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState('');
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
@@ -292,6 +294,42 @@ const Contratos = () => {
     if (searchParams.get('new') === '1' || searchParams.get('procesoId')) setShowWizard(true);
   }, [searchParams]);
 
+  const resumeContratacionWizard = useCallback(
+    async (contrato: { id: string; tipoContratacionId?: string | null }) => {
+      if (!useApi) {
+        toast.error('Sin conexión a API', {
+          description: 'No se puede reanudar el registro sin servicios activos.',
+        });
+        return;
+      }
+      setResumingContratoId(contrato.id);
+      try {
+        const list = await fetchProcesos({ contratoId: contrato.id, limit: 50 });
+        let procesoId =
+          list.find((p) => p.estado !== 'completado' && p.estado !== 'cancelado')?.id ?? null;
+        if (!procesoId) {
+          const nuevo = await crearProceso({
+            contratoId: contrato.id,
+            tipoContratacionId: contrato.tipoContratacionId ?? undefined,
+          });
+          procesoId = nuevo.id;
+        }
+        const next = new URLSearchParams(searchParams);
+        next.set('new', '1');
+        next.set('procesoId', procesoId);
+        setSearchParams(next, { replace: true });
+        setShowWizard(true);
+        setDetail(null);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'No se pudo abrir el asistente.';
+        toast.error('No se pudo reanudar el registro', { description: message });
+      } finally {
+        setResumingContratoId(null);
+      }
+    },
+    [useApi, searchParams, setSearchParams],
+  );
+
   const selected = contratosVisibles.find(c => c.id === detail);
 
   const facturasDesglose = useMemo(() => {
@@ -340,7 +378,13 @@ const Contratos = () => {
         breadcrumbs={[{ label: 'Servicios', href: '#' }, { label: 'Contratos' }]}
         actions={
           <Button
-            onClick={() => setShowWizard(true)}
+            onClick={() => {
+              const next = new URLSearchParams(searchParams);
+              next.delete('procesoId');
+              next.set('new', '1');
+              setSearchParams(next, { replace: true });
+              setShowWizard(true);
+            }}
             className="bg-[#007BFF] hover:bg-blue-600 text-white"
           >
             <Plus className="h-4 w-4 mr-1.5" /> Nuevo registro de contrato
@@ -404,7 +448,15 @@ const Contratos = () => {
             </tr>
           </thead>
           <tbody>
-            {filteredContratos.map((c: { id: string; nombre: string; estado: string; createdAt?: string; fecha: string }) => {
+            {filteredContratos.map(
+              (c: {
+                id: string;
+                nombre: string;
+                estado: string;
+                createdAt?: string;
+                fecha: string;
+                tipoContratacionId?: string | null;
+              }) => {
               const flujo = mapEstadoContratoToFlujoRegistro(c.estado);
               const creado = c.createdAt
                 ? new Date(c.createdAt).toLocaleDateString('es-MX', { dateStyle: 'medium' })
@@ -420,13 +472,27 @@ const Contratos = () => {
                     </span>
                   </td>
                   <td className="px-4 py-3.5">
-                    <Button variant="ghost" size="sm" onClick={() => setDetail(c.id)}>
-                      <Eye className="h-4 w-4" />
-                    </Button>
+                    <div className="flex items-center justify-end gap-0.5">
+                      <Button variant="ghost" size="sm" onClick={() => setDetail(c.id)} title="Ver ficha">
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      {c.estado === 'Pendiente de alta' && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={resumingContratoId === c.id}
+                          onClick={() => resumeContratacionWizard({ id: c.id, tipoContratacionId: c.tipoContratacionId })}
+                          title="Continuar registro de contrato"
+                        >
+                          <PlayCircle className={`h-4 w-4 ${resumingContratoId === c.id ? 'opacity-50' : 'text-[#007BFF]'}`} />
+                        </Button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               );
-            })}
+            },
+            )}
             {filteredContratos.length === 0 && (
               <tr>
                 <td colSpan={5} className="text-center text-muted-foreground py-12">
@@ -482,7 +548,14 @@ const Contratos = () => {
             <AlertDialogCancel>Continuar capturando</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={() => { setConfirmCloseWizard(false); setShowWizard(false); }}
+              onClick={() => {
+                setConfirmCloseWizard(false);
+                setShowWizard(false);
+                const next = new URLSearchParams(searchParams);
+                next.delete('new');
+                next.delete('procesoId');
+                setSearchParams(next, { replace: true });
+              }}
             >
               Sí, cancelar
             </AlertDialogAction>
@@ -641,16 +714,47 @@ const Contratos = () => {
 
                     {/* ── General ── */}
                     <TabsContent value="general" className="mt-0 space-y-5">
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
                         <h2 className="text-sm font-semibold">Información del contrato</h2>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="gap-1.5 text-xs"
-                          onClick={() => {/* TODO: open edit dialog */}}
-                        >
-                          <Pencil className="h-3.5 w-3.5" /> Editar
-                        </Button>
+                        <div className="flex items-center gap-2">
+                          {selected.estado === 'Pendiente de alta' && (
+                            <Button
+                              size="sm"
+                              className="gap-1.5 text-xs bg-[#007BFF] hover:bg-blue-600 text-white"
+                              disabled={resumingContratoId === selected.id}
+                              onClick={() =>
+                                resumeContratacionWizard({
+                                  id: selected.id,
+                                  tipoContratacionId: selected.tipoContratacionId,
+                                })
+                              }
+                            >
+                              <PlayCircle className="h-3.5 w-3.5" />
+                              Continuar contratación
+                            </Button>
+                          )}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="gap-1.5 text-xs"
+                            disabled={resumingContratoId === selected.id}
+                            onClick={() => {
+                              if (selected.estado === 'Pendiente de alta') {
+                                void resumeContratacionWizard({
+                                  id: selected.id,
+                                  tipoContratacionId: selected.tipoContratacionId,
+                                });
+                                return;
+                              }
+                              toast.info('Edición del contrato', {
+                                description:
+                                  'Use las pestañas de esta ficha o los campos editables (por ejemplo N° Contrato CEA). Para un trámite en curso, revise la pestaña Procesos.',
+                              });
+                            }}
+                          >
+                            <Pencil className="h-3.5 w-3.5" /> Editar
+                          </Button>
+                        </div>
                       </div>
                       <div className="grid grid-cols-2 gap-5">
                         <section className="space-y-2">
