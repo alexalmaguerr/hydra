@@ -151,7 +151,7 @@ const ESTADO_CONFIG: Record<SolicitudEstado, { label: string; icon: React.Elemen
     className: 'border-blue-400/60 bg-blue-50 text-blue-800 dark:bg-blue-950/40 dark:text-blue-300',
   },
   aceptada: {
-    label: 'Aceptada',
+    label: 'Alta de contrato iniciada',
     icon: CheckCircle2,
     className: 'border-emerald-500/60 bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300',
   },
@@ -166,7 +166,7 @@ const ESTADO_CONFIG: Record<SolicitudEstado, { label: string; icon: React.Elemen
     className: 'border-blue-400/60 bg-blue-50 text-blue-800 dark:bg-blue-950/40 dark:text-blue-300',
   },
   contratado: {
-    label: 'Aceptada',
+    label: 'Alta de contrato iniciada',
     icon: CheckCircle2,
     className: 'border-emerald-500/60 bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300',
   },

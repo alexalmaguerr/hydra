@@ -20,7 +20,7 @@ import {
 import StatusBadge from '@/components/StatusBadge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Plus, Eye, ChevronRight, Hash, User, Droplets, FileText, SlidersHorizontal, Download, TrendingUp, GitBranch, ScrollText, Users } from 'lucide-react';
+import { Plus, Eye, ChevronRight, Hash, User, Droplets, FileText, SlidersHorizontal, Download, TrendingUp, GitBranch, ScrollText, Users, Search, ArrowDownUp, ArrowDown, ArrowUp } from 'lucide-react';
 import { TIPOS_CONTRATACION_BY_ADMIN } from '@/config/tipos-contratacion';
 
 const ADMINISTRACIONES_MAP: Record<string, string> = {
@@ -184,6 +184,8 @@ const Contratos = () => {
   const [confirmCloseWizard, setConfirmCloseWizard] = useState(false);
   const [detail, setDetail] = useState<string | null>(null);
   const [searchParams] = useSearchParams();
+  const [search, setSearch] = useState('');
+  const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
 
   const { data: apiContratos = [], isLoading } = useQuery({
     queryKey: ['contratos'],
@@ -198,6 +200,21 @@ const Contratos = () => {
     !allowedZonaIds ? contratos : contratos.filter((c: { zonaId?: string }) => c.zonaId && allowedZonaIds.includes(c.zonaId)),
     [contratos, allowedZonaIds]
   );
+
+  const filteredContratos = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const base = q
+      ? contratosVisibles.filter(
+          (c: { id: string; nombre: string }) =>
+            c.id.toLowerCase().includes(q) || c.nombre.toLowerCase().includes(q),
+        )
+      : contratosVisibles;
+    return [...base].sort((a: { createdAt?: string; fecha: string }, b: { createdAt?: string; fecha: string }) => {
+      const ta = a.createdAt ?? a.fecha ?? '';
+      const tb = b.createdAt ?? b.fecha ?? '';
+      return sortOrder === 'desc' ? tb.localeCompare(ta) : ta.localeCompare(tb);
+    });
+  }, [contratosVisibles, search, sortOrder]);
 
   useEffect(() => {
     if (searchParams.get('new') === '1') setShowWizard(true);
@@ -275,11 +292,30 @@ const Contratos = () => {
       </div>
 
       {/* Toolbar */}
-      <div className="flex items-center gap-2 mb-4">
-        <Button variant="outline" size="sm"><SlidersHorizontal className="w-3.5 h-3.5 mr-1.5" /> Filtrar</Button>
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        <div className="relative flex-1 min-w-[200px] max-w-sm">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+          <input
+            type="search"
+            placeholder="Buscar por ID o titular…"
+            className="h-9 w-full rounded-md border border-input bg-background pl-9 pr-3 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setSortOrder((o) => (o === 'desc' ? 'asc' : 'desc'))}
+          title={sortOrder === 'desc' ? 'Mostrando más recientes primero' : 'Mostrando más antiguos primero'}
+        >
+          {sortOrder === 'desc'
+            ? <><ArrowDown className="w-3.5 h-3.5 mr-1.5" /> Más recientes</>
+            : <><ArrowUp className="w-3.5 h-3.5 mr-1.5" /> Más antiguos</>}
+        </Button>
         <Button variant="ghost" size="sm" className="text-muted-foreground"><Download className="w-3.5 h-3.5 mr-1.5" /> Exportar CSV</Button>
         <span className="ml-auto text-xs text-muted-foreground font-medium uppercase tracking-wide">
-          {contratosVisibles.length} contratos
+          {filteredContratos.length} contratos
         </span>
       </div>
 
@@ -296,7 +332,7 @@ const Contratos = () => {
             </tr>
           </thead>
           <tbody>
-            {contratosVisibles.map((c: { id: string; nombre: string; tipoContrato: string; tipoServicio: string; estado: string; fecha: string }) => (
+            {filteredContratos.map((c: { id: string; nombre: string; tipoContrato: string; tipoServicio: string; estado: string; fecha: string }) => (
               <tr key={c.id} className="border-t border-border/50 hover:bg-muted/30 transition-colors">
                 <td className="px-4 py-3.5 font-mono text-xs text-[#007BFF] font-medium">{c.id}</td>
                 <td className="px-4 py-3.5 font-medium">{c.nombre}</td>
@@ -307,8 +343,10 @@ const Contratos = () => {
                 <td className="px-4 py-3.5"><Button variant="ghost" size="sm" onClick={() => setDetail(c.id)}><Eye className="h-4 w-4" /></Button></td>
               </tr>
             ))}
-            {contratosVisibles.length === 0 && (
-              <tr><td colSpan={7} className="text-center text-muted-foreground py-12">No hay contratos</td></tr>
+            {filteredContratos.length === 0 && (
+              <tr><td colSpan={7} className="text-center text-muted-foreground py-12">
+                {search ? 'Sin resultados para esta búsqueda' : 'No hay contratos'}
+              </td></tr>
             )}
           </tbody>
         </table>
