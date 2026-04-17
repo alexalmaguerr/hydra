@@ -377,7 +377,22 @@ export class ContratosService {
     const tipoContratacionId = optionalFkId(dto.tipoContratacionId);
     const medidorId = optionalFkId(dto.medidorId);
     const rutaId = optionalFkId(dto.rutaId);
-    const zonaId = optionalFkId(dto.zonaId);
+    let zonaId = optionalFkId(dto.zonaId);
+    if (!zonaId && dto.variablesCapturadas && typeof dto.variablesCapturadas === 'object') {
+      const vc = dto.variablesCapturadas as Record<string, unknown>;
+      const rawDistrito = vc.distritoId;
+      const distritoId =
+        typeof rawDistrito === 'string' ? optionalFkId(rawDistrito) : null;
+      if (distritoId) {
+        const distrito = await this.prisma.distrito.findUnique({
+          where: { id: distritoId },
+          select: { zonaId: true },
+        });
+        if (distrito?.zonaId) {
+          zonaId = distrito.zonaId;
+        }
+      }
+    }
     const actividadId = optionalFkId(dto.actividadId);
     const categoriaId = optionalFkId(dto.categoriaId);
     const plantillaContratacionId = optionalFkId(dto.plantillaContratacionId);

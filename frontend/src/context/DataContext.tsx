@@ -818,7 +818,11 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   const [zonas, setZonas] = useState(initialZonas);
   const [distritos, setDistritos] = useState(initialDistritos);
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
-  const allowedZonaIds = currentUser?.zonaIds ?? null;
+  /** Solo aplica filtro por zona cuando hay al menos una zona; `[]` no debe ocultar todo el catálogo. */
+  const allowedZonaIds =
+    currentUser?.zonaIds != null && currentUser.zonaIds.length > 0
+      ? currentUser.zonaIds
+      : null;
   const [mensajeGlobalRecibos, setMensajeGlobalRecibos] = useState('');
   const [pagosParcialidad, setPagosParcialidad] = useState(initialPagosParcialidad);
   const [pagosExternos, setPagosExternos] = useState(initialPagosExternos);

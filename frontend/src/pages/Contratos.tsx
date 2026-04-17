@@ -226,10 +226,16 @@ const Contratos = () => {
   const contratos = useApi
     ? (Array.isArray(apiContratos) ? apiContratos : [])
     : contextContratos;
-  const contratosVisibles = useMemo(() =>
-    !allowedZonaIds ? contratos : contratos.filter((c: { zonaId?: string }) => !c.zonaId || allowedZonaIds.includes(c.zonaId)),
-    [contratos, allowedZonaIds]
-  );
+  const contratosVisibles = useMemo(() => {
+    if (!allowedZonaIds?.length) return contratos;
+    return contratos.filter((c: { zonaId?: string | null; estado?: string }) => {
+      const z = c.zonaId;
+      if (z && allowedZonaIds.includes(z)) return true;
+      // Altas recientes sin zona operativa aún deben verse en mesa (p. ej. antes de asignar ruta/zona).
+      if (!z && c.estado === 'Pendiente de alta') return true;
+      return false;
+    });
+  }, [contratos, allowedZonaIds]);
 
   const { data: administracionesCatalog = [] } = useQuery({
     queryKey: ['catalogos-operativos', 'administraciones'],
