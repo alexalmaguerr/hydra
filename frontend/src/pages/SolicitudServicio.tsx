@@ -100,7 +100,14 @@ const MOCK_STEP_DATA: Partial<SolicitudState>[] = [
     propManzana: '',
     propLote: '',
   },
-  // 2 – Solicitud
+  // 2 – Fiscal (mismosDatosProp='si' → copiar de propietario al seleccionar)
+  {
+    requiereFactura: 'si',
+    mismosDatosProp: 'si',
+    fiscalRegimenFiscal: '616',
+    fiscalUsoCfdi: 'G03',
+  },
+  // 3 – Solicitud
   {
     usoDomestico: 'si',
     hayTuberias: 'si',
@@ -117,35 +124,13 @@ const MOCK_STEP_DATA: Partial<SolicitudState>[] = [
     personasVivienda: '4',
     tieneCertConexion: 'si',
   },
-  // 3 – Contratación (adminId/tipoContratacionId resolved at runtime; distritoId/grupoActividadId/actividadId pick first available)
+  // 4 – Contratación (adminId/tipoContratacionId resolved at runtime; distritoId/grupoActividadId/actividadId pick first available)
   {
     adminId: '1',
     distritoId: '__first__',
     grupoActividadId: '__first__',
     actividadId: '__first__',
     contratoPadre: '',
-  },
-  // 4 – Fiscal
-  {
-    requiereFactura: 'si',
-    mismosDatosProp: 'si',
-    fiscalTipoPersona: 'fisica',
-    fiscalRazonSocial: '',
-    fiscalRfc: 'GARM850312AB3',
-    fiscalCorreo: 'mgarcia@correo.com',
-    fiscalDir: {
-      estadoINEGIId: '22',
-      municipioINEGIId: '014',
-      localidadINEGIId: '',
-      coloniaINEGIId: '',
-      codigoPostal: '76030',
-      calle: 'Calle Independencia',
-      numExterior: '88',
-      numInterior: 'Int. 3',
-      referencia: '',
-    },
-    fiscalRegimenFiscal: '616',
-    fiscalUsoCfdi: 'G03',
   },
 ];
 
@@ -231,9 +216,9 @@ const MOCK_DATA: SolicitudState = {
 const STEPS = [
   { key: 'predio',        label: 'Predio',        icon: MapPin },
   { key: 'propietario',   label: 'Propietario',   icon: User },
+  { key: 'fiscal',        label: 'Fiscal',        icon: Receipt },
   { key: 'solicitud',     label: 'Solicitud',     icon: HelpCircle },
   { key: 'contratacion',  label: 'Contratación',  icon: Settings },
-  { key: 'fiscal',        label: 'Fiscal',        icon: Receipt },
   { key: 'resumen',       label: 'Resumen',       icon: ClipboardCheck },
 ] as const;
 
@@ -255,12 +240,12 @@ function canAdvance(step: number, form: SolicitudState): boolean {
       if (!form.propTipoPersona) return false;
       if (form.propTipoPersona === 'moral') return !!form.propRazonSocial.trim();
       return !!(form.propPaterno.trim() || form.propNombre.trim());
-    case 2: // Solicitud
-      return !!form.usoDomestico && !!form.hayTuberias;
-    case 3: // Tipo de contratación
-      return !!(form.adminId && form.tipoContratacionId && form.distritoId && form.grupoActividadId && form.actividadId);
-    case 4: // Fiscal
+    case 2: // Fiscal
       return !!form.requiereFactura;
+    case 3: // Solicitud
+      return !!form.usoDomestico && !!form.hayTuberias;
+    case 4: // Contratación
+      return !!(form.adminId && form.tipoContratacionId && form.distritoId && form.grupoActividadId && form.actividadId);
     case 5: // Resumen — always ok
       return true;
     default:
@@ -317,20 +302,23 @@ function PillToggle({
   value,
   onChange,
   idPrefix,
+  disabled = false,
 }: {
   options: { value: string; label: string; sub?: string }[];
   value: string;
   onChange: (v: string) => void;
   idPrefix: string;
+  disabled?: boolean;
 }) {
   return (
-    <RadioGroup value={value} onValueChange={onChange} className="flex flex-wrap gap-2">
+    <RadioGroup value={value} onValueChange={onChange} disabled={disabled} className="flex flex-wrap gap-2">
       {options.map((opt, i) => (
         <Label
           key={opt.value}
           htmlFor={`${idPrefix}-${i}`}
           className={cn(
-            'flex cursor-pointer items-center gap-1.5 rounded-md border px-4 py-1.5 text-sm font-medium transition-colors select-none',
+            'flex items-center gap-1.5 rounded-md border px-4 py-1.5 text-sm font-medium transition-colors select-none',
+            disabled ? 'cursor-not-allowed opacity-70' : 'cursor-pointer',
             value === opt.value ? 'bg-primary text-primary-foreground border-primary' : 'bg-background border-input hover:bg-accent',
           )}
         >
@@ -764,12 +752,27 @@ function StepContratacion({ form, set }: { form: SolicitudState; set: (p: Partia
 function StepFiscal({
   form,
   set,
-  onCopiarProp,
 }: {
   form: SolicitudState;
   set: (p: Partial<SolicitudState>) => void;
-  onCopiarProp: () => void;
 }) {
+  const locked = form.mismosDatosProp === 'si';
+
+  function handleMismosDatos(v: 'si' | 'no') {
+    if (v === 'si') {
+      set({
+        mismosDatosProp: 'si',
+        fiscalTipoPersona: form.propTipoPersona,
+        fiscalRazonSocial: form.propRazonSocial,
+        fiscalRfc: form.propRfc,
+        fiscalCorreo: form.propCorreo,
+        fiscalDir: { ...form.propDir },
+      });
+    } else {
+      set({ mismosDatosProp: 'no' });
+    }
+  }
+
   return (
     <div className="space-y-5">
       <div className="space-y-2">
@@ -784,84 +787,75 @@ function StepFiscal({
               ¿La factura y dirección fiscal serán los mismos que los del propietario?{' '}
               <span className="text-xs font-normal text-muted-foreground">(Sección B)</span>
             </p>
-            <div className="flex items-center gap-3">
-              <YesNo
-                id="mismos-datos-prop"
-                value={form.mismosDatosProp}
-                onChange={(v) => {
-                  set({ mismosDatosProp: v });
-                  if (v === 'si') onCopiarProp();
-                }}
-              />
-              {form.mismosDatosProp === 'no' && (
-                <Button type="button" variant="outline" size="sm" onClick={onCopiarProp}>
-                  Copiar datos del propietario
-                </Button>
-              )}
-            </div>
+            <YesNo id="mismos-datos-prop" value={form.mismosDatosProp} onChange={handleMismosDatos} />
           </div>
 
-          {form.mismosDatosProp === 'no' && (
+          {(form.mismosDatosProp === 'si' || form.mismosDatosProp === 'no') && (
             <div className="space-y-5">
               <div className="space-y-2">
-                <Label className="text-sm font-medium">Tipo de persona <span className="text-destructive">*</span></Label>
+                <Label className="text-sm font-medium">
+                  Tipo de persona <span className="text-destructive">*</span>
+                  {locked && <span className="ml-2 text-xs font-normal text-muted-foreground">(del propietario)</span>}
+                </Label>
                 <PillToggle
                   idPrefix="fiscal-tipo"
                   options={[{ value: 'fisica', label: 'Física' }, { value: 'moral', label: 'Moral' }]}
                   value={form.fiscalTipoPersona}
-                  onChange={(v) => set({ fiscalTipoPersona: v as 'fisica' | 'moral' })}
+                  onChange={locked ? () => {} : (v) => set({ fiscalTipoPersona: v as 'fisica' | 'moral' })}
+                  disabled={locked}
                 />
               </div>
 
               {form.fiscalTipoPersona === 'moral' && (
                 <Field label="Razón social" required>
-                  <Input className="h-9" value={form.fiscalRazonSocial} onChange={(e) => set({ fiscalRazonSocial: e.target.value })} />
+                  <Input className="h-9" value={form.fiscalRazonSocial} readOnly={locked} disabled={locked} onChange={(e) => set({ fiscalRazonSocial: e.target.value })} />
                 </Field>
               )}
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field label="RFC para facturación" required>
-                  <Input className="h-9 font-mono text-xs" placeholder="XXXX000000XX0" value={form.fiscalRfc} onChange={(e) => set({ fiscalRfc: e.target.value.toUpperCase() })} maxLength={13} />
+                  <Input className="h-9 font-mono text-xs" placeholder="XXXX000000XX0" value={form.fiscalRfc} readOnly={locked} disabled={locked} onChange={(e) => set({ fiscalRfc: e.target.value.toUpperCase() })} maxLength={13} />
                 </Field>
                 <Field label="Correo electrónico" required>
-                  <Input className="h-9" type="email" value={form.fiscalCorreo} onChange={(e) => set({ fiscalCorreo: e.target.value })} />
+                  <Input className="h-9" type="email" value={form.fiscalCorreo} readOnly={locked} disabled={locked} onChange={(e) => set({ fiscalCorreo: e.target.value })} />
                 </Field>
               </div>
 
               <Separator />
-              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Domicilio fiscal</p>
-              <DomicilioPickerForm value={form.fiscalDir} onChange={(v) => set({ fiscalDir: v })} />
-            </div>
-          )}
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Domicilio fiscal
+                {locked && <span className="ml-2 font-normal normal-case text-muted-foreground/70">(precargado del propietario)</span>}
+              </p>
+              <DomicilioPickerForm value={form.fiscalDir} onChange={locked ? () => {} : (v) => set({ fiscalDir: v })} disabled={locked} />
 
-          {(form.mismosDatosProp === 'si' || form.mismosDatosProp === 'no') && (
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Régimen fiscal" required>
-                <Select value={form.fiscalRegimenFiscal} onValueChange={(v) => set({ fiscalRegimenFiscal: v })}>
-                  <SelectTrigger className="h-9"><SelectValue placeholder="Seleccione régimen…" /></SelectTrigger>
-                  <SelectContent>
-                    {REGIMENES_FISCALES.map((r) => (
-                      <SelectItem key={r.id} value={r.id}>
-                        <span className="font-mono text-xs text-muted-foreground">{r.id}</span>
-                        <span className="ml-2">{r.nombre}</span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
-              <Field label="Uso del CFDI" required>
-                <Select value={form.fiscalUsoCfdi} onValueChange={(v) => set({ fiscalUsoCfdi: v })}>
-                  <SelectTrigger className="h-9"><SelectValue placeholder="Seleccione uso…" /></SelectTrigger>
-                  <SelectContent>
-                    {USOS_CFDI.map((u) => (
-                      <SelectItem key={u.id} value={u.id}>
-                        <span className="font-mono text-xs text-muted-foreground">{u.id}</span>
-                        <span className="ml-2">{u.nombre}</span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Régimen fiscal" required>
+                  <Select value={form.fiscalRegimenFiscal} onValueChange={(v) => set({ fiscalRegimenFiscal: v })}>
+                    <SelectTrigger className="h-9"><SelectValue placeholder="Seleccione régimen…" /></SelectTrigger>
+                    <SelectContent>
+                      {REGIMENES_FISCALES.map((r) => (
+                        <SelectItem key={r.id} value={r.id}>
+                          <span className="font-mono text-xs text-muted-foreground">{r.id}</span>
+                          <span className="ml-2">{r.nombre}</span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <Field label="Uso del CFDI" required>
+                  <Select value={form.fiscalUsoCfdi} onValueChange={(v) => set({ fiscalUsoCfdi: v })}>
+                    <SelectTrigger className="h-9"><SelectValue placeholder="Seleccione uso…" /></SelectTrigger>
+                    <SelectContent>
+                      {USOS_CFDI.map((u) => (
+                        <SelectItem key={u.id} value={u.id}>
+                          <span className="font-mono text-xs text-muted-foreground">{u.id}</span>
+                          <span className="ml-2">{u.nombre}</span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+              </div>
             </div>
           )}
         </>
@@ -1065,16 +1059,6 @@ export default function SolicitudServicio() {
     setForm((prev) => ({ ...prev, ...patch }));
   }
 
-  function copiarDatosPropietario() {
-    set({
-      fiscalTipoPersona: form.propTipoPersona,
-      fiscalRazonSocial: form.propRazonSocial,
-      fiscalRfc: form.propRfc,
-      fiscalCorreo: form.propCorreo,
-      fiscalDir: { ...form.propDir },
-    });
-  }
-
   const isLastStep = currentStep === STEPS.length - 1;
   const canNext = canAdvance(currentStep, form);
 
@@ -1157,7 +1141,7 @@ export default function SolicitudServicio() {
     try {
       let patch: Partial<SolicitudState> = { ...stepData };
 
-      if (currentStep === 3) {
+      if (currentStep === 4) {
         const administraciones = await queryClient.fetchQuery({
           queryKey: ['catalogos-operativos', 'administraciones'],
           queryFn: fetchAdministraciones,
@@ -1223,7 +1207,7 @@ export default function SolicitudServicio() {
       if (currentStep === 1 && patch.propDir) {
         patch = { ...patch, propDir: await resolveDir(patch.propDir) };
       }
-      if (currentStep === 4 && patch.fiscalDir) {
+      if (currentStep === 2 && patch.fiscalDir) {
         patch = { ...patch, fiscalDir: await resolveDir(patch.fiscalDir) };
       }
 
@@ -1298,7 +1282,7 @@ export default function SolicitudServicio() {
     propietario: <StepPropietario form={form} set={set} />,
     solicitud: <StepSolicitud form={form} set={set} />,
     contratacion: <StepContratacion form={form} set={set} />,
-    fiscal: <StepFiscal form={form} set={set} onCopiarProp={copiarDatosPropietario} />,
+    fiscal: <StepFiscal form={form} set={set} />,
     resumen: <StepResumen form={form} />,
   };
 

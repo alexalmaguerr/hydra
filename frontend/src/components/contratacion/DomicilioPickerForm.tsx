@@ -37,6 +37,7 @@ export interface DomicilioFormValue {
 interface Props {
   value: DomicilioFormValue;
   onChange: (v: DomicilioFormValue) => void;
+  disabled?: boolean;
 }
 
 const EMPTY: DomicilioFormValue = {
@@ -53,7 +54,7 @@ const EMPTY: DomicilioFormValue = {
 
 export const DOMICILIO_FORM_EMPTY = EMPTY;
 
-export default function DomicilioPickerForm({ value, onChange }: Props) {
+export default function DomicilioPickerForm({ value, onChange, disabled = false }: Props) {
   const set = (patch: Partial<DomicilioFormValue>) => onChange({ ...value, ...patch });
 
   // ── Catálogos cascading ────────────────────────────────────────────────
@@ -114,7 +115,7 @@ export default function DomicilioPickerForm({ value, onChange }: Props) {
             <Loader2 className="h-3.5 w-3.5 animate-spin" /> Cargando…
           </div>
         ) : (
-          <Select value={value.estadoINEGIId} onValueChange={handleEstado}>
+          <Select value={value.estadoINEGIId} onValueChange={handleEstado} disabled={disabled}>
             <SelectTrigger className="h-9">
               <SelectValue placeholder="Seleccionar estado" />
             </SelectTrigger>
@@ -138,7 +139,7 @@ export default function DomicilioPickerForm({ value, onChange }: Props) {
           <Select
             value={value.municipioINEGIId}
             onValueChange={handleMunicipio}
-            disabled={!value.estadoINEGIId}
+            disabled={disabled || !value.estadoINEGIId}
           >
             <SelectTrigger className="h-9">
               <SelectValue placeholder={value.estadoINEGIId ? 'Seleccionar municipio' : 'Primero seleccione estado'} />
@@ -163,7 +164,7 @@ export default function DomicilioPickerForm({ value, onChange }: Props) {
           <Select
             value={value.localidadINEGIId}
             onValueChange={(id) => set({ localidadINEGIId: id })}
-            disabled={!value.municipioINEGIId}
+            disabled={disabled || !value.municipioINEGIId}
           >
             <SelectTrigger className="h-9">
               <SelectValue placeholder="Seleccionar localidad" />
@@ -188,7 +189,7 @@ export default function DomicilioPickerForm({ value, onChange }: Props) {
           <Select
             value={value.coloniaINEGIId}
             onValueChange={(id) => set({ coloniaINEGIId: id })}
-            disabled={!value.municipioINEGIId}
+            disabled={disabled || !value.municipioINEGIId}
           >
             <SelectTrigger className="h-9">
               <SelectValue placeholder={value.municipioINEGIId ? 'Seleccionar colonia' : 'Primero seleccione municipio'} />
@@ -211,6 +212,8 @@ export default function DomicilioPickerForm({ value, onChange }: Props) {
           className="h-9"
           placeholder="76000"
           value={value.codigoPostal}
+          readOnly={disabled}
+          disabled={disabled}
           onChange={(e) => set({ codigoPostal: e.target.value })}
           maxLength={5}
         />
@@ -223,6 +226,8 @@ export default function DomicilioPickerForm({ value, onChange }: Props) {
           className="h-9"
           placeholder="Nombre de la calle"
           value={value.calle}
+          readOnly={disabled}
+          disabled={disabled}
           onChange={(e) => set({ calle: e.target.value })}
         />
       </div>
@@ -234,6 +239,8 @@ export default function DomicilioPickerForm({ value, onChange }: Props) {
           className="h-9"
           placeholder="123"
           value={value.numExterior}
+          readOnly={disabled}
+          disabled={disabled}
           onChange={(e) => set({ numExterior: e.target.value })}
         />
       </div>
@@ -245,6 +252,8 @@ export default function DomicilioPickerForm({ value, onChange }: Props) {
           className="h-9"
           placeholder="A, Depto 2…"
           value={value.numInterior}
+          readOnly={disabled}
+          disabled={disabled}
           onChange={(e) => set({ numInterior: e.target.value })}
         />
       </div>
@@ -256,6 +265,8 @@ export default function DomicilioPickerForm({ value, onChange }: Props) {
           className="h-9"
           placeholder="Entre calles, punto de referencia…"
           value={value.referencia}
+          readOnly={disabled}
+          disabled={disabled}
           onChange={(e) => set({ referencia: e.target.value })}
         />
       </div>
