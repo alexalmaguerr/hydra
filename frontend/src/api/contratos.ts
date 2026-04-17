@@ -4,6 +4,7 @@ export interface ContratoDto {
   id: string;
   tomaId?: string | null;
   puntoServicioId?: string | null;
+  domicilioId?: string | null;
   tipoContratacionId?: string | null;
   tipoContrato: string;
   tipoServicio: string;
@@ -21,6 +22,10 @@ export interface ContratoDto {
   ceaNumContrato?: string | null;
   razonSocial?: string | null;
   regimenFiscal?: string | null;
+  tipoEnvioFactura?: string | null;
+  actividadId?: string | null;
+  categoriaId?: string | null;
+  referenciaContratoAnterior?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -50,7 +55,12 @@ export interface CreateContratoDto {
   puntoServicioId?: string;
   tipoContratacionId?: string;
   actividadId?: string;
+  categoriaId?: string;
   referenciaContratoAnterior?: string;
+  tipoEnvioFactura?: string;
+  observaciones?: string;
+  cicloFacturacion?: string;
+  mesesAdeudo?: number;
   superficiePredio?: number;
   superficieConstruida?: number;
   unidadesServidas?: number;
@@ -85,6 +95,11 @@ export interface CreateContratoDto {
 /** Respuesta de POST /contratos (incluye metadatos de proceso en la misma alta). */
 export type CreateContratoResponseDto = ContratoDto & {
   procesoGestionadoEnAlta?: boolean;
+  facturaContratacion?: {
+    timbradoId: string;
+    costos: { concepto: string; monto: number }[];
+    total: number;
+  };
 };
 
 export interface UpdateContratoDto {
@@ -101,6 +116,22 @@ export interface UpdateContratoDto {
   tipoContratacionId?: string | null;
   zonaId?: string | null;
   rutaId?: string | null;
+  fechaBaja?: string | null;
+  actividadId?: string | null;
+  categoriaId?: string | null;
+  referenciaContratoAnterior?: string | null;
+  observaciones?: string | null;
+  tipoEnvioFactura?: string | null;
+  indicadorEmisionRecibo?: boolean;
+  indicadorExentarFacturacion?: boolean;
+  indicadorContactoCorreo?: boolean;
+  cicloFacturacion?: string | null;
+  superficiePredio?: number | null;
+  superficieConstruida?: number | null;
+  mesesAdeudo?: number | null;
+  unidadesServidas?: number | null;
+  personasHabitanVivienda?: number | null;
+  textoContratoSnapshot?: string | null;
 }
 
 export interface EstadoOperativoDto {

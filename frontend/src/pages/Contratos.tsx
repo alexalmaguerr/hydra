@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { mapEstadoContratoToFlujoRegistro } from '@/lib/contrato-registro-estado';
 import { useData } from '@/context/DataContext';
 import {
   fetchContratos,
@@ -20,32 +21,28 @@ import {
 import StatusBadge from '@/components/StatusBadge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Plus, Eye, ChevronRight, Hash, User, Droplets, FileText, SlidersHorizontal, Download, TrendingUp, GitBranch, ScrollText, Users, Search, ArrowDownUp, ArrowDown, ArrowUp } from 'lucide-react';
-import { TIPOS_CONTRATACION_BY_ADMIN } from '@/config/tipos-contratacion';
-
-const ADMINISTRACIONES_MAP: Record<string, string> = {
-  '1': 'QUERÉTARO', '2': 'SANTA ROSA JÁUREGUI', '3': 'CORREGIDORA',
-  '4': 'PEDRO ESCOBEDO', '5': 'TEQUISQUIAPAN', '6': 'EZEQUIEL MONTES',
-  '7': 'AMEALCO DE BONFIL', '8': 'HUIMILPAN', '9': 'CADEREYTA DE MONTES-SAN JOAQUÍN',
-  '10': 'COLÓN-TOLIMÁN', '11': 'JALPAN DE SERRA-LANDA DE MATAMOROS-ARROYO SECO',
-  '12': 'EL MARQUÉS', '13': 'PINAL DE AMOLES-PEÑAMILLER',
-};
-
-function getTipoContratacionDesc(id: string | null | undefined): string {
-  if (!id) return '—';
-  for (const tipos of Object.values(TIPOS_CONTRATACION_BY_ADMIN)) {
-    const found = tipos.find((t) => t.id === id);
-    if (found) return found.descripcion;
-  }
-  return id;
-}
-
-function getAdminForTipo(id: string | null | undefined): string | undefined {
-  if (!id) return undefined;
-  for (const [adminId, tipos] of Object.entries(TIPOS_CONTRATACION_BY_ADMIN)) {
-    if (tipos.some((t) => t.id === id)) return adminId;
-  }
-}
+import {
+  Plus,
+  Eye,
+  ChevronRight,
+  Hash,
+  User,
+  Droplets,
+  FileText,
+  SlidersHorizontal,
+  Download,
+  TrendingUp,
+  GitBranch,
+  ScrollText,
+  Users,
+  Search,
+  ArrowDown,
+  ArrowUp,
+  Check,
+  Pencil,
+} from 'lucide-react';
+import { fetchAdministraciones } from '@/api/catalogos';
+import { fetchTiposContratacion, type TipoContratacion } from '@/api/tipos-contratacion';
 import { PageHeader } from '@/components/PageHeader';
 import { KpiCard } from '@/components/KpiCard';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -62,7 +59,6 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { useSearchParams } from 'react-router-dom';
-import { Check, Pencil } from 'lucide-react';
 import { WizardContratacion } from '@/components/contratacion/WizardContratacion';
 
 /** Inline editable field for linking/updating the CEA contract number */
@@ -178,12 +174,13 @@ function ContratoTextoPreviewPanel({
 
 const Contratos = () => {
   const useApi = hasApi();
+  const queryClient = useQueryClient();
   const { contratos: contextContratos, allowedZonaIds, timbrados, recibos, preFacturas, pagos } = useData();
 
   const [showWizard, setShowWizard] = useState(false);
   const [confirmCloseWizard, setConfirmCloseWizard] = useState(false);
   const [detail, setDetail] = useState<string | null>(null);
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState('');
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
 
@@ -193,6 +190,23 @@ const Contratos = () => {
     enabled: useApi,
   });
 
+  const snapshotTextoMut = useMutation({
+    mutationFn: async (contratoId: string) => {
+      const prev = await fetchTextoContratoPreview(contratoId);
+      await updateContrato(contratoId, { textoContratoSnapshot: prev.texto });
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['contratos'] });
+      toast.success('Texto contractual guardado', {
+        description: 'Se actualizó el HTML almacenado para impresión y consulta.',
+      });
+    },
+    onError: (err: unknown) => {
+      const message = err instanceof Error ? err.message : 'No se pudo guardar el texto.';
+      toast.error('Error al guardar', { description: message });
+    },
+  });
+
   const contratos = useApi
     ? (Array.isArray(apiContratos) ? apiContratos : [])
     : contextContratos;
@@ -200,6 +214,58 @@ const Contratos = () => {
     !allowedZonaIds ? contratos : contratos.filter((c: { zonaId?: string }) => c.zonaId && allowedZonaIds.includes(c.zonaId)),
     [contratos, allowedZonaIds]
   );
+
+  const { data: administracionesCatalog = [] } = useQuery({
+    queryKey: ['catalogos-operativos', 'administraciones'],
+    queryFn: fetchAdministraciones,
+    enabled: useApi,
+    staleTime: 60 * 60 * 1000,
+  });
+
+  const { data: tiposContratacionCatalog = [] } = useQuery({
+    queryKey: ['tipos-contratacion', 'catalog-lookup'],
+    enabled: useApi,
+    staleTime: 60 * 60 * 1000,
+    queryFn: async () => {
+      const pageSize = 100;
+      let page = 1;
+      const acc: TipoContratacion[] = [];
+      for (;;) {
+        const { data, total } = await fetchTiposContratacion({ page, limit: pageSize });
+        acc.push(...data);
+        if (acc.length >= total || data.length === 0) break;
+        page += 1;
+      }
+      return acc;
+    },
+  });
+
+  const adminNombreById = useMemo(() => {
+    const m = new Map<string, string>();
+    administracionesCatalog.forEach((a) => m.set(a.id, a.nombre));
+    return m;
+  }, [administracionesCatalog]);
+
+  const tipoById = useMemo(() => {
+    const m = new Map<string, TipoContratacion>();
+    tiposContratacionCatalog.forEach((t) => m.set(t.id, t));
+    return m;
+  }, [tiposContratacionCatalog]);
+
+  const getTipoContratacionDesc = (id: string | null | undefined) => {
+    if (!id) return '—';
+    const t = tipoById.get(id);
+    if (t) return (t.descripcion?.trim() || t.nombre) + (t.codigo ? ` (${t.codigo})` : '');
+    return id;
+  };
+
+  const getAdminNombreForTipo = (tipoId: string | null | undefined) => {
+    if (!tipoId) return '—';
+    const t = tipoById.get(tipoId);
+    const aid = t?.administracionId;
+    if (!aid) return '—';
+    return adminNombreById.get(aid) ?? aid;
+  };
 
   const filteredContratos = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -217,7 +283,7 @@ const Contratos = () => {
   }, [contratosVisibles, search, sortOrder]);
 
   useEffect(() => {
-    if (searchParams.get('new') === '1') setShowWizard(true);
+    if (searchParams.get('new') === '1' || searchParams.get('procesoId')) setShowWizard(true);
   }, [searchParams]);
 
   const selected = contratosVisibles.find(c => c.id === detail);
@@ -271,7 +337,7 @@ const Contratos = () => {
             onClick={() => setShowWizard(true)}
             className="bg-[#007BFF] hover:bg-blue-600 text-white"
           >
-            <Plus className="h-4 w-4 mr-1.5" /> Alta de contrato
+            <Plus className="h-4 w-4 mr-1.5" /> Nuevo registro de contrato
           </Button>
         }
       />
@@ -326,27 +392,41 @@ const Contratos = () => {
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-muted/40">
-              {['ID', 'Titular', 'Tipo', 'Servicio', 'Estado', 'Fecha', ''].map((h) => (
+              {['ID contrato', 'Fecha de creación', 'Cliente / titular', 'Estado (flujo)', ''].map((h) => (
                 <th key={h} className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-4 py-3">{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {filteredContratos.map((c: { id: string; nombre: string; tipoContrato: string; tipoServicio: string; estado: string; fecha: string }) => (
-              <tr key={c.id} className="border-t border-border/50 hover:bg-muted/30 transition-colors">
-                <td className="px-4 py-3.5 font-mono text-xs text-[#007BFF] font-medium">{c.id}</td>
-                <td className="px-4 py-3.5 font-medium">{c.nombre}</td>
-                <td className="px-4 py-3.5 text-muted-foreground">{c.tipoContrato}</td>
-                <td className="px-4 py-3.5 text-muted-foreground">{c.tipoServicio}</td>
-                <td className="px-4 py-3.5"><StatusBadge status={c.estado} /></td>
-                <td className="px-4 py-3.5 text-muted-foreground">{c.fecha}</td>
-                <td className="px-4 py-3.5"><Button variant="ghost" size="sm" onClick={() => setDetail(c.id)}><Eye className="h-4 w-4" /></Button></td>
-              </tr>
-            ))}
+            {filteredContratos.map((c: { id: string; nombre: string; estado: string; createdAt?: string; fecha: string }) => {
+              const flujo = mapEstadoContratoToFlujoRegistro(c.estado);
+              const creado = c.createdAt
+                ? new Date(c.createdAt).toLocaleDateString('es-MX', { dateStyle: 'medium' })
+                : c.fecha;
+              return (
+                <tr key={c.id} className="border-t border-border/50 hover:bg-muted/30 transition-colors">
+                  <td className="px-4 py-3.5 font-mono text-xs text-[#007BFF] font-medium">{c.id}</td>
+                  <td className="px-4 py-3.5 text-muted-foreground tabular-nums">{creado}</td>
+                  <td className="px-4 py-3.5 font-medium">{c.nombre}</td>
+                  <td className="px-4 py-3.5">
+                    <span className="text-sm" title={c.estado}>
+                      {flujo.label}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3.5">
+                    <Button variant="ghost" size="sm" onClick={() => setDetail(c.id)}>
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                  </td>
+                </tr>
+              );
+            })}
             {filteredContratos.length === 0 && (
-              <tr><td colSpan={7} className="text-center text-muted-foreground py-12">
-                {search ? 'Sin resultados para esta búsqueda' : 'No hay contratos'}
-              </td></tr>
+              <tr>
+                <td colSpan={5} className="text-center text-muted-foreground py-12">
+                  {search ? 'Sin resultados para esta búsqueda' : 'No hay contratos'}
+                </td>
+              </tr>
             )}
           </tbody>
         </table>
@@ -362,13 +442,22 @@ const Contratos = () => {
           onInteractOutside={(e) => e.preventDefault()}
         >
           <DialogHeader>
-            <DialogTitle>Alta de Contrato</DialogTitle>
+            <DialogTitle>Registro de contrato</DialogTitle>
             <DialogDescription>
-              Asistente guiado para registrar un nuevo contrato de servicio.
+              Asistente guiado para registrar un contrato; puede precargarse desde un proceso de contratación existente
+              (<span className="font-mono">?procesoId=</span>).
             </DialogDescription>
           </DialogHeader>
           <WizardContratacion
-            onComplete={() => setShowWizard(false)}
+            key={searchParams.get('procesoId') ?? 'nuevo'}
+            procesoPrecargaId={searchParams.get('procesoId')}
+            onComplete={() => {
+              setShowWizard(false);
+              const next = new URLSearchParams(searchParams);
+              next.delete('new');
+              next.delete('procesoId');
+              setSearchParams(next, { replace: true });
+            }}
             onCancel={() => setConfirmCloseWizard(true)}
           />
         </DialogContent>
@@ -584,15 +673,7 @@ const Contratos = () => {
                         <section className="space-y-2">
                           <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground px-0.5">Configuración</h3>
                           <div className="rounded-lg border divide-y">
-                            <Row
-                              label="Administración"
-                              value={
-                                (() => {
-                                  const adminId = getAdminForTipo(selected.tipoContratacionId);
-                                  return adminId ? ADMINISTRACIONES_MAP[adminId] ?? adminId : '—';
-                                })()
-                              }
-                            />
+                            <Row label="Administración" value={getAdminNombreForTipo(selected.tipoContratacionId)} />
                             <Row label="Zona" value={selected.zonaId || '—'} />
                             <Row label="Punto de servicio" value={<span className="font-mono text-xs">{selected.puntoServicioId || '—'}</span>} />
                             <Row label="Ruta" value={selected.rutaId || '—'} />
@@ -684,20 +765,30 @@ const Contratos = () => {
                     {/* ── Vista previa texto contractual ── */}
                     <TabsContent value="texto-contrato" className="mt-0 space-y-3">
                       <div>
-                        <div className="flex items-center justify-between mb-2">
+                        <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
                           <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                             Vista previa (plantilla o cláusulas)
                           </h3>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              const url = getContratoPdfUrl(selected.id);
-                              window.open(url, '_blank');
-                            }}
-                          >
-                            <Download className="h-3.5 w-3.5 mr-1" /> Imprimir / PDF
-                          </Button>
+                          <div className="flex flex-wrap gap-2">
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              disabled={!useApi || snapshotTextoMut.isPending}
+                              onClick={() => snapshotTextoMut.mutate(selected.id)}
+                            >
+                              {snapshotTextoMut.isPending ? 'Guardando…' : 'Generar y guardar en contrato'}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                const url = getContratoPdfUrl(selected.id);
+                                window.open(url, '_blank');
+                              }}
+                            >
+                              <Download className="h-3.5 w-3.5 mr-1" /> Imprimir / PDF
+                            </Button>
+                          </div>
                         </div>
                         <p className="text-sm text-muted-foreground mb-3">
                           Texto generado con variables del contrato (nombre, RFC, dirección, etc.). No sustituye al PDF firmado.

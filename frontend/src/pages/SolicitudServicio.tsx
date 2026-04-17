@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { createSolicitud, updateSolicitud, fetchSolicitud } from '@/api/solicitudes';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { createSolicitud, fetchSolicitud, updateSolicitud } from '@/api/solicitudes';
 import type { CatalogoEstadoINEGI, CatalogoMunicipioINEGIRow, PaginatedInegi } from '@/api/domicilios-inegi';
 import { ArrowLeft, Check, FileText, MapPin, User, HelpCircle, Settings, Receipt, ClipboardCheck, Wand2 } from 'lucide-react';
 
@@ -20,29 +20,15 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { toast } from '@/components/ui/sonner';
 import DomicilioPickerForm from '@/components/contratacion/DomicilioPickerForm';
-import { TIPOS_CONTRATACION_BY_ADMIN } from '@/config/tipos-contratacion';
+import { fetchAdministraciones } from '@/api/catalogos';
+import { fetchTiposContratacion, type TipoContratacion } from '@/api/tipos-contratacion';
+import { hasApi } from '@/api/contratos';
 import { cn } from '@/lib/utils';
-import type { SolicitudState } from '@/types/solicitudes';
+import type { DomicilioFormValue, SolicitudEstado, SolicitudRecord, SolicitudState } from '@/types/solicitudes';
 import { SOLICITUD_STATE_EMPTY } from '@/types/solicitudes';
-import { useSolicitudesStore, deriveName, derivePredioResumen } from '@/hooks/useSolicitudesStore';
+import { deriveName, derivePredioResumen, useSolicitudesStore } from '@/hooks/useSolicitudesStore';
 
 // ── Catalogues ───────────────────────────────────────────────────────────────
-
-const ADMINISTRACIONES: Record<string, string> = {
-  '1': 'QUERÉTARO',
-  '2': 'SANTA ROSA JÁUREGUI',
-  '3': 'CORREGIDORA',
-  '4': 'PEDRO ESCOBEDO',
-  '5': 'TEQUISQUIAPAN',
-  '6': 'EZEQUIEL MONTES',
-  '7': 'AMEALCO DE BONFIL',
-  '8': 'HUIMILPAN',
-  '9': 'CADEREYTA DE MONTES-SAN JOAQUÍN',
-  '10': 'COLÓN-TOLIMÁN',
-  '11': 'JALPAN DE SERRA-LANDA DE MATAMOROS-ARROYO SECO',
-  '12': 'EL MARQUÉS',
-  '13': 'PINAL DE AMOLES-PEÑAMILLER',
-};
 
 const REGIMENES_FISCALES = [
   { id: '601', nombre: 'General de Ley Personas Morales' },
@@ -212,8 +198,8 @@ const MOCK_DATA: SolicitudState = {
   condoNombreAgrupacion: '',
   personasVivienda: '4',
   tieneCertConexion: 'si',
-  adminId: '1',
-  tipoContratacionId: '101',   // primer tipo de admin 1
+  adminId: '',
+  tipoContratacionId: '',
   contratoPadre: '',
   requiereFactura: 'si',
   mismosDatosProp: 'si',
@@ -570,18 +556,56 @@ function StepSolicitud({ form, set }: { form: SolicitudState; set: (p: Partial<S
 }
 
 function StepContratacion({ form, set }: { form: SolicitudState; set: (p: Partial<SolicitudState>) => void }) {
-  const tiposList = form.adminId ? (TIPOS_CONTRATACION_BY_ADMIN[form.adminId] ?? []) : [];
+  const useApi = hasApi();
+  const { data: administraciones = [], isLoading: adminsLoading, isError: adminsError } = useQuery({
+    queryKey: ['catalogos-operativos', 'administraciones'],
+    queryFn: fetchAdministraciones,
+    enabled: useApi,
+    staleTime: 60 * 60 * 1000,
+  });
+
+  const { data: tiposRes, isLoading: tiposLoading, isError: tiposError } = useQuery({
+    queryKey: ['tipos-contratacion', form.adminId, 'solicitud-servicio'],
+    queryFn: () =>
+      fetchTiposContratacion({
+        administracionId: form.adminId,
+        activo: true,
+        page: 1,
+        limit: 200,
+      }),
+    enabled: useApi && !!form.adminId,
+  });
+
+  const tiposList: TipoContratacion[] = tiposRes?.data ?? [];
   const selectedTipo = tiposList.find((t) => t.id === form.tipoContratacionId);
 
   return (
     <div className="space-y-5">
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Administración" required>
-          <Select value={form.adminId} onValueChange={(v) => set({ adminId: v, tipoContratacionId: '' })}>
-            <SelectTrigger className="h-9"><SelectValue placeholder="Seleccione administración…" /></SelectTrigger>
+          <Select
+            value={form.adminId}
+            onValueChange={(v) => set({ adminId: v, tipoContratacionId: '' })}
+            disabled={!useApi || adminsLoading || administraciones.length === 0}
+          >
+            <SelectTrigger className="h-9">
+              <SelectValue
+                placeholder={
+                  !useApi
+                    ? 'Catálogo no disponible'
+                    : adminsLoading
+                      ? 'Cargando…'
+                      : adminsError
+                        ? 'Error al cargar'
+                        : 'Seleccione administración…'
+                }
+              />
+            </SelectTrigger>
             <SelectContent>
-              {Object.entries(ADMINISTRACIONES).map(([id, nombre]) => (
-                <SelectItem key={id} value={id}>{nombre}</SelectItem>
+              {administraciones.map((a) => (
+                <SelectItem key={a.id} value={a.id}>
+                  {a.nombre}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -591,18 +615,33 @@ function StepContratacion({ form, set }: { form: SolicitudState; set: (p: Partia
           <Select
             value={form.tipoContratacionId}
             onValueChange={(v) => set({ tipoContratacionId: v })}
-            disabled={!form.adminId || tiposList.length === 0}
+            disabled={!form.adminId || tiposLoading || tiposList.length === 0}
           >
             <SelectTrigger className="h-9">
-              <SelectValue placeholder={form.adminId ? 'Seleccione tipo…' : 'Primero seleccione administración'} />
+              <SelectValue
+                placeholder={
+                  !form.adminId
+                    ? 'Primero seleccione administración'
+                    : tiposLoading
+                      ? 'Cargando tipos…'
+                      : tiposError
+                        ? 'Error al cargar tipos'
+                        : tiposList.length === 0
+                          ? 'Sin tipos para esta administración'
+                          : 'Seleccione tipo…'
+                }
+              />
             </SelectTrigger>
             <SelectContent className="max-h-72">
-              {tiposList.map((t) => (
-                <SelectItem key={t.id} value={t.id}>
-                  {t.descripcion}
-                  <span className="ml-1.5 font-mono text-xs text-muted-foreground">({t.id})</span>
-                </SelectItem>
-              ))}
+              {tiposList.map((t) => {
+                const label = t.descripcion?.trim() || t.nombre;
+                return (
+                  <SelectItem key={t.id} value={t.id}>
+                    {label}
+                    <span className="ml-1.5 font-mono text-xs text-muted-foreground">({t.codigo})</span>
+                  </SelectItem>
+                );
+              })}
             </SelectContent>
           </Select>
         </Field>
@@ -614,8 +653,8 @@ function StepContratacion({ form, set }: { form: SolicitudState; set: (p: Partia
 
       {selectedTipo && (
         <div className="rounded-md border bg-muted/30 px-3 py-2.5 text-sm">
-          <span className="font-medium">{selectedTipo.descripcion}</span>
-          <span className="ml-2 font-mono text-xs text-muted-foreground">({selectedTipo.id})</span>
+          <span className="font-medium">{selectedTipo.descripcion?.trim() || selectedTipo.nombre}</span>
+          <span className="ml-2 font-mono text-xs text-muted-foreground">({selectedTipo.codigo})</span>
         </div>
       )}
     </div>
@@ -748,9 +787,31 @@ function ResumenRow({ label, value }: { label: string; value?: string | null }) 
 }
 
 function StepResumen({ form }: { form: SolicitudState }) {
+  const useApi = hasApi();
   const today = new Date().toLocaleDateString('es-MX', { year: 'numeric', month: '2-digit', day: '2-digit' });
-  const tiposList = form.adminId ? (TIPOS_CONTRATACION_BY_ADMIN[form.adminId] ?? []) : [];
+
+  const { data: administraciones = [] } = useQuery({
+    queryKey: ['catalogos-operativos', 'administraciones'],
+    queryFn: fetchAdministraciones,
+    enabled: useApi,
+    staleTime: 60 * 60 * 1000,
+  });
+
+  const { data: tiposRes } = useQuery({
+    queryKey: ['tipos-contratacion', form.adminId, 'solicitud-servicio'],
+    queryFn: () =>
+      fetchTiposContratacion({
+        administracionId: form.adminId,
+        activo: true,
+        page: 1,
+        limit: 200,
+      }),
+    enabled: useApi && !!form.adminId,
+  });
+
+  const tiposList: TipoContratacion[] = tiposRes?.data ?? [];
   const selectedTipo = tiposList.find((t) => t.id === form.tipoContratacionId);
+  const adminNombre = form.adminId ? administraciones.find((a) => a.id === form.adminId)?.nombre : undefined;
   const nombre = form.propTipoPersona === 'moral'
     ? form.propRazonSocial
     : [form.propPaterno, form.propMaterno, form.propNombre].filter(Boolean).join(' ');
@@ -821,8 +882,15 @@ function StepResumen({ form }: { form: SolicitudState }) {
             <CardTitle className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Contratación</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-2 pb-4">
-            <ResumenRow label="Administración" value={form.adminId ? ADMINISTRACIONES[form.adminId] : '—'} />
-            <ResumenRow label="Tipo de contratación" value={selectedTipo ? `${selectedTipo.descripcion} (${selectedTipo.id})` : '—'} />
+            <ResumenRow label="Administración" value={adminNombre || form.adminId || '—'} />
+            <ResumenRow
+              label="Tipo de contratación"
+              value={
+                selectedTipo
+                  ? `${selectedTipo.descripcion?.trim() || selectedTipo.nombre} (${selectedTipo.codigo})`
+                  : form.tipoContratacionId || '—'
+              }
+            />
             {form.contratoPadre && <ResumenRow label="Contrato padre" value={form.contratoPadre} />}
             <ResumenRow label="Requiere factura" value={form.requiereFactura === 'si' ? 'Sí' : form.requiereFactura === 'no' ? 'No' : '—'} />
           </CardContent>
@@ -837,13 +905,11 @@ function StepResumen({ form }: { form: SolicitudState }) {
 export default function SolicitudServicio() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const store = useSolicitudesStore();
   const queryClient = useQueryClient();
+  const store = useSolicitudesStore();
 
   const isEditMode = !!id;
-
-  // Try local store first; if not found (API-created record), fetch from API
-  const localRecord = isEditMode ? store.getById(id) : undefined;
+  const localRecord = isEditMode && id ? store.getById(id) : undefined;
   const { data: apiSolicitud } = useQuery({
     queryKey: ['solicitud', id],
     queryFn: () => fetchSolicitud(id!),
@@ -854,39 +920,44 @@ export default function SolicitudServicio() {
   const [form, setForm] = useState<SolicitudState>(localRecord?.formData ?? SOLICITUD_STATE_EMPTY);
   const [currentStep, setCurrentStep] = useState(0);
 
-  // Populate form when API data arrives (only when there's no local record)
   useEffect(() => {
     if (!localRecord && apiSolicitud?.formData) {
       setForm(apiSolicitud.formData as SolicitudState);
     }
-  }, [apiSolicitud?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [localRecord, apiSolicitud?.id, apiSolicitud?.formData]);
 
-  const existingRecord = localRecord ?? (apiSolicitud ? {
-    id: apiSolicitud.id,
-    folio: apiSolicitud.folio,
-    fechaSolicitud: apiSolicitud.fechaSolicitud,
-    propNombreCompleto: apiSolicitud.propNombreCompleto,
-    propTelefono: apiSolicitud.propTelefono ?? '—',
-    predioResumen: apiSolicitud.predioResumen,
-    adminId: '',
-    tipoContratacionId: apiSolicitud.tipoContratacionId ?? '',
-    usoDomestico: '' as const,
-    estado: apiSolicitud.estado as any,
-    formData: apiSolicitud.formData as SolicitudState,
-    createdAt: apiSolicitud.createdAt,
-  } : undefined);
+  const existingRecord: SolicitudRecord | undefined =
+    localRecord ??
+    (apiSolicitud
+      ? {
+          id: apiSolicitud.id,
+          folio: apiSolicitud.folio,
+          fechaSolicitud: apiSolicitud.fechaSolicitud,
+          propNombreCompleto: apiSolicitud.propNombreCompleto,
+          propTelefono: apiSolicitud.propTelefono ?? '—',
+          predioResumen: apiSolicitud.predioResumen,
+          adminId: apiSolicitud.adminId ?? '',
+          tipoContratacionId: apiSolicitud.tipoContratacionId ?? '',
+          usoDomestico: apiSolicitud.formData.usoDomestico,
+          estado: apiSolicitud.estado as SolicitudEstado,
+          formData: apiSolicitud.formData as SolicitudState,
+          createdAt: apiSolicitud.createdAt,
+        }
+      : undefined);
 
   const createMutation = useMutation({
     mutationFn: (dto: Parameters<typeof createSolicitud>[0]) => createSolicitud(dto),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['solicitudes'] }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['solicitudes'] });
+    },
   });
 
   const updateMutation = useMutation({
     mutationFn: ({ sid, dto }: { sid: string; dto: Parameters<typeof updateSolicitud>[1] }) =>
       updateSolicitud(sid, dto),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['solicitudes'] });
-      queryClient.invalidateQueries({ queryKey: ['solicitud', id] });
+      void queryClient.invalidateQueries({ queryKey: ['solicitudes'] });
+      void queryClient.invalidateQueries({ queryKey: ['solicitud', id] });
     },
   });
 
@@ -907,9 +978,8 @@ export default function SolicitudServicio() {
   const isLastStep = currentStep === STEPS.length - 1;
   const canNext = canAdvance(currentStep, form);
 
-  function resolveDir(dir: { estadoINEGIId: string; municipioINEGIId: string; [key: string]: string }) {
+  function resolveDir(dir: DomicilioFormValue | undefined): DomicilioFormValue | undefined {
     if (!dir) return dir;
-    // Replace claveINEGI codes with real UUIDs from react-query cache
     const estados = queryClient.getQueryData<CatalogoEstadoINEGI[]>(['inegi-estados']) ?? [];
     const estado = estados.find((e) => e.claveINEGI === dir.estadoINEGIId || e.id === dir.estadoINEGIId);
     const estadoId = estado?.id ?? '';
@@ -919,44 +989,82 @@ export default function SolicitudServicio() {
     );
     const municipios = mpioCache?.data ?? [];
     const mpio = municipios.find(
-      (m) => m.claveINEGI === dir.municipioINEGIId?.slice(-3) ||
-             m.claveINEGI === dir.municipioINEGIId ||
-             m.id === dir.municipioINEGIId,
+      (m) =>
+        m.claveINEGI === dir.municipioINEGIId?.slice(-3) ||
+        m.claveINEGI === dir.municipioINEGIId ||
+        m.id === dir.municipioINEGIId,
     );
     const municipioId = mpio?.id ?? '';
 
     return { ...dir, estadoINEGIId: estadoId, municipioINEGIId: municipioId };
   }
 
-  function handlePrellenar() {
-    const tipos = TIPOS_CONTRATACION_BY_ADMIN['1'] ?? [];
-    const tipoId = tipos[0]?.id ?? '';
+  async function handlePrellenar() {
+    if (!hasApi()) {
+      setForm({ ...MOCK_DATA });
+      setCurrentStep(0);
+      toast.success('Datos de demo cargados', {
+        description: 'Defina administración y tipo desde el catálogo en el paso de contratación.',
+      });
+      return;
+    }
+
     const stepData = MOCK_STEP_DATA[currentStep];
-    if (!stepData) return;
-
-    let patch: Partial<SolicitudState> = currentStep === 3
-      ? { ...stepData, tipoContratacionId: tipoId }
-      : { ...stepData };
-
-    // Resolve location IDs for address steps
-    type Dir = Parameters<typeof resolveDir>[0];
-    if (currentStep === 0 && patch.predioDir) {
-      patch = { ...patch, predioDir: resolveDir(patch.predioDir as Dir) };
-    }
-    if (currentStep === 1 && patch.propDir) {
-      patch = { ...patch, propDir: resolveDir(patch.propDir as Dir) };
-    }
-    if (currentStep === 4 && patch.fiscalDir) {
-      patch = { ...patch, fiscalDir: resolveDir(patch.fiscalDir as Dir) };
+    if (!stepData) {
+      toast.info('No hay datos de demo para este paso');
+      return;
     }
 
-    setForm((prev) => ({ ...prev, ...patch }));
+    try {
+      let patch: Partial<SolicitudState> = { ...stepData };
+
+      if (currentStep === 3) {
+        const administraciones = await queryClient.fetchQuery({
+          queryKey: ['catalogos-operativos', 'administraciones'],
+          queryFn: fetchAdministraciones,
+        });
+        const firstAdmin = administraciones[0];
+        if (!firstAdmin) {
+          toast.error('No hay administraciones en el catálogo');
+          return;
+        }
+        const { data: tipos } = await fetchTiposContratacion({
+          administracionId: firstAdmin.id,
+          activo: true,
+          page: 1,
+          limit: 200,
+        });
+        const firstTipo = tipos.find((t) => t.activo) ?? tipos[0];
+        const tipoId = firstTipo?.id ?? '';
+        if (!tipoId) {
+          toast.error('No hay tipos de contratación para la primera administración');
+          return;
+        }
+        patch = { ...patch, adminId: firstAdmin.id, tipoContratacionId: tipoId };
+      }
+
+      if (currentStep === 0 && patch.predioDir) {
+        patch = { ...patch, predioDir: resolveDir(patch.predioDir) };
+      }
+      if (currentStep === 1 && patch.propDir) {
+        patch = { ...patch, propDir: resolveDir(patch.propDir) };
+      }
+      if (currentStep === 4 && patch.fiscalDir) {
+        patch = { ...patch, fiscalDir: resolveDir(patch.fiscalDir) };
+      }
+
+      setForm((prev) => ({ ...prev, ...patch }));
+      toast.success('Datos de demo del paso actual');
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Error al cargar catálogos';
+      toast.error('No se pudo prellenar', { description: message });
+    }
   }
 
-  function handleNext() {
+  async function handleNext() {
     if (!canNext) return;
     if (isLastStep) {
-      handleGuardar();
+      await handleGuardar();
     } else {
       setCurrentStep((s) => s + 1);
     }
@@ -983,13 +1091,13 @@ export default function SolicitudServicio() {
           },
         });
       } catch {
-        store.updateFormData(id, form); // fallback to localStorage
+        store.updateFormData(id, form);
       }
       toast.success('Solicitud actualizada');
     } else {
       try {
         const dto = await createMutation.mutateAsync({
-          propTipoPersona: form.propTipoPersona || 'fisica',
+          propTipoPersona: form.propTipoPersona === 'moral' ? 'moral' : 'fisica',
           propNombreCompleto,
           propRfc: form.propRfc || undefined,
           propCorreo: form.propCorreo || undefined,
@@ -1002,7 +1110,7 @@ export default function SolicitudServicio() {
         });
         toast.success(`Solicitud ${dto.folio} guardada`);
       } catch {
-        const record = store.create(form); // fallback to localStorage
+        const record = store.create(form);
         toast.success(`Solicitud ${record.folio} guardada`);
         navigate('/app/solicitudes');
         return;

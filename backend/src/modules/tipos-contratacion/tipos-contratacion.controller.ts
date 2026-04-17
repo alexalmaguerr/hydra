@@ -24,8 +24,9 @@ export class TiposContratacionController {
     @Query('activo') activo?: string,
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page?: number,
     @Query('limit', new DefaultValuePipe(50), ParseIntPipe) limit?: number,
+    @Query('administracionId') administracionId?: string,
   ) {
-    return this.service.findAll({ activo, page, limit });
+    return this.service.findAll({ activo, page, limit, administracionId });
   }
 
   @Get(':id')

@@ -362,4 +362,12 @@ export class PuntosServicioService {
   async updateCodigoRecorrido(id: string, dto: Partial<{ descripcion: string; rutaId: string; activo: boolean }>) {
     return this.prisma.catalogoCodigoRecorrido.update({ where: { id }, data: dto });
   }
+
+  /** Distritos operativos (GIS / rutas), con zona para filtrado en UI. */
+  async findDistritos() {
+    return this.prisma.distrito.findMany({
+      orderBy: [{ zonaId: 'asc' }, { nombre: 'asc' }],
+      select: { id: true, nombre: true, zonaId: true },
+    });
+  }
 }

@@ -44,11 +44,18 @@ export class TiposContratacionService {
 
   // ─── CRUD TipoContratacion ─────────────────────────────────────────────────
 
-  async findAll(params: { activo?: string; page?: number; limit?: number }) {
+  async findAll(params: {
+    activo?: string;
+    page?: number;
+    limit?: number;
+    administracionId?: string;
+  }) {
     const page = params.page ?? 1;
     const limit = params.limit ?? 50;
+    const adminId = params.administracionId?.trim();
     const where: Record<string, unknown> = {
       ...(params.activo !== undefined && { activo: params.activo === 'true' }),
+      ...(adminId ? { administracionId: adminId } : {}),
     };
     const [data, total] = await Promise.all([
       this.prisma.tipoContratacion.findMany({

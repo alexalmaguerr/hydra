@@ -68,8 +68,7 @@ export const fetchSolicitudes = (params?: { estado?: string; page?: number; limi
   return apiRequest<PaginatedSolicitudes>(`/solicitudes${q ? `?${q}` : ''}`);
 };
 
-export const fetchSolicitud = (id: string) =>
-  apiRequest<SolicitudDto>(`/solicitudes/${id}`);
+export const fetchSolicitud = (id: string) => apiRequest<SolicitudDto>(`/solicitudes/${id}`);
 
 export const createSolicitud = (dto: {
   propTipoPersona: string;
@@ -88,17 +87,20 @@ export const createSolicitud = (dto: {
     body: JSON.stringify(dto),
   });
 
-export const updateSolicitud = (id: string, dto: {
-  propNombreCompleto?: string;
-  propRfc?: string;
-  propCorreo?: string;
-  propTelefono?: string;
-  predioResumen?: string;
-  claveCatastral?: string;
-  adminId?: string;
-  tipoContratacionId?: string;
-  formData?: SolicitudState;
-}) =>
+export const updateSolicitud = (
+  id: string,
+  dto: {
+    propNombreCompleto?: string;
+    propRfc?: string;
+    propCorreo?: string;
+    propTelefono?: string;
+    predioResumen?: string;
+    claveCatastral?: string;
+    adminId?: string;
+    tipoContratacionId?: string;
+    formData?: SolicitudState;
+  },
+) =>
   apiRequest<SolicitudDto>(`/solicitudes/${id}`, {
     method: 'PATCH',
     body: JSON.stringify(dto),
@@ -118,5 +120,4 @@ export const aceptarSolicitud = (id: string) =>
 export const rechazarSolicitud = (id: string) =>
   apiRequest<SolicitudDto>(`/solicitudes/${id}/rechazar`, { method: 'POST' });
 
-export const deleteSolicitud = (id: string) =>
-  apiRequest<void>(`/solicitudes/${id}`, { method: 'DELETE' });
+export const deleteSolicitud = (id: string) => apiRequest<void>(`/solicitudes/${id}`, { method: 'DELETE' });

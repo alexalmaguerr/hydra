@@ -120,4 +120,9 @@ export class CatalogosController {
   ) {
     return this.service.updateCodigoRecorrido(id, body);
   }
+
+  @Get('distritos')
+  findDistritos() {
+    return this.service.findDistritos();
+  }
 }

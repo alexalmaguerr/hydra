@@ -1,9 +1,17 @@
+import { useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Loader2 } from 'lucide-react';
 
+import { fetchActividades, fetchCalibres, fetchDistritos } from '@/api/catalogos';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatMxn, useBillingPreview } from '../hooks/useBillingPreview';
 import type { StepProps } from '@/components/contratacion/hooks/useWizardState';
+import {
+  mergedVariablesCapturadasDisplay,
+  variablesStepSatisfied,
+} from '@/components/contratacion/hooks/useWizardState';
+import { CLASES_CONTRATACION, TIPOS_PUNTO_SERVICIO } from '../wizard-catalogos-ui';
 
 function SectionBadge({ ok }: { ok: boolean }) {
   return (
@@ -20,6 +28,16 @@ function SectionBadge({ ok }: { ok: boolean }) {
   );
 }
 
+/** Claves que se fusionan en `variablesCapturadas` sin pasar por el catálogo de tipo. */
+const VARIABLE_KEY_FALLBACK: Record<string, string> = {
+  distritoId: 'Distrito',
+  calibreMedidorId: 'Calibre de medidor',
+  fechaInstalacionConexion: 'Fecha instalación conexión',
+  conexionYaExiste: 'Conexión ya existe',
+  posibleCorte: 'Posible corte',
+  conceptosLecturaPeriodicaIds: 'Conceptos lectura periódica',
+};
+
 function labelVariables(
   config: StepProps['config'],
   key: string,
@@ -33,7 +51,7 @@ function labelVariables(
   );
   if (found?.tipoVariable?.nombre) return found.tipoVariable.nombre;
   if (found?.tipoVariable?.codigo) return found.tipoVariable.codigo;
-  return key;
+  return VARIABLE_KEY_FALLBACK[key] ?? key;
 }
 
 function formatValor(v: string | number | boolean): string {
@@ -41,11 +59,74 @@ function formatValor(v: string | number | boolean): string {
   return String(v);
 }
 
+function formatVariableDisplayValue(
+  key: string,
+  val: string | number | boolean,
+  opts: {
+    distritoNombreById: Map<string, string>;
+    calibreLabelById: Map<string, string>;
+  },
+): string {
+  if (typeof val !== 'string') return formatValor(val);
+  if (key === 'distritoId') {
+    return opts.distritoNombreById.get(val) ?? val;
+  }
+  if (key === 'calibreMedidorId') {
+    return opts.calibreLabelById.get(val) ?? val;
+  }
+  return formatValor(val);
+}
+
 export default function PasoResumen({ data, config }: StepProps) {
-  // Billing no llama al backend — catálogos son hardcoded por ahora
+  const mergedVc = useMemo(() => mergedVariablesCapturadasDisplay(data), [data]);
+
+  const actividadesQ = useQuery({
+    queryKey: ['catalogos', 'actividades', 'wizard-resumen'],
+    queryFn: fetchActividades,
+    enabled: Boolean(data.actividadId?.trim()) && !data.actividadNombre?.trim(),
+  });
+  const vc = mergedVc;
+  const distritosQ = useQuery({
+    queryKey: ['catalogos', 'distritos', 'wizard-resumen'],
+    queryFn: fetchDistritos,
+    enabled: typeof vc.distritoId === 'string' && vc.distritoId.length > 0,
+  });
+  const calibresQ = useQuery({
+    queryKey: ['catalogos', 'calibres', 'wizard-resumen'],
+    queryFn: fetchCalibres,
+    enabled: typeof vc.calibreMedidorId === 'string' && vc.calibreMedidorId.length > 0,
+  });
+
+  const distritoNombreById = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const d of distritosQ.data ?? []) {
+      m.set(d.id, d.nombre);
+    }
+    return m;
+  }, [distritosQ.data]);
+
+  const calibreLabelById = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const c of calibresQ.data ?? []) {
+      m.set(c.id, c.descripcion?.trim() || c.codigo || c.id);
+    }
+    return m;
+  }, [calibresQ.data]);
+
+  const actividadDisplay = useMemo(() => {
+    const manual = data.actividadNombre?.trim();
+    if (manual) return manual;
+    const id = data.actividadId?.trim();
+    if (!id) return '—';
+    const row = (actividadesQ.data ?? []).find((a) => a.id === id);
+    if (row) return row.descripcion?.trim() || row.codigo || id;
+    return actividadesQ.isLoading ? '…' : id;
+  }, [data.actividadId, data.actividadNombre, actividadesQ.data, actividadesQ.isLoading]);
+
+  const tipoContratacionIdPreview = data.tipoContratacionId?.trim() || undefined;
   const { preview, isLoading: billingLoading } = useBillingPreview({
-    tipoContratacionId: undefined,
-    variables: data.variablesCapturadas,
+    tipoContratacionId: tipoContratacionIdPreview,
+    variables: mergedVc,
     conceptosOverride: data.conceptosOverride,
   });
 
@@ -57,7 +138,7 @@ export default function PasoResumen({ data, config }: StepProps) {
     (p) => p && (p.nombre?.trim() || p.rfc?.trim() || p.personaId),
   );
   const configOk = !!(data.actividadId && data.tipoContratacionId);
-  const varsOk = Object.keys(data.variablesCapturadas).length > 0;
+  const varsOk = variablesStepSatisfied(data, config);
   const docsOk = data.documentosRecibidos.length > 0;
   const billingOk =
     !!data.tipoContratacionId && !billingLoading && preview != null && preview.total >= 0;
@@ -68,7 +149,16 @@ export default function PasoResumen({ data, config }: StepProps) {
   const ordenesOk = ordenesDesc.length > 0;
 
   const tipoNombre =
-    config?.id === data.tipoContratacionId ? config.nombre : data.tipoContratacionId ?? '—';
+    config?.id === data.tipoContratacionId && config?.nombre
+      ? config.nombre
+      : data.tipoContratacionDescripcion?.trim() || data.tipoContratacionId?.trim() || '—';
+
+  const claseLabel =
+    CLASES_CONTRATACION.find((c) => c.cod === data.claseContratacion)?.descripcion ??
+    data.claseContratacion;
+  const tipoPsLabel =
+    TIPOS_PUNTO_SERVICIO.find((t) => t.id === data.tipoPuntoServicio)?.descripcion ??
+    data.tipoPuntoServicio;
 
   return (
     <div className="space-y-4">
@@ -158,7 +248,7 @@ export default function PasoResumen({ data, config }: StepProps) {
           <dl className="grid gap-2 text-sm sm:grid-cols-2">
             <div>
               <dt className="text-muted-foreground">Actividad</dt>
-              <dd className="font-mono text-xs">{data.actividadId ?? '—'}</dd>
+              <dd className="font-medium">{actividadDisplay}</dd>
             </div>
             <div>
               <dt className="text-muted-foreground">Tipo de contratación</dt>
@@ -167,19 +257,43 @@ export default function PasoResumen({ data, config }: StepProps) {
             {data.claseContratacion ? (
               <div>
                 <dt className="text-muted-foreground">Clase de contratación</dt>
-                <dd className="font-mono text-xs">{data.claseContratacion}</dd>
+                <dd>{claseLabel}</dd>
               </div>
             ) : null}
             {data.tipoPuntoServicio ? (
               <div>
                 <dt className="text-muted-foreground">Tipo de punto de servicio</dt>
-                <dd className="font-mono text-xs">{data.tipoPuntoServicio}</dd>
+                <dd>{tipoPsLabel}</dd>
               </div>
             ) : null}
             {data.referenciaContratoAnterior ? (
               <div className="sm:col-span-2">
                 <dt className="text-muted-foreground">Referencia contrato anterior</dt>
                 <dd>{data.referenciaContratoAnterior}</dd>
+              </div>
+            ) : null}
+            {data.superficiePredio != null ? (
+              <div>
+                <dt className="text-muted-foreground">Superficie predio (m²)</dt>
+                <dd>{data.superficiePredio}</dd>
+              </div>
+            ) : null}
+            {data.superficieConstruida != null ? (
+              <div>
+                <dt className="text-muted-foreground">Superficie construida (m²)</dt>
+                <dd>{data.superficieConstruida}</dd>
+              </div>
+            ) : null}
+            {data.unidadesServidas != null ? (
+              <div>
+                <dt className="text-muted-foreground">Unidades servidas</dt>
+                <dd>{data.unidadesServidas}</dd>
+              </div>
+            ) : null}
+            {data.personasHabitanVivienda != null ? (
+              <div>
+                <dt className="text-muted-foreground">Personas en la vivienda</dt>
+                <dd>{data.personasHabitanVivienda}</dd>
               </div>
             ) : null}
           </dl>
@@ -192,14 +306,16 @@ export default function PasoResumen({ data, config }: StepProps) {
           <SectionBadge ok={varsOk} />
         </CardHeader>
         <CardContent>
-          {Object.keys(data.variablesCapturadas).length === 0 ? (
+          {Object.keys(mergedVc).length === 0 ? (
             <p className="text-sm text-muted-foreground">Sin variables capturadas.</p>
           ) : (
             <dl className="grid gap-3 text-sm">
-              {Object.entries(data.variablesCapturadas).map(([key, val]) => (
+              {Object.entries(mergedVc).map(([key, val]) => (
                 <div key={key} className="flex flex-col gap-0.5 sm:flex-row sm:gap-4">
                   <dt className="min-w-[160px] text-muted-foreground">{labelVariables(config, key)}</dt>
-                  <dd className="font-medium break-all">{formatValor(val)}</dd>
+                  <dd className="font-medium break-all">
+                    {formatVariableDisplayValue(key, val, { distritoNombreById, calibreLabelById })}
+                  </dd>
                 </div>
               ))}
             </dl>

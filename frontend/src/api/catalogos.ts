@@ -110,6 +110,23 @@ export const fetchZonasFacturacion = () =>
 export const fetchCodigosRecorrido = () =>
   apiRequest<CatalogoCodigoRecorrido[]>('/catalogos/codigos-recorrido');
 
+export interface DistritoCatalogo {
+  id: string;
+  nombre: string;
+  zonaId: string;
+}
+
+export const fetchDistritos = () =>
+  apiRequest<DistritoCatalogo[]>('/catalogos/distritos');
+
+export interface AdministracionCatalogo {
+  id: string;
+  nombre: string;
+}
+
+export const fetchAdministraciones = () =>
+  apiRequest<AdministracionCatalogo[]>('/catalogos-operativos/administraciones');
+
 // ── Catálogos Operativos (medidores, pagos, oficinas, contratación) ──────────
 
 export interface CatalogoMarcaMedidor {

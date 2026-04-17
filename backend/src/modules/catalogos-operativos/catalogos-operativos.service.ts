@@ -5,6 +5,13 @@ import { PrismaService } from '../../prisma/prisma.service';
 export class CatalogosOperativosService {
   constructor(private readonly prisma: PrismaService) {}
 
+  findAdministraciones() {
+    return this.prisma.administracion.findMany({
+      select: { id: true, nombre: true },
+      orderBy: { nombre: 'asc' },
+    });
+  }
+
   private activeFilter(activo?: string) {
     if (activo === 'true') return { activo: true };
     if (activo === 'false') return { activo: false };

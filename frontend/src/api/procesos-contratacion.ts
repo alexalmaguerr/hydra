@@ -21,6 +21,41 @@ export interface ProcesoContratacion {
   };
 }
 
+/** Respuesta de `GET /procesos-contratacion/:id` (Prisma + includes del servicio). */
+export interface ProcesoContratacionDetalle {
+  id: string;
+  contratoId: string | null;
+  tramiteId: string | null;
+  etapa: string;
+  estado: string;
+  datosAdicionales: Record<string, unknown> | null;
+  creadoPor: string | null;
+  createdAt: string;
+  updatedAt: string;
+  plantilla?: { id: string; nombre: string; version: string } | null;
+  contrato?: {
+    id: string;
+    nombre: string;
+    estado: string;
+    tipoServicio: string | null;
+    tipoContrato: string;
+    puntoServicioId: string | null;
+    actividadId: string | null;
+    referenciaContratoAnterior: string | null;
+    tipoEnvioFactura: string | null;
+    superficiePredio?: number | null;
+    superficieConstruida?: number | null;
+    unidadesServidas?: number | null;
+    personasHabitanVivienda?: number | null;
+    variablesCapturadas: unknown;
+    tipoContratacion?: { id: string; nombre: string; codigo: string } | null;
+    personas?: Array<{
+      rol: string;
+      persona: { id: string; nombre: string; rfc: string | null; tipo: string };
+    }>;
+  } | null;
+}
+
 export interface PlantillaContrato {
   id: string;
   nombre: string;
@@ -134,7 +169,7 @@ export async function fetchProcesos(opts?: { contratoId?: string; etapa?: string
 }
 
 export const fetchProceso = (id: string) =>
-  apiRequest<ProcesoContratacion>(`/procesos-contratacion/${id}`);
+  apiRequest<ProcesoContratacionDetalle>(`/procesos-contratacion/${id}`);
 
 export const crearProceso = (dto: {
   contratoId: string;

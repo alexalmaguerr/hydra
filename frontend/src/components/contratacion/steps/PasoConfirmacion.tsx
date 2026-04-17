@@ -1,12 +1,16 @@
+import { useMemo } from 'react';
 import { CheckCircle2 } from 'lucide-react';
 
 import { formatMxn, useBillingPreview } from '../hooks/useBillingPreview';
 import type { StepProps } from '@/components/contratacion/hooks/useWizardState';
+import { mergedVariablesCapturadasDisplay } from '@/components/contratacion/hooks/useWizardState';
 
 export default function PasoConfirmacion({ data }: StepProps) {
+  const mergedVc = useMemo(() => mergedVariablesCapturadasDisplay(data), [data]);
+  const tipoPreview = data.tipoContratacionId?.trim() || undefined;
   const { preview, isLoading } = useBillingPreview({
-    tipoContratacionId: undefined,
-    variables: data.variablesCapturadas,
+    tipoContratacionId: tipoPreview,
+    variables: mergedVc,
     conceptosOverride: data.conceptosOverride,
   });
 

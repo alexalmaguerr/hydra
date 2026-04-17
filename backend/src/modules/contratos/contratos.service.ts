@@ -127,6 +127,7 @@ export class ContratosService {
       personasHabitanVivienda?: number | null;
       zonaId?: string | null;
       rutaId?: string | null;
+      textoContratoSnapshot?: string | null;
     },
   ) {
     await this.findOne(id);
@@ -178,6 +179,9 @@ export class ContratosService {
         ...(dto.personasHabitanVivienda !== undefined && { personasHabitanVivienda: dto.personasHabitanVivienda }),
         ...(dto.zonaId !== undefined && { zonaId: dto.zonaId }),
         ...(dto.rutaId !== undefined && { rutaId: dto.rutaId }),
+        ...(dto.textoContratoSnapshot !== undefined && {
+          textoContratoSnapshot: dto.textoContratoSnapshot,
+        }),
       },
     });
   }
@@ -779,15 +783,23 @@ export class ContratosService {
       }
 
       // ── Snapshot del texto contractual al momento del alta ──
-      const snapshot = await this.buildTextoSnapshot(tx, contrato.id, {
-        nombre: contrato.nombre,
-        rfc: contrato.rfc,
-        direccion: contrato.direccion ?? '',
-        contacto: contrato.contacto ?? '',
-        razonSocial: contrato.razonSocial,
-        regimenFiscal: contrato.regimenFiscal,
-        fecha: contrato.fecha,
-      }, tipoContratacionId);
+      const snapshot = await this.buildTextoSnapshot(
+        tx,
+        contrato.id,
+        this.mergeTemplateInterpolationVars(
+          {
+            nombre: contrato.nombre,
+            rfc: contrato.rfc,
+            direccion: contrato.direccion ?? '',
+            contacto: contrato.contacto ?? '',
+            razonSocial: contrato.razonSocial,
+            regimenFiscal: contrato.regimenFiscal,
+            fecha: contrato.fecha,
+          },
+          contrato.variablesCapturadas,
+        ),
+        tipoContratacionId,
+      );
       if (snapshot) {
         await tx.contrato.update({
           where: { id: contrato.id },
@@ -941,17 +953,20 @@ export class ContratosService {
       fuente = 'clausulas';
     }
 
-    const vars: Record<string, string> = {
-      nombre: c.nombre,
-      rfc: c.rfc,
-      direccion: c.direccion,
-      contacto: c.contacto,
-      razonSocial: c.razonSocial ?? '',
-      regimenFiscal: c.regimenFiscal ?? '',
-      fecha: c.fecha,
-    };
+    const merged = this.mergeTemplateInterpolationVars(
+      {
+        nombre: c.nombre,
+        rfc: c.rfc,
+        direccion: c.direccion,
+        contacto: c.contacto,
+        razonSocial: c.razonSocial ?? '',
+        regimenFiscal: c.regimenFiscal ?? '',
+        fecha: c.fecha,
+      },
+      c.variablesCapturadas,
+    );
     let texto = base;
-    for (const [k, v] of Object.entries(vars)) {
+    for (const [k, v] of Object.entries(merged)) {
       texto = texto.split(`{{${k}}}`).join(v);
     }
 
@@ -973,7 +988,11 @@ export class ContratosService {
       body = preview.texto;
     }
 
-    return this.wrapTextoHtml(body, c.nombre, c.fecha);
+    const numeroContrato = c.ceaNumContrato?.trim() || c.id;
+    return this.wrapTextoHtml(body, c.nombre, c.fecha, {
+      numeroContrato,
+      incluirSegundaCopia: true,
+    });
   }
 
   /** Genera la factura de contratación para un contrato ya existente (endpoint standalone). */
@@ -1011,10 +1030,46 @@ export class ContratosService {
 
   // ─── Private helpers ───────────────────────────────────────────────
 
+  /**
+   * Variables fijas del contrato + `variablesCapturadas` (plantilla/cláusulas pueden usar `{{clave}}`).
+   * En colisión de clave, ganan los campos fijos (nombre, rfc, etc.).
+   */
+  private mergeTemplateInterpolationVars(
+    fixed: Record<string, string | null | undefined>,
+    captured: Prisma.JsonValue | null | undefined,
+  ): Record<string, string> {
+    const out: Record<string, string> = {};
+    if (
+      captured &&
+      typeof captured === 'object' &&
+      !Array.isArray(captured)
+    ) {
+      for (const [k, v] of Object.entries(captured as Record<string, unknown>)) {
+        out[k] = this.stringifyInterpolationValue(v);
+      }
+    }
+    for (const [k, v] of Object.entries(fixed)) {
+      out[k] = v == null ? '' : String(v);
+    }
+    return out;
+  }
+
+  private stringifyInterpolationValue(v: unknown): string {
+    if (v === null || v === undefined) return '';
+    if (
+      typeof v === 'string' ||
+      typeof v === 'number' ||
+      typeof v === 'boolean'
+    ) {
+      return String(v);
+    }
+    return JSON.stringify(v);
+  }
+
   private async buildTextoSnapshot(
     tx: Omit<PrismaClient, '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'>,
     contratoId: string,
-    vars: Record<string, string | null>,
+    vars: Record<string, string>,
     tipoContratacionId: string | null | undefined,
   ): Promise<string | null> {
     const proceso = await tx.procesoContratacion.findFirst({
@@ -1041,7 +1096,7 @@ export class ContratosService {
 
     let texto = base;
     for (const [k, v] of Object.entries(vars)) {
-      texto = texto.split(`{{${k}}}`).join(v ?? '');
+      texto = texto.split(`{{${k}}}`).join(v);
     }
     return texto;
   }
@@ -1124,31 +1179,106 @@ export class ContratosService {
     };
   }
 
-  private wrapTextoHtml(body: string, nombre: string, fecha: string): string {
-    const escaped = body
+  private escapeHtmlPlain(value: string): string {
+    return value
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  private contratoPrintSignaturesHtml(): string {
+    return `
+  <div class="duplicado">
+    <p>Se extiende el presente contrato por duplicado. Un ejemplar para el usuario, quien declara estar conforme con todas sus partes y haber entendido su significado y alcance legal.</p>
+  </div>
+  <table class="firmas" role="presentation">
+    <tr>
+      <td class="firma-col">
+        <div class="firma-titulo">LA COMISIÓN</div>
+        <div class="firma-linea"></div>
+        <div class="firma-sub">Nombre y firma del funcionario</div>
+      </td>
+      <td class="firma-col">
+        <div class="firma-titulo">EL USUARIO</div>
+        <div class="firma-linea"></div>
+        <div class="firma-sub">Nombre y firma del usuario y/o representante legal</div>
+      </td>
+    </tr>
+  </table>`;
+  }
+
+  /**
+   * HTML para impresión / PDF del contrato (navegador).
+   * Estructura alineada a la muestra Hydra: cabecera institucional, número de contrato, cuerpo, firmas y segunda copia.
+   */
+  private wrapTextoHtml(
+    body: string,
+    nombre: string,
+    fecha: string,
+    opts?: { numeroContrato?: string | null; incluirSegundaCopia?: boolean },
+  ): string {
+    const escapedBody = body
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
       .replace(/\n/g, '<br/>');
 
+    const safeNombre = this.escapeHtmlPlain(String(nombre ?? ''));
+    const safeFecha = this.escapeHtmlPlain(String(fecha ?? ''));
+    const rawNum = (opts?.numeroContrato ?? '').toString().trim();
+    const safeNum = this.escapeHtmlPlain(rawNum.length > 0 ? rawNum : '—');
+    const incluir2 = opts?.incluirSegundaCopia !== false;
+    const sig = this.contratoPrintSignaturesHtml();
+
+    const contractSection = (copyLabel: string | null) => `
+  <section class="hoja-contrato">
+    ${copyLabel ? `<p class="hoja-etiqueta">${this.escapeHtmlPlain(copyLabel)}</p>` : ''}
+    <header class="cabecera-org">
+      <div class="org-nombre">Comisión Estatal de Aguas</div>
+      <h1>Contrato de prestación de servicios integrales de agua potable</h1>
+      <p class="num-contrato">Número de contrato: <strong>${safeNum}</strong></p>
+    </header>
+    <p class="interlocutor"><span class="lbl">Nombre del titular / usuario:</span> ${safeNombre}</p>
+    <p class="interlocutor"><span class="lbl">Fecha del contrato:</span> ${safeFecha}</p>
+    <div class="body-text">${escapedBody}</div>
+    ${sig}
+  </section>`;
+
+    const cuerpoPrincipal = contractSection(null);
+    const cuerpoCopia = incluir2
+      ? '<div class="salto-hoja"></div>' + contractSection('Copia')
+      : '';
+
     return `<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8"/>
-  <title>Contrato – ${nombre}</title>
+  <title>Contrato – ${safeNombre}</title>
   <style>
-    @page { size: letter; margin: 2cm; }
-    body { font-family: 'Times New Roman', serif; font-size: 12pt; line-height: 1.6; color: #000; }
-    h1 { text-align: center; font-size: 16pt; margin-bottom: 0.5em; }
-    .meta { text-align: right; font-size: 10pt; color: #555; margin-bottom: 2em; }
-    .body-text { text-align: justify; }
+    @page { size: letter; margin: 1.8cm; }
+    body { font-family: 'Times New Roman', Times, serif; font-size: 11pt; line-height: 1.45; color: #111; }
+    h1 { text-align: center; font-size: 13pt; margin: 0.35em 0 0.5em; font-weight: bold; }
+    .cabecera-org { text-align: center; margin-bottom: 0.75em; border-bottom: 1px solid #333; padding-bottom: 0.5em; }
+    .org-nombre { font-size: 12pt; font-weight: bold; letter-spacing: 0.02em; }
+    .num-contrato { text-align: center; font-size: 11pt; margin: 0.25em 0 0.75em; }
+    .interlocutor { font-size: 10.5pt; margin: 0.2em 0; }
+    .interlocutor .lbl { color: #444; }
+    .body-text { text-align: justify; margin-top: 1em; }
+    .duplicado { margin-top: 1.25em; font-size: 10pt; font-style: italic; text-align: justify; }
+    table.firmas { width: 100%; margin-top: 2.5em; border-collapse: collapse; }
+    .firma-col { width: 50%; vertical-align: top; padding: 0.5em 1em 0 0; }
+    .firma-titulo { font-weight: bold; font-size: 10.5pt; margin-bottom: 2.5em; }
+    .firma-linea { border-bottom: 1px solid #000; height: 1px; margin-bottom: 0.35em; width: 92%; }
+    .firma-sub { font-size: 9pt; color: #333; }
+    .hoja-etiqueta { font-size: 10pt; font-weight: bold; margin: 0 0 0.5em; text-transform: uppercase; }
+    .salto-hoja { page-break-before: always; break-before: page; height: 0; margin: 0; padding: 0; }
+    .hoja-contrato { page-break-inside: avoid; }
     @media print { body { margin: 0; } }
   </style>
 </head>
 <body>
-  <h1>Contrato de Servicio</h1>
-  <div class="meta">Fecha: ${fecha}</div>
-  <div class="body-text">${escaped}</div>
+${cuerpoPrincipal}${cuerpoCopia}
 </body>
 </html>`;
   }

@@ -7,6 +7,11 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 export class CatalogosOperativosController {
   constructor(private readonly service: CatalogosOperativosService) {}
 
+  @Get('administraciones')
+  getAdministraciones() {
+    return this.service.findAdministraciones();
+  }
+
   // ─── Marcas de Medidor ─────────────────────────────────────────────────────
 
   @Get('marcas-medidor')

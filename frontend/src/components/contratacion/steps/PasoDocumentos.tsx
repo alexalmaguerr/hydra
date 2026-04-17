@@ -1,26 +1,19 @@
-import { useState } from 'react';
-import { Plus, X } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import type { StepProps } from '../hooks/useWizardState';
 
 const CATALOGO_DOCUMENTOS: { id: string; nombre: string }[] = [
-  { id: '1',  nombre: 'Certificado de Número Oficial (COPIA)' },
-  { id: '2',  nombre: 'Identificación Oficial (COPIA)' },
-  { id: '3',  nombre: 'Constancia de Propiedad (ORIGINAL Y COPIA)' },
-  { id: '5',  nombre: 'Certificado de Conexión para Toma de Agua (ORIGINAL)' },
-  { id: '6',  nombre: 'Póliza de Garantía o Acta de Entrega de la Vivienda (COPIA)' },
-  { id: '7',  nombre: 'Acta Constitutiva de la Asociación de Condóminos (COPIA)' },
-  { id: '8',  nombre: 'Identificación Oficial del Representante de la Asociación (COPIA)' },
-  { id: '9',  nombre: 'Documento que lo Avale como Propietario (COPIA)' },
+  { id: '1', nombre: 'Certificado de Número Oficial (COPIA)' },
+  { id: '2', nombre: 'Identificación Oficial (COPIA)' },
+  { id: '3', nombre: 'Constancia de Propiedad (ORIGINAL Y COPIA)' },
+  { id: '5', nombre: 'Certificado de Conexión para Toma de Agua (ORIGINAL)' },
+  { id: '6', nombre: 'Póliza de Garantía o Acta de Entrega de la Vivienda (COPIA)' },
+  { id: '7', nombre: 'Acta Constitutiva de la Asociación de Condóminos (COPIA)' },
+  { id: '8', nombre: 'Identificación Oficial del Representante de la Asociación (COPIA)' },
+  { id: '9', nombre: 'Documento que lo Avale como Propietario (COPIA)' },
   { id: '10', nombre: 'Croquis de Ubicación del Predio' },
   { id: '11', nombre: 'Carta de Adhesión y/o Convenio' },
   { id: '12', nombre: 'Expediente Documentos Factibilidades' },
@@ -39,95 +32,145 @@ const CATALOGO_DOCUMENTOS: { id: string; nombre: string }[] = [
   { id: '41', nombre: 'Uso de Suelo' },
 ];
 
-export default function PasoDocumentos({ data, updateData }: StepProps) {
-  const [selected, setSelected] = useState('');
+export default function PasoDocumentos({ data, updateData, config }: StepProps) {
+  const [selDisponible, setSelDisponible] = useState<string>('');
+  const [selEntregado, setSelEntregado] = useState<string>('');
 
-  const agregados = data.documentosRecibidos;
+  const entregados = data.documentosRecibidos;
 
-  const disponibles = CATALOGO_DOCUMENTOS.filter(
-    (d) => !agregados.includes(d.nombre),
+  const catalogo = useMemo(() => {
+    if (config?.documentos?.length) {
+      return config.documentos.map((d) => ({
+        id: d.id,
+        nombre: (d.nombreDocumento ?? '').trim() || d.id,
+      }));
+    }
+    return CATALOGO_DOCUMENTOS;
+  }, [config?.documentos]);
+
+  const disponibles = useMemo(
+    () => catalogo.filter((d) => !entregados.includes(d.nombre)),
+    [catalogo, entregados],
   );
 
-  const agregar = () => {
-    const doc = CATALOGO_DOCUMENTOS.find((d) => d.id === selected);
+  const moverADerecha = () => {
+    const doc = catalogo.find((d) => d.id === selDisponible);
     if (!doc) return;
-    updateData({ documentosRecibidos: [...agregados, doc.nombre] });
-    setSelected('');
+    updateData({ documentosRecibidos: [...entregados, doc.nombre] });
+    setSelDisponible('');
   };
 
-  const quitar = (nombre: string) => {
-    updateData({ documentosRecibidos: agregados.filter((d) => d !== nombre) });
+  const moverAIzquierda = () => {
+    if (!selEntregado) return;
+    updateData({ documentosRecibidos: entregados.filter((n) => n !== selEntregado) });
+    setSelEntregado('');
   };
 
   return (
     <section aria-labelledby="paso-documentos" className="space-y-4">
       <div>
-        <h2 id="paso-documentos" className="text-base font-semibold">Documentos</h2>
+        <h2 id="paso-documentos" className="text-base font-semibold">
+          Documentos
+        </h2>
         <p className="text-sm text-muted-foreground">
-          Seleccione y agregue la documentación recibida.
+          Catálogo disponible (izquierda) y documentación recibida del cliente (derecha). Los nombres se envían al
+          backend como en el flujo actual.
         </p>
       </div>
 
-      {/* Selector + botón */}
-      <div className="space-y-1.5">
-        <Label>Documento</Label>
-        <div className="flex gap-2">
-          <Select value={selected} onValueChange={setSelected}>
-            <SelectTrigger className="flex-1">
-              <SelectValue placeholder="Seleccionar documento…" />
-            </SelectTrigger>
-            <SelectContent>
-              {disponibles.map((d) => (
-                <SelectItem key={d.id} value={d.id}>
-                  {d.nombre}
-                </SelectItem>
-              ))}
-              {disponibles.length === 0 && (
-                <div className="px-3 py-2 text-sm text-muted-foreground">
-                  Todos los documentos han sido agregados.
-                </div>
-              )}
-            </SelectContent>
-          </Select>
+      <div className="grid gap-3 sm:grid-cols-[1fr_auto_1fr] sm:items-stretch">
+        <div className="flex min-h-[220px] flex-col rounded-lg border bg-muted/10">
+          <div className="border-b px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Disponibles
+          </div>
+          <div
+            className="flex-1 overflow-y-auto p-1"
+            role="listbox"
+            aria-label="Documentos disponibles en catálogo"
+          >
+            {disponibles.map((d) => (
+              <button
+                key={d.id}
+                type="button"
+                role="option"
+                aria-selected={selDisponible === d.id}
+                onClick={() => setSelDisponible(d.id)}
+                className={`flex w-full rounded px-2 py-1.5 text-left text-sm transition-colors ${
+                  selDisponible === d.id ? 'bg-primary/15 text-foreground' : 'hover:bg-muted/60'
+                }`}
+              >
+                {d.nombre}
+              </button>
+            ))}
+            {disponibles.length === 0 && (
+              <p className="p-3 text-sm text-muted-foreground">No quedan documentos por agregar.</p>
+            )}
+          </div>
+        </div>
+
+        <div className="flex flex-row justify-center gap-2 sm:flex-col sm:justify-center">
           <Button
             type="button"
-            size="sm"
-            className="bg-[#007BFF] hover:bg-blue-600 text-white shrink-0"
-            disabled={!selected}
-            onClick={agregar}
+            size="icon"
+            variant="outline"
+            className="shrink-0"
+            disabled={!selDisponible}
+            onClick={moverADerecha}
+            aria-label="Marcar documento seleccionado como recibido"
           >
-            <Plus className="h-4 w-4 mr-1" /> Agregar
+            <ChevronRight className="h-4 w-4" />
           </Button>
+          <Button
+            type="button"
+            size="icon"
+            variant="outline"
+            className="shrink-0"
+            disabled={!selEntregado}
+            onClick={moverAIzquierda}
+            aria-label="Quitar documento seleccionado de los recibidos"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+        </div>
+
+        <div className="flex min-h-[220px] flex-col rounded-lg border bg-muted/10">
+          <div className="border-b px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Entregados por el cliente
+          </div>
+          <div
+            className="flex-1 overflow-y-auto p-1"
+            role="listbox"
+            aria-label="Documentos recibidos"
+          >
+            {entregados.map((nombre) => (
+              <button
+                key={nombre}
+                type="button"
+                role="option"
+                aria-selected={selEntregado === nombre}
+                onClick={() => setSelEntregado(nombre)}
+                className={`flex w-full rounded px-2 py-1.5 text-left text-sm transition-colors ${
+                  selEntregado === nombre ? 'bg-primary/15 text-foreground' : 'hover:bg-muted/60'
+                }`}
+              >
+                {nombre}
+              </button>
+            ))}
+            {entregados.length === 0 && (
+              <p className="p-3 text-sm text-muted-foreground">Aún no hay documentos en esta lista.</p>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Lista de documentos agregados */}
-      {agregados.length > 0 ? (
-        <ul className="space-y-2">
-          {agregados.map((nombre) => (
-            <li
-              key={nombre}
-              className="flex items-center justify-between gap-3 rounded-lg border bg-muted/10 px-3 py-2.5 text-sm"
-            >
-              <span className="flex-1">{nombre}</span>
-              <button
-                type="button"
-                onClick={() => quitar(nombre)}
-                className="text-muted-foreground hover:text-destructive transition-colors"
-                aria-label={`Quitar ${nombre}`}
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <div className="rounded-lg border border-dashed bg-muted/20 px-4 py-8 text-center">
-          <p className="text-sm text-muted-foreground">
-            Aún no se han agregado documentos.
-          </p>
-        </div>
-      )}
+      <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
+        <Label className="sr-only" htmlFor="doc-count-resumen">
+          Resumen
+        </Label>
+        <span id="doc-count-resumen" role="status">
+          {entregados.length} documento(s) marcados como recibidos.
+        </span>
+      </div>
     </section>
   );
 }

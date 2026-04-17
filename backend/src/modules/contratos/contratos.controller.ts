@@ -47,6 +47,8 @@ class UpdateContratoDto {
   mesesAdeudo?: number | null;
   unidadesServidas?: number | null;
   personasHabitanVivienda?: number | null;
+  /** Regeneración / ajuste del HTML almacenado para impresión (opcional). */
+  textoContratoSnapshot?: string | null;
 }
 
 @Controller('contratos')

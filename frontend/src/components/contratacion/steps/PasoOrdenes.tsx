@@ -1,29 +1,47 @@
+import { useQuery } from '@tanstack/react-query';
+import { Loader2 } from 'lucide-react';
+
 import { Card, CardContent } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { fetchCalibres } from '@/api/catalogos';
 import type { StepProps } from '@/components/contratacion/hooks/useWizardState';
 
 export default function PasoOrdenes({ data, updateData }: StepProps) {
   const toma = data.generarOrdenInstalacionToma;
   const medidor = data.generarOrdenInstalacionMedidor;
 
+  const calibresQ = useQuery({
+    queryKey: ['catalogos', 'calibres', 'wizard-ordenes'],
+    queryFn: fetchCalibres,
+  });
+
   let mensajeFlujo: string;
   if (toma) {
     mensajeFlujo =
-      'Se creará una orden de instalación de toma. Al completarla, se generará automáticamente la orden de medidor.';
+      'Se creará una orden de instalación de conexión (toma). Al completarla, podrá generarse la orden de medidor según el flujo operativo.';
   } else if (medidor) {
     mensajeFlujo = 'Se creará directamente la orden de instalación de medidor.';
   } else {
-    mensajeFlujo = 'No se generarán órdenes de trabajo.';
+    mensajeFlujo = 'No se generarán órdenes de trabajo en esta alta.';
   }
 
   let estadoInicial: string;
   if (toma) {
-    estadoInicial = 'Estado inicial: Pendiente de toma';
+    estadoInicial = 'Estado inicial previsto: Pendiente de toma (instalación de conexión)';
   } else if (medidor) {
-    estadoInicial = 'Estado inicial: Pendiente de zona';
+    estadoInicial = 'Estado inicial previsto: Pendiente de zona (instalación de medidor)';
   } else {
-    estadoInicial = 'Estado según configuración';
+    estadoInicial = 'El estado inicial lo define el backend si no se generan órdenes.';
   }
 
   return (
@@ -31,15 +49,15 @@ export default function PasoOrdenes({ data, updateData }: StepProps) {
       <div className="space-y-4">
         <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
           <div className="space-y-1">
-            <Label htmlFor="orden-toma" className="text-base">
-              Generar orden de instalación de toma
+            <Label htmlFor="orden-conexion" className="text-base">
+              Generar orden de instalación de conexión
             </Label>
             <p className="text-sm text-muted-foreground">
-              Activa la ruta en la que primero se instala la toma en campo.
+              Equivale a la orden de instalación de toma en el sistema actual.
             </p>
           </div>
           <Switch
-            id="orden-toma"
+            id="orden-conexion"
             checked={toma}
             onCheckedChange={(checked) =>
               updateData({
@@ -47,7 +65,7 @@ export default function PasoOrdenes({ data, updateData }: StepProps) {
                 generarOrdenInstalacionMedidor: checked ? false : medidor,
               })
             }
-            aria-label="Generar orden de instalación de toma"
+            aria-label="Generar orden de instalación de conexión"
           />
         </div>
 
@@ -61,8 +79,8 @@ export default function PasoOrdenes({ data, updateData }: StepProps) {
             </Label>
             <p className="text-sm text-muted-foreground">
               {toma
-                ? 'Se generará automáticamente al completar la instalación de toma.'
-                : 'Programa la instalación o colocación del medidor según corresponda.'}
+                ? 'Podrá generarse en campo al completar la conexión, según proceso.'
+                : 'Programa la instalación o colocación del medidor.'}
             </p>
           </div>
           <Switch
@@ -78,6 +96,85 @@ export default function PasoOrdenes({ data, updateData }: StepProps) {
             aria-label="Generar orden de instalación de medidor"
           />
         </div>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="flex items-start gap-3 rounded-lg border p-4">
+          <Checkbox
+            id="posible-corte"
+            checked={!!data.posibleCorte}
+            onCheckedChange={(v) => updateData({ posibleCorte: v === true })}
+            aria-labelledby="posible-corte-label"
+          />
+          <div className="space-y-1">
+            <Label id="posible-corte-label" htmlFor="posible-corte" className="text-sm font-medium cursor-pointer">
+              Posible corte
+            </Label>
+            <p className="text-xs text-muted-foreground">Se guarda en variables capturadas.</p>
+          </div>
+        </div>
+
+        <div className="space-y-2 rounded-lg border p-4">
+          <Label htmlFor="calibre-medidor">Diámetro / calibre de conexión (catálogo)</Label>
+          {calibresQ.isLoading ? (
+            <div className="flex h-10 items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+              Cargando calibres…
+            </div>
+          ) : calibresQ.isError ? (
+            <p className="text-sm text-destructive">No se pudieron cargar los calibres.</p>
+          ) : (
+            <Select
+              value={data.calibreMedidorId ?? ''}
+              onValueChange={(v) => updateData({ calibreMedidorId: v || undefined })}
+            >
+              <SelectTrigger id="calibre-medidor">
+                <SelectValue placeholder="Seleccione calibre…" />
+              </SelectTrigger>
+              <SelectContent>
+                {(calibresQ.data ?? [])
+                  .filter((c) => c.activo)
+                  .map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.descripcion}
+                      <span className="ml-1 font-mono text-[10px] text-muted-foreground">{c.codigo}</span>
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+          )}
+        </div>
+      </div>
+
+      <div className="space-y-3 rounded-lg border p-4">
+        <div className="flex items-start gap-3">
+          <Checkbox
+            id="conexion-existe"
+            checked={!!data.conexionYaExiste}
+            onCheckedChange={(v) => updateData({ conexionYaExiste: v === true })}
+            aria-labelledby="conexion-existe-label"
+          />
+          <div className="space-y-1">
+            <Label id="conexion-existe-label" htmlFor="conexion-existe" className="text-sm font-medium cursor-pointer">
+              La conexión ya existe en campo
+            </Label>
+            <p className="text-xs text-muted-foreground">
+              Si aplica, puede capturar la fecha de instalación de la conexión. Si proviene de una orden existente,
+              sincronice el dato desde operaciones; aquí es captura manual.
+            </p>
+          </div>
+        </div>
+        {data.conexionYaExiste ? (
+          <div className="space-y-2 max-w-xs">
+            <Label htmlFor="fecha-instalacion-conexion">Fecha de instalación de la conexión</Label>
+            <Input
+              id="fecha-instalacion-conexion"
+              type="date"
+              value={data.fechaInstalacionConexion ?? ''}
+              onChange={(e) => updateData({ fechaInstalacionConexion: e.target.value || undefined })}
+            />
+          </div>
+        ) : null}
       </div>
 
       <Card>

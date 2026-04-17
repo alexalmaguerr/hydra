@@ -7,6 +7,7 @@ export interface TipoContratacion {
   descripcion: string | null;
   requiereMedidor: boolean;
   activo: boolean;
+  administracionId?: string | null;
   // P1/P6
   claseProceso: string | null;
   esContratoFormal: boolean;
@@ -94,8 +95,23 @@ export interface CreateTipoContratacionDto {
   tiposClientePermitidos?: string;
 }
 
-export const fetchTiposContratacion = () =>
-  apiRequest<{ data: TipoContratacion[]; total: number }>('/tipos-contratacion?limit=100');
+export function fetchTiposContratacion(params?: {
+  activo?: boolean;
+  page?: number;
+  limit?: number;
+  administracionId?: string;
+}) {
+  const q = new URLSearchParams();
+  q.set('page', String(params?.page ?? 1));
+  q.set('limit', String(params?.limit ?? 100));
+  if (params?.activo === true) q.set('activo', 'true');
+  if (params?.activo === false) q.set('activo', 'false');
+  const aid = params?.administracionId?.trim();
+  if (aid) q.set('administracionId', aid);
+  return apiRequest<{ data: TipoContratacion[]; total: number }>(
+    `/tipos-contratacion?${q.toString()}`,
+  );
+}
 
 export const fetchTipoContratacion = (id: string) =>
   apiRequest<TipoContratacion>(`/tipos-contratacion/${id}`);
