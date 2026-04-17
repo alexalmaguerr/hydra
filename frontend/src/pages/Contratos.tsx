@@ -636,7 +636,7 @@ const Contratos = () => {
         <DialogContent className="max-w-6xl w-[95vw] h-[90vh] flex flex-col gap-0 p-0 overflow-hidden">
           <DialogHeader className="sr-only">
             <DialogTitle>
-              {selected ? `Contrato ${selected.id}` : 'Detalle de contrato'}
+              {selected ? `Contrato ${selected.numeroContrato ?? selected.id}` : 'Detalle de contrato'}
             </DialogTitle>
             <DialogDescription>
               {selected
@@ -693,7 +693,7 @@ const Contratos = () => {
                   {/* Identidad */}
                   <div className="p-5 border-b space-y-2.5">
                     <div className="flex items-start justify-between gap-2">
-                      <span className="font-mono text-xl font-bold tracking-tight leading-none">{selected.id}</span>
+                      <span className="font-mono text-xl font-bold tracking-tight leading-none">{selected.numeroContrato ?? selected.id.slice(0, 8)}</span>
                       <StatusBadge status={selected.estado} />
                     </div>
                     <p className="font-semibold text-sm leading-snug">{selected.nombre}</p>
