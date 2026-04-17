@@ -111,12 +111,28 @@ export function useSolicitudesStore() {
     (id: string, orden: OrdenInspeccionData) => {
       const current = readAll();
       const nextEstado: SolicitudEstado =
-        orden.estado === 'completada' ? 'inspeccion_completada' : 'inspeccion_en_proceso';
+        orden.estado === 'completada' ? 'en_cotizacion' : 'inspeccion_en_proceso';
       persist(
         current.map((r) =>
           r.id === id ? { ...r, ordenInspeccion: orden, estado: nextEstado } : r,
         ),
       );
+    },
+    [persist],
+  );
+
+  const aceptarSolicitud = useCallback(
+    (id: string) => {
+      const current = readAll();
+      persist(current.map((r) => (r.id === id ? { ...r, estado: 'aceptada' as SolicitudEstado } : r)));
+    },
+    [persist],
+  );
+
+  const rechazarSolicitud = useCallback(
+    (id: string) => {
+      const current = readAll();
+      persist(current.map((r) => (r.id === id ? { ...r, estado: 'rechazada' as SolicitudEstado } : r)));
     },
     [persist],
   );
@@ -131,5 +147,5 @@ export function useSolicitudesStore() {
 
   const getById = useCallback((id: string) => records.find((r) => r.id === id), [records]);
 
-  return { records, create, updateFormData, updateEstado, setOrdenInspeccion, remove, getById };
+  return { records, create, updateFormData, updateEstado, setOrdenInspeccion, aceptarSolicitud, rechazarSolicitud, remove, getById };
 }

@@ -24,7 +24,7 @@ import { fetchAdministraciones } from '@/api/catalogos';
 import { fetchTiposContratacion, type TipoContratacion } from '@/api/tipos-contratacion';
 import { hasApi } from '@/api/contratos';
 import { cn } from '@/lib/utils';
-import type { DomicilioFormValue, SolicitudRecord, SolicitudState } from '@/types/solicitudes';
+import type { DomicilioFormValue, SolicitudEstado, SolicitudRecord, SolicitudState } from '@/types/solicitudes';
 import { SOLICITUD_STATE_EMPTY } from '@/types/solicitudes';
 import { deriveName, derivePredioResumen, useSolicitudesStore } from '@/hooks/useSolicitudesStore';
 
@@ -52,6 +52,98 @@ const USOS_CFDI = [
 ];
 
 // ── Mock data for demos ───────────────────────────────────────────────────────
+
+// Data split per wizard step so prellenar can fill them one by one
+const MOCK_STEP_DATA: Partial<SolicitudState>[] = [
+  // 0 – Predio  (estadoINEGIId/municipioINEGIId hold claveINEGI codes; resolveDir() swaps them for real UUIDs at runtime)
+  {
+    claveCatastral: '22001-045-012',
+    folioExpediente: '',
+    predioDir: {
+      estadoINEGIId: '22',      // claveINEGI → resolved to UUID by handlePrellenar
+      municipioINEGIId: '014',  // claveINEGI of municipio within state
+      localidadINEGIId: '',
+      coloniaINEGIId: '',
+      codigoPostal: '76030',
+      calle: 'Av. Constituyentes',
+      numExterior: '425',
+      numInterior: '',
+      referencia: 'Entre Av. 5 de Febrero y calle Hidalgo',
+    },
+    predioManzana: '12',
+    predioLote: '04',
+    superficieTotal: '180',
+    superficieConstruida: '120',
+  },
+  // 1 – Propietario
+  {
+    propTipoPersona: 'fisica',
+    propPaterno: 'García',
+    propMaterno: 'Ramírez',
+    propNombre: 'María Elena',
+    propRazonSocial: '',
+    propRfc: 'GARM850312AB3',
+    propCorreo: 'mgarcia@correo.com',
+    propTelefono: '4421234567',
+    propDir: {
+      estadoINEGIId: '22',
+      municipioINEGIId: '014',
+      localidadINEGIId: '',
+      coloniaINEGIId: '',
+      codigoPostal: '76030',
+      calle: 'Calle Independencia',
+      numExterior: '88',
+      numInterior: 'Int. 3',
+      referencia: '',
+    },
+    propManzana: '',
+    propLote: '',
+  },
+  // 2 – Solicitud
+  {
+    usoDomestico: 'si',
+    hayTuberias: 'si',
+    hayInfraCEA: 'si',
+    esCondominio: 'no',
+    condoViviendas: '',
+    condoUbicacionTomas: '',
+    condoTieneMedidorMacro: '',
+    condoNumMedidor: '',
+    condoAreasComunes: '',
+    condoNumAreas: '',
+    condoAgrupacion: '',
+    condoNombreAgrupacion: '',
+    personasVivienda: '4',
+    tieneCertConexion: 'si',
+  },
+  // 3 – Contratación
+  {
+    adminId: '1',
+    contratoPadre: '',
+  },
+  // 4 – Fiscal
+  {
+    requiereFactura: 'si',
+    mismosDatosProp: 'si',
+    fiscalTipoPersona: 'fisica',
+    fiscalRazonSocial: '',
+    fiscalRfc: 'GARM850312AB3',
+    fiscalCorreo: 'mgarcia@correo.com',
+    fiscalDir: {
+      estadoINEGIId: '22',
+      municipioINEGIId: '014',
+      localidadINEGIId: '',
+      coloniaINEGIId: '',
+      codigoPostal: '76030',
+      calle: 'Calle Independencia',
+      numExterior: '88',
+      numInterior: 'Int. 3',
+      referencia: '',
+    },
+    fiscalRegimenFiscal: '616',
+    fiscalUsoCfdi: 'G03',
+  },
+];
 
 const MOCK_DATA: SolicitudState = {
   claveCatastral: '22001-045-012',
@@ -129,93 +221,6 @@ const MOCK_DATA: SolicitudState = {
   fiscalRegimenFiscal: '616',
   fiscalUsoCfdi: 'G03',
 };
-
-// Por paso del asistente: claves INEGI en direcciones; handlePrellenar + resolveDir las sustituyen por UUIDs si hay caché
-const MOCK_STEP_DATA: Partial<SolicitudState>[] = [
-  {
-    claveCatastral: '22001-045-012',
-    folioExpediente: '',
-    predioDir: {
-      estadoINEGIId: '22',
-      municipioINEGIId: '014',
-      localidadINEGIId: '',
-      coloniaINEGIId: '',
-      codigoPostal: '76030',
-      calle: 'Av. Constituyentes',
-      numExterior: '425',
-      numInterior: '',
-      referencia: 'Entre Av. 5 de Febrero y calle Hidalgo',
-    },
-    predioManzana: '12',
-    predioLote: '04',
-    superficieTotal: '180',
-    superficieConstruida: '120',
-  },
-  {
-    propTipoPersona: 'fisica',
-    propPaterno: 'García',
-    propMaterno: 'Ramírez',
-    propNombre: 'María Elena',
-    propRazonSocial: '',
-    propRfc: 'GARM850312AB3',
-    propCorreo: 'mgarcia@correo.com',
-    propTelefono: '4421234567',
-    propDir: {
-      estadoINEGIId: '22',
-      municipioINEGIId: '014',
-      localidadINEGIId: '',
-      coloniaINEGIId: '',
-      codigoPostal: '76030',
-      calle: 'Calle Independencia',
-      numExterior: '88',
-      numInterior: 'Int. 3',
-      referencia: '',
-    },
-    propManzana: '',
-    propLote: '',
-  },
-  {
-    usoDomestico: 'si',
-    hayTuberias: 'si',
-    hayInfraCEA: 'si',
-    esCondominio: 'no',
-    condoViviendas: '',
-    condoUbicacionTomas: '',
-    condoTieneMedidorMacro: '',
-    condoNumMedidor: '',
-    condoAreasComunes: '',
-    condoNumAreas: '',
-    condoAgrupacion: '',
-    condoNombreAgrupacion: '',
-    personasVivienda: '4',
-    tieneCertConexion: 'si',
-  },
-  {
-    adminId: '1',
-    contratoPadre: '',
-  },
-  {
-    requiereFactura: 'si',
-    mismosDatosProp: 'si',
-    fiscalTipoPersona: 'fisica',
-    fiscalRazonSocial: '',
-    fiscalRfc: 'GARM850312AB3',
-    fiscalCorreo: 'mgarcia@correo.com',
-    fiscalDir: {
-      estadoINEGIId: '22',
-      municipioINEGIId: '014',
-      localidadINEGIId: '',
-      coloniaINEGIId: '',
-      codigoPostal: '76030',
-      calle: 'Calle Independencia',
-      numExterior: '88',
-      numInterior: 'Int. 3',
-      referencia: '',
-    },
-    fiscalRegimenFiscal: '616',
-    fiscalUsoCfdi: 'G03',
-  },
-];
 
 // ── Wizard steps definition ───────────────────────────────────────────────────
 
@@ -905,7 +910,6 @@ export default function SolicitudServicio() {
 
   const isEditMode = !!id;
   const localRecord = isEditMode && id ? store.getById(id) : undefined;
-
   const { data: apiSolicitud } = useQuery({
     queryKey: ['solicitud', id],
     queryFn: () => fetchSolicitud(id!),
@@ -918,7 +922,7 @@ export default function SolicitudServicio() {
 
   useEffect(() => {
     if (!localRecord && apiSolicitud?.formData) {
-      setForm(apiSolicitud.formData);
+      setForm(apiSolicitud.formData as SolicitudState);
     }
   }, [localRecord, apiSolicitud?.id, apiSolicitud?.formData]);
 
@@ -935,14 +939,14 @@ export default function SolicitudServicio() {
           adminId: apiSolicitud.adminId ?? '',
           tipoContratacionId: apiSolicitud.tipoContratacionId ?? '',
           usoDomestico: apiSolicitud.formData.usoDomestico,
-          estado: apiSolicitud.estado,
-          formData: apiSolicitud.formData,
+          estado: apiSolicitud.estado as SolicitudEstado,
+          formData: apiSolicitud.formData as SolicitudState,
           createdAt: apiSolicitud.createdAt,
         }
       : undefined);
 
   const createMutation = useMutation({
-    mutationFn: createSolicitud,
+    mutationFn: (dto: Parameters<typeof createSolicitud>[0]) => createSolicitud(dto),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['solicitudes'] });
     },

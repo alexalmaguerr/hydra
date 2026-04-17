@@ -131,6 +131,9 @@ export type SolicitudEstado =
   | 'inspeccion_pendiente'
   | 'inspeccion_en_proceso'
   | 'inspeccion_completada'
+  | 'en_cotizacion'
+  | 'aceptada'
+  | 'rechazada'
   | 'cotizado'
   | 'contratado';
 

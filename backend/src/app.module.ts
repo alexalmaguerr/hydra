@@ -32,6 +32,7 @@ import { ProcesosContratacionModule } from './modules/procesos-contratacion/proc
 import { CatalogosOperativosModule } from './modules/catalogos-operativos/catalogos-operativos.module';
 import { RutasModule } from './modules/rutas/rutas.module';
 import { MedidoresModule } from './modules/medidores/medidores.module';
+import { SolicitudesModule } from './modules/solicitudes/solicitudes.module';
 
 @Module({
   imports: [
@@ -66,6 +67,7 @@ import { MedidoresModule } from './modules/medidores/medidores.module';
     CatalogosOperativosModule,
     RutasModule,
     MedidoresModule,
+    SolicitudesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

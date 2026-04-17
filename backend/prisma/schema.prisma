@@ -1739,3 +1739,58 @@ model TipoVia {
 
   @@map("catalogo_tipos_via")
 }
+
+// ---- Solicitudes de servicio (ventanilla) ----
+model Solicitud {
+  id                  String                @id @default(cuid())
+  folio               String                @unique
+  fechaSolicitud      DateTime              @default(now()) @map("fecha_solicitud")
+  propTipoPersona     String                @default("fisica") @map("prop_tipo_persona")
+  propNombreCompleto  String                @default("") @map("prop_nombre_completo")
+  propRfc             String?               @map("prop_rfc")
+  propCorreo          String?               @map("prop_correo")
+  propTelefono        String?               @map("prop_telefono")
+  predioResumen       String                @default("") @map("predio_resumen")
+  claveCatastral      String?               @map("clave_catastral")
+  adminId             String?               @map("admin_id")
+  tipoContratacionId  String?               @map("tipo_contratacion_id")
+  estado              String                @default("inspeccion_pendiente")
+  formData            Json                  @default("{}") @map("form_data")
+  contratoId          String?               @map("contrato_id")
+  createdAt           DateTime              @default(now()) @map("created_at")
+  updatedAt           DateTime              @updatedAt @map("updated_at")
+  inspeccion          SolicitudInspeccion?
+
+  @@index([estado])
+  @@index([contratoId])
+  @@map("solicitudes")
+}
+
+model SolicitudInspeccion {
+  id                     String    @id @default(cuid())
+  solicitudId            String    @unique @map("solicitud_id")
+  estado                 String    @default("en_proceso")
+  inspector              String?
+  fechaInspeccion        String?   @map("fecha_inspeccion")
+  materialCalle          String?   @map("material_calle")
+  materialBanqueta       String?   @map("material_banqueta")
+  metrosRupturaCalle     String?   @map("metros_ruptura_calle")
+  metrosRupturaBanqueta  String?   @map("metros_ruptura_banqueta")
+  existeRed              String?   @map("existe_red")
+  distanciaRed           String?   @map("distancia_red")
+  presionRed             String?   @map("presion_red")
+  tipoMaterialRed        String?   @map("tipo_material_red")
+  profundidadRed         String?   @map("profundidad_red")
+  diametroToma           String?   @map("diametro_toma")
+  tomaExistente          String?   @map("toma_existente")
+  diametroTomaExistente  String?   @map("diametro_toma_existente")
+  estadoTomaExistente    String?   @map("estado_toma_existente")
+  medidorExistente       String?   @map("medidor_existente")
+  numMedidorExistente    String?   @map("num_medidor_existente")
+  observaciones          String?
+  createdAt              DateTime  @default(now()) @map("created_at")
+  updatedAt              DateTime  @updatedAt @map("updated_at")
+  solicitud              Solicitud @relation(fields: [solicitudId], references: [id], onDelete: Cascade)
+
+  @@map("solicitud_inspecciones")
+}
