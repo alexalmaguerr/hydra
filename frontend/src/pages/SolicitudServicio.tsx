@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
+import type { CatalogoEstadoINEGI, CatalogoMunicipioINEGIRow, PaginatedInegi } from '@/api/domicilios-inegi';
 import { ArrowLeft, Check, FileText, MapPin, User, HelpCircle, Settings, Receipt, ClipboardCheck, Wand2 } from 'lucide-react';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -66,13 +68,13 @@ const USOS_CFDI = [
 
 // Data split per wizard step so prellenar can fill them one by one
 const MOCK_STEP_DATA: Partial<SolicitudState>[] = [
-  // 0 – Predio
+  // 0 – Predio  (estadoINEGIId/municipioINEGIId hold claveINEGI codes; resolveDir() swaps them for real UUIDs at runtime)
   {
     claveCatastral: '22001-045-012',
     folioExpediente: '',
     predioDir: {
-      estadoINEGIId: '22',
-      municipioINEGIId: '22014',
+      estadoINEGIId: '22',      // claveINEGI → resolved to UUID by handlePrellenar
+      municipioINEGIId: '014',  // claveINEGI of municipio within state
       localidadINEGIId: '',
       coloniaINEGIId: '',
       codigoPostal: '76030',
@@ -98,7 +100,7 @@ const MOCK_STEP_DATA: Partial<SolicitudState>[] = [
     propTelefono: '4421234567',
     propDir: {
       estadoINEGIId: '22',
-      municipioINEGIId: '22014',
+      municipioINEGIId: '014',
       localidadINEGIId: '',
       coloniaINEGIId: '',
       codigoPostal: '76030',
@@ -142,7 +144,7 @@ const MOCK_STEP_DATA: Partial<SolicitudState>[] = [
     fiscalCorreo: 'mgarcia@correo.com',
     fiscalDir: {
       estadoINEGIId: '22',
-      municipioINEGIId: '22014',
+      municipioINEGIId: '014',
       localidadINEGIId: '',
       coloniaINEGIId: '',
       codigoPostal: '76030',
@@ -835,6 +837,7 @@ export default function SolicitudServicio() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const store = useSolicitudesStore();
+  const queryClient = useQueryClient();
 
   const isEditMode = !!id;
   const existingRecord = isEditMode ? store.getById(id) : undefined;
@@ -859,14 +862,49 @@ export default function SolicitudServicio() {
   const isLastStep = currentStep === STEPS.length - 1;
   const canNext = canAdvance(currentStep, form);
 
+  function resolveDir(dir: { estadoINEGIId: string; municipioINEGIId: string; [key: string]: string }) {
+    if (!dir) return dir;
+    // Replace claveINEGI codes with real UUIDs from react-query cache
+    const estados = queryClient.getQueryData<CatalogoEstadoINEGI[]>(['inegi-estados']) ?? [];
+    const estado = estados.find((e) => e.claveINEGI === dir.estadoINEGIId || e.id === dir.estadoINEGIId);
+    const estadoId = estado?.id ?? '';
+
+    const mpioCache = queryClient.getQueryData<PaginatedInegi<CatalogoMunicipioINEGIRow>>(
+      ['inegi-municipios', estadoId],
+    );
+    const municipios = mpioCache?.data ?? [];
+    const mpio = municipios.find(
+      (m) => m.claveINEGI === dir.municipioINEGIId?.slice(-3) ||
+             m.claveINEGI === dir.municipioINEGIId ||
+             m.id === dir.municipioINEGIId,
+    );
+    const municipioId = mpio?.id ?? '';
+
+    return { ...dir, estadoINEGIId: estadoId, municipioINEGIId: municipioId };
+  }
+
   function handlePrellenar() {
     const tipos = TIPOS_CONTRATACION_BY_ADMIN['1'] ?? [];
     const tipoId = tipos[0]?.id ?? '';
     const stepData = MOCK_STEP_DATA[currentStep];
     if (!stepData) return;
-    const patch = currentStep === 3
+
+    let patch: Partial<SolicitudState> = currentStep === 3
       ? { ...stepData, tipoContratacionId: tipoId }
-      : stepData;
+      : { ...stepData };
+
+    // Resolve location IDs for address steps
+    type Dir = Parameters<typeof resolveDir>[0];
+    if (currentStep === 0 && patch.predioDir) {
+      patch = { ...patch, predioDir: resolveDir(patch.predioDir as Dir) };
+    }
+    if (currentStep === 1 && patch.propDir) {
+      patch = { ...patch, propDir: resolveDir(patch.propDir as Dir) };
+    }
+    if (currentStep === 4 && patch.fiscalDir) {
+      patch = { ...patch, fiscalDir: resolveDir(patch.fiscalDir as Dir) };
+    }
+
     setForm((prev) => ({ ...prev, ...patch }));
   }
 
