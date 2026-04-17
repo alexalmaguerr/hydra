@@ -36,6 +36,30 @@ export interface SolicitudState {
   condoNombreAgrupacion: string;
   personasVivienda: string;
   tieneCertConexion: 'si' | 'no' | '';
+  // ── No Doméstico ──────────────────────────────────────────────────────────
+  noDomHayInfra: 'si' | 'no' | '';
+  // Con infraestructura — giros específicos
+  noDomRestComensales: string;
+  noDomRestMesas: string;
+  noDomRestSanitarios: string;
+  noDomLavNumLavadoras: string;
+  noDomLavCapKg: string;
+  noDomLavKgDia: string;
+  noDomAutoAutosDia: string;
+  noDomTortKgDia: string;
+  noDomOficM2Oficinas: string;
+  noDomOficM2Estac: string;
+  noDomOtroGiro: string;
+  // Sin infraestructura — requerimiento de agua
+  noDomReqDomUnidades: string;
+  noDomReqDomGiro: string;
+  noDomReqComUnidades: string;
+  noDomReqComGiro: string;
+  noDomReqIndUnidades: string;
+  noDomReqIndGiro: string;
+  noDomReqOtroUnidades: string;
+  noDomReqOtroGiro: string;
+  noDomReqTotalUnidades: string;
   adminId: string;
   tipoContratacionId: string;
   distritoId: string;
@@ -86,6 +110,18 @@ export const SOLICITUD_STATE_EMPTY: SolicitudState = {
   condoNombreAgrupacion: '',
   personasVivienda: '',
   tieneCertConexion: '',
+  noDomHayInfra: '',
+  noDomRestComensales: '', noDomRestMesas: '', noDomRestSanitarios: '',
+  noDomLavNumLavadoras: '', noDomLavCapKg: '', noDomLavKgDia: '',
+  noDomAutoAutosDia: '',
+  noDomTortKgDia: '',
+  noDomOficM2Oficinas: '', noDomOficM2Estac: '',
+  noDomOtroGiro: '',
+  noDomReqDomUnidades: '', noDomReqDomGiro: '',
+  noDomReqComUnidades: '', noDomReqComGiro: '',
+  noDomReqIndUnidades: '', noDomReqIndGiro: '',
+  noDomReqOtroUnidades: '', noDomReqOtroGiro: '',
+  noDomReqTotalUnidades: '',
   adminId: '',
   tipoContratacionId: '',
   distritoId: '',

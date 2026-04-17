@@ -243,7 +243,9 @@ function canAdvance(step: number, form: SolicitudState): boolean {
     case 2: // Fiscal
       return !!form.requiereFactura;
     case 3: // Solicitud
-      return !!form.usoDomestico && !!form.hayTuberias;
+      if (!form.usoDomestico || !form.hayTuberias) return false;
+      if (form.usoDomestico === 'no') return !!form.noDomHayInfra;
+      return true;
     case 4: // Contratación
       return !!(form.adminId && form.tipoContratacionId && form.distritoId && form.grupoActividadId && form.actividadId);
     case 5: // Resumen — always ok
@@ -545,8 +547,138 @@ function StepSolicitud({ form, set }: { form: SolicitudState; set: (p: Partial<S
       )}
 
       {form.usoDomestico === 'no' && (
-        <div className="rounded-md border border-dashed bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
-          Para uso no doméstico continúe con las siguientes secciones.
+        <div className="space-y-5 rounded-lg border bg-muted/20 p-4">
+          <p className="text-lg font-bold text-primary uppercase tracking-wide">Uso No Doméstico</p>
+          <p className="text-sm text-muted-foreground">Llenar todos los campos que correspondan.</p>
+          <p className="text-xs text-muted-foreground">(Usos mixtos pueden ser: doméstico+comercio, industria+comercio u otros similares de modo que se llenen los campos específicos).</p>
+
+          <div className="space-y-2">
+            <p className="text-sm font-medium">¿Cuenta con infraestructura para toma/s y otros servicios de agua? <span className="text-destructive">*</span></p>
+            <YesNo
+              id="no-dom-hay-infra"
+              value={form.noDomHayInfra}
+              onChange={(v) => set({ noDomHayInfra: v })}
+            />
+          </div>
+
+          {/* CON infraestructura → giros específicos */}
+          {form.noDomHayInfra === 'si' && (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">Seleccione el giro específico y llene los campos</p>
+
+              {/* Restaurante */}
+              <div className="grid grid-cols-[120px_1fr_1fr_1fr] items-center gap-3">
+                <span className="text-sm font-semibold">RESTAURANTE</span>
+                <Field label="Núm. comensales por día">
+                  <Input className="h-9" type="number" min="0" placeholder="0" value={form.noDomRestComensales} onChange={(e) => set({ noDomRestComensales: e.target.value })} />
+                </Field>
+                <Field label="Núm. de mesas">
+                  <Input className="h-9" type="number" min="0" placeholder="0" value={form.noDomRestMesas} onChange={(e) => set({ noDomRestMesas: e.target.value })} />
+                </Field>
+                <Field label="Núm. de sanitarios">
+                  <Input className="h-9" type="number" min="0" placeholder="0" value={form.noDomRestSanitarios} onChange={(e) => set({ noDomRestSanitarios: e.target.value })} />
+                </Field>
+              </div>
+
+              {/* Lavandería */}
+              <div className="grid grid-cols-[120px_1fr_1fr_1fr] items-center gap-3">
+                <span className="text-sm font-semibold">LAVANDERÍA</span>
+                <Field label="Núm. de lavadoras">
+                  <Input className="h-9" type="number" min="0" placeholder="0" value={form.noDomLavNumLavadoras} onChange={(e) => set({ noDomLavNumLavadoras: e.target.value })} />
+                </Field>
+                <Field label="Capacidad Kg por lavadora">
+                  <Input className="h-9" type="number" min="0" placeholder="0" value={form.noDomLavCapKg} onChange={(e) => set({ noDomLavCapKg: e.target.value })} />
+                </Field>
+                <Field label="Kg de ropa promedio por día">
+                  <Input className="h-9" type="number" min="0" placeholder="0" value={form.noDomLavKgDia} onChange={(e) => set({ noDomLavKgDia: e.target.value })} />
+                </Field>
+              </div>
+
+              {/* Autolavado */}
+              <div className="grid grid-cols-[120px_1fr_3fr] items-center gap-3">
+                <span className="text-sm font-semibold">AUTOLAVADO</span>
+                <Field label="Núm. automóviles lavados por día">
+                  <Input className="h-9" type="number" min="0" placeholder="0" value={form.noDomAutoAutosDia} onChange={(e) => set({ noDomAutoAutosDia: e.target.value })} />
+                </Field>
+              </div>
+
+              {/* Tortillería */}
+              <div className="grid grid-cols-[120px_1fr_3fr] items-center gap-3">
+                <span className="text-sm font-semibold">TORTILLERÍA</span>
+                <Field label="Núm. kg procesados por día">
+                  <Input className="h-9" type="number" min="0" placeholder="0" value={form.noDomTortKgDia} onChange={(e) => set({ noDomTortKgDia: e.target.value })} />
+                </Field>
+              </div>
+
+              {/* Oficinas */}
+              <div className="grid grid-cols-[120px_1fr_1fr_2fr] items-center gap-3">
+                <span className="text-sm font-semibold">OFICINAS</span>
+                <Field label="M² de oficina/s">
+                  <Input className="h-9" type="number" min="0" placeholder="0" value={form.noDomOficM2Oficinas} onChange={(e) => set({ noDomOficM2Oficinas: e.target.value })} />
+                </Field>
+                <Field label="M² de estacionamiento">
+                  <Input className="h-9" type="number" min="0" placeholder="0" value={form.noDomOficM2Estac} onChange={(e) => set({ noDomOficM2Estac: e.target.value })} />
+                </Field>
+              </div>
+
+              {/* Otro giro */}
+              <div className="grid grid-cols-[120px_1fr] items-center gap-3">
+                <span className="text-sm font-semibold">OTRO GIRO</span>
+                <Field label="Especificar">
+                  <Input className="h-9" placeholder="Descripción del giro" value={form.noDomOtroGiro} onChange={(e) => set({ noDomOtroGiro: e.target.value })} />
+                </Field>
+              </div>
+            </div>
+          )}
+
+          {/* SIN infraestructura → requerimiento de agua */}
+          {form.noDomHayInfra === 'no' && (
+            <div className="space-y-4">
+              <p className="text-base font-bold text-primary uppercase tracking-wide">Requerimiento de Agua</p>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="py-2 text-left font-semibold w-40">USO</th>
+                      <th className="py-2 text-left font-semibold">UNIDADES (Especificar núm. de tomas)</th>
+                      <th className="py-2 text-left font-semibold">GIRO</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {([
+                      { label: 'DOMÉSTICO',  uKey: 'noDomReqDomUnidades', gKey: 'noDomReqDomGiro' },
+                      { label: 'COMERCIAL',  uKey: 'noDomReqComUnidades', gKey: 'noDomReqComGiro' },
+                      { label: 'INDUSTRIAL', uKey: 'noDomReqIndUnidades', gKey: 'noDomReqIndGiro' },
+                      { label: 'OTRO (Especificar)', uKey: 'noDomReqOtroUnidades', gKey: 'noDomReqOtroGiro' },
+                    ] as { label: string; uKey: keyof SolicitudState; gKey: keyof SolicitudState }[]).map((row) => (
+                      <tr key={row.label}>
+                        <td className="py-2 font-semibold pr-4">{row.label}</td>
+                        <td className="py-2 pr-4">
+                          <Input className="h-8 max-w-[120px]" type="number" min="0" placeholder="0"
+                            value={form[row.uKey] as string}
+                            onChange={(e) => set({ [row.uKey]: e.target.value } as Partial<SolicitudState>)} />
+                        </td>
+                        <td className="py-2">
+                          <Input className="h-8" placeholder="—"
+                            value={form[row.gKey] as string}
+                            onChange={(e) => set({ [row.gKey]: e.target.value } as Partial<SolicitudState>)} />
+                        </td>
+                      </tr>
+                    ))}
+                    <tr className="border-t-2 font-bold">
+                      <td className="py-2 pr-4">TOTAL DE UNIDADES A SERVIR</td>
+                      <td className="py-2">
+                        <Input className="h-8 max-w-[120px]" type="number" min="0" placeholder="0"
+                          value={form.noDomReqTotalUnidades}
+                          onChange={(e) => set({ noDomReqTotalUnidades: e.target.value })} />
+                      </td>
+                      <td />
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
