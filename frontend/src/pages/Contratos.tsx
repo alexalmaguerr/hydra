@@ -466,7 +466,7 @@ const Contratos = () => {
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-muted/40">
-              {['ID contrato', 'Fecha de creación', 'Cliente / titular', 'Estado (flujo)', ''].map((h) => (
+              {['ID contrato', 'Creación / modificación', 'Cliente / titular', 'Estado (flujo)', ''].map((h) => (
                 <th key={h} className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-4 py-3">{h}</th>
               ))}
             </tr>
@@ -478,17 +478,31 @@ const Contratos = () => {
                 nombre: string;
                 estado: string;
                 createdAt?: string;
+                updatedAt?: string;
                 fecha: string;
                 tipoContratacionId?: string | null;
               }) => {
               const flujo = mapEstadoContratoToFlujoRegistro(c.estado);
-              const creado = c.createdAt
-                ? new Date(c.createdAt).toLocaleDateString('es-MX', { dateStyle: 'medium' })
-                : c.fecha;
+              const fmtDateTime = (iso: string) =>
+                new Date(iso).toLocaleString('es-MX', {
+                  day: '2-digit', month: 'short', year: 'numeric',
+                  hour: '2-digit', minute: '2-digit', hour12: true,
+                });
+              const creado = c.createdAt ? fmtDateTime(c.createdAt) : c.fecha;
+              const modificado = c.updatedAt && c.updatedAt !== c.createdAt
+                ? fmtDateTime(c.updatedAt)
+                : null;
               return (
                 <tr key={c.id} className="border-t border-border/50 hover:bg-muted/30 transition-colors">
                   <td className="px-4 py-3.5 font-mono text-xs text-[#007BFF] font-medium">{c.id}</td>
-                  <td className="px-4 py-3.5 text-muted-foreground tabular-nums">{creado}</td>
+                  <td className="px-4 py-3.5 text-muted-foreground tabular-nums">
+                    <span className="block text-xs">{creado}</span>
+                    {modificado && (
+                      <span className="block text-[11px] text-muted-foreground/60 mt-0.5">
+                        Mod. {modificado}
+                      </span>
+                    )}
+                  </td>
                   <td className="px-4 py-3.5 font-medium">{c.nombre}</td>
                   <td className="px-4 py-3.5">
                     <span className="text-sm" title={c.estado}>
