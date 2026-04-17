@@ -21,7 +21,7 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { toast } from '@/components/ui/sonner';
 import DomicilioPickerForm from '@/components/contratacion/DomicilioPickerForm';
-import { fetchAdministraciones } from '@/api/catalogos';
+import { fetchAdministraciones, fetchDistritos, fetchGruposActividad, fetchActividades, type DistritoCatalogo, type CatalogoGrupoActividad, type CatalogoActividad } from '@/api/catalogos';
 import { fetchTiposContratacion, type TipoContratacion } from '@/api/tipos-contratacion';
 import { hasApi } from '@/api/contratos';
 import { cn } from '@/lib/utils';
@@ -68,7 +68,7 @@ const MOCK_STEP_DATA: Partial<SolicitudState>[] = [
       codigoPostal: '76030',
       calle: 'Av. Constituyentes',
       numExterior: '425',
-      numInterior: '',
+      numInterior: 'Depto. 3',
       referencia: 'Entre Av. 5 de Febrero y calle Hidalgo',
     },
     predioManzana: '12',
@@ -117,9 +117,12 @@ const MOCK_STEP_DATA: Partial<SolicitudState>[] = [
     personasVivienda: '4',
     tieneCertConexion: 'si',
   },
-  // 3 – Contratación
+  // 3 – Contratación (adminId/tipoContratacionId resolved at runtime; distritoId/grupoActividadId/actividadId pick first available)
   {
     adminId: '1',
+    distritoId: '__first__',
+    grupoActividadId: '__first__',
+    actividadId: '__first__',
     contratoPadre: '',
   },
   // 4 – Fiscal
@@ -157,7 +160,7 @@ const MOCK_DATA: SolicitudState = {
     codigoPostal: '76030',
     calle: 'Av. Constituyentes',
     numExterior: '425',
-    numInterior: '',
+    numInterior: 'Depto. 3',
     referencia: 'Entre Av. 5 de Febrero y calle Hidalgo',
   },
   predioManzana: '12',
@@ -240,8 +243,14 @@ type StepKey = typeof STEPS[number]['key'];
 
 function canAdvance(step: number, form: SolicitudState): boolean {
   switch (step) {
-    case 0: // Predio — calle obligatoria
-      return !!form.predioDir.calle.trim();
+    case 0: // Predio — estado, municipio, colonia, calle y num. exterior obligatorios
+      return !!(
+        form.predioDir.estadoINEGIId &&
+        form.predioDir.municipioINEGIId &&
+        form.predioDir.coloniaINEGIId &&
+        form.predioDir.calle.trim() &&
+        form.predioDir.numExterior.trim()
+      );
     case 1: // Propietario
       if (!form.propTipoPersona) return false;
       if (form.propTipoPersona === 'moral') return !!form.propRazonSocial.trim();
@@ -249,7 +258,7 @@ function canAdvance(step: number, form: SolicitudState): boolean {
     case 2: // Solicitud
       return !!form.usoDomestico && !!form.hayTuberias;
     case 3: // Tipo de contratación
-      return !!form.adminId && !!form.tipoContratacionId;
+      return !!(form.adminId && form.tipoContratacionId && form.distritoId && form.grupoActividadId && form.actividadId);
     case 4: // Fiscal
       return !!form.requiereFactura;
     case 5: // Resumen — always ok
@@ -577,6 +586,31 @@ function StepContratacion({ form, set }: { form: SolicitudState; set: (p: Partia
     enabled: useApi && !!form.adminId,
   });
 
+  const { data: distritos = [], isLoading: distritosLoading } = useQuery({
+    queryKey: ['catalogos', 'distritos'],
+    queryFn: fetchDistritos,
+    enabled: useApi,
+    staleTime: 60 * 60 * 1000,
+  });
+
+  const { data: grupos = [], isLoading: gruposLoading } = useQuery({
+    queryKey: ['catalogos', 'grupos-actividad'],
+    queryFn: fetchGruposActividad,
+    enabled: useApi,
+    staleTime: 60 * 60 * 1000,
+  });
+
+  const { data: actividades = [], isLoading: actividadesLoading } = useQuery({
+    queryKey: ['catalogos', 'actividades'],
+    queryFn: fetchActividades,
+    enabled: useApi,
+    staleTime: 60 * 60 * 1000,
+  });
+
+  const actividadesFiltradas: CatalogoActividad[] = form.grupoActividadId
+    ? actividades.filter((a) => a.grupoId === form.grupoActividadId)
+    : actividades;
+
   const tiposList: TipoContratacion[] = tiposRes?.data ?? [];
   const selectedTipo = tiposList.find((t) => t.id === form.tipoContratacionId);
 
@@ -643,6 +677,71 @@ function StepContratacion({ form, set }: { form: SolicitudState; set: (p: Partia
                   </SelectItem>
                 );
               })}
+            </SelectContent>
+          </Select>
+        </Field>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-3">
+        <Field label="Distrito" required>
+          <Select
+            value={form.distritoId}
+            onValueChange={(v) => set({ distritoId: v })}
+            disabled={!useApi || distritosLoading || distritos.length === 0}
+          >
+            <SelectTrigger className="h-9">
+              <SelectValue placeholder={distritosLoading ? 'Cargando…' : 'Seleccione distrito…'} />
+            </SelectTrigger>
+            <SelectContent>
+              {distritos.map((d: DistritoCatalogo) => (
+                <SelectItem key={d.id} value={d.id}>{d.nombre}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Field>
+
+        <Field label="Grupo actividad" required>
+          <Select
+            value={form.grupoActividadId}
+            onValueChange={(v) => set({ grupoActividadId: v, actividadId: '' })}
+            disabled={!useApi || gruposLoading || grupos.length === 0}
+          >
+            <SelectTrigger className="h-9">
+              <SelectValue placeholder={gruposLoading ? 'Cargando…' : 'Seleccione grupo…'} />
+            </SelectTrigger>
+            <SelectContent>
+              {grupos.map((g: CatalogoGrupoActividad) => (
+                <SelectItem key={g.id} value={g.id}>
+                  {g.codigo} – {g.descripcion}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Field>
+
+        <Field label="Actividad" required>
+          <Select
+            value={form.actividadId}
+            onValueChange={(v) => set({ actividadId: v })}
+            disabled={!useApi || actividadesLoading || actividadesFiltradas.length === 0}
+          >
+            <SelectTrigger className="h-9">
+              <SelectValue placeholder={
+                !form.grupoActividadId
+                  ? 'Primero seleccione grupo'
+                  : actividadesLoading
+                    ? 'Cargando…'
+                    : actividadesFiltradas.length === 0
+                      ? 'Sin actividades para este grupo'
+                      : 'Seleccione actividad…'
+              } />
+            </SelectTrigger>
+            <SelectContent>
+              {actividadesFiltradas.map((a: CatalogoActividad) => (
+                <SelectItem key={a.id} value={a.id}>
+                  {a.codigo} – {a.descripcion}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </Field>
@@ -1088,7 +1187,34 @@ export default function SolicitudServicio() {
           toast.error('No se encontraron tipos de contratación en ninguna administración');
           return;
         }
-        patch = { ...patch, adminId: chosenAdmin.id, tipoContratacionId: chosenTipo.id };
+        // Resolve distrito — pick first available
+        const distritos = await queryClient.fetchQuery({
+          queryKey: ['catalogos', 'distritos'],
+          queryFn: fetchDistritos,
+          staleTime: 60 * 60 * 1000,
+        });
+        const distritoId = distritos?.[0]?.id ?? '';
+
+        // Resolve grupoActividad + actividad — pick first available, filter actividades by grupo
+        const grupos = await queryClient.fetchQuery({
+          queryKey: ['catalogos', 'grupos-actividad'],
+          queryFn: fetchGruposActividad,
+          staleTime: 60 * 60 * 1000,
+        });
+        const grupo = grupos?.[0];
+        const grupoActividadId = grupo?.id ?? '';
+
+        const actividades = await queryClient.fetchQuery({
+          queryKey: ['catalogos', 'actividades'],
+          queryFn: fetchActividades,
+          staleTime: 60 * 60 * 1000,
+        });
+        const actividadFiltrada = grupoActividadId
+          ? (actividades ?? []).find((a) => a.grupoId === grupoActividadId)
+          : (actividades ?? [])[0];
+        const actividadId = actividadFiltrada?.id ?? '';
+
+        patch = { ...patch, adminId: chosenAdmin.id, tipoContratacionId: chosenTipo.id, distritoId, grupoActividadId, actividadId };
       }
 
       if (currentStep === 0 && patch.predioDir) {

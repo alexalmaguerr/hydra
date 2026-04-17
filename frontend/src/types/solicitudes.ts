@@ -38,6 +38,9 @@ export interface SolicitudState {
   tieneCertConexion: 'si' | 'no' | '';
   adminId: string;
   tipoContratacionId: string;
+  distritoId: string;
+  grupoActividadId: string;
+  actividadId: string;
   contratoPadre: string;
   requiereFactura: 'si' | 'no' | '';
   mismosDatosProp: 'si' | 'no' | '';
@@ -85,6 +88,9 @@ export const SOLICITUD_STATE_EMPTY: SolicitudState = {
   tieneCertConexion: '',
   adminId: '',
   tipoContratacionId: '',
+  distritoId: '',
+  grupoActividadId: '',
+  actividadId: '',
   contratoPadre: '',
   requiereFactura: '',
   mismosDatosProp: '',

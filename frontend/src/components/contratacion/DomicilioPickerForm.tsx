@@ -229,7 +229,7 @@ export default function DomicilioPickerForm({ value, onChange }: Props) {
 
       {/* Número exterior */}
       <div className="space-y-1">
-        <Label>Núm. exterior</Label>
+        <Label>Núm. exterior <span className="text-destructive">*</span></Label>
         <Input
           className="h-9"
           placeholder="123"
