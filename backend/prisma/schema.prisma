@@ -1768,30 +1768,53 @@ model Solicitud {
 }
 
 model SolicitudInspeccion {
-  id                     String    @id @default(cuid())
-  solicitudId            String    @unique @map("solicitud_id")
-  estado                 String    @default("en_proceso")
-  inspector              String?
-  fechaInspeccion        String?   @map("fecha_inspeccion")
-  materialCalle          String?   @map("material_calle")
-  materialBanqueta       String?   @map("material_banqueta")
-  metrosRupturaCalle     String?   @map("metros_ruptura_calle")
-  metrosRupturaBanqueta  String?   @map("metros_ruptura_banqueta")
-  existeRed              String?   @map("existe_red")
-  distanciaRed           String?   @map("distancia_red")
-  presionRed             String?   @map("presion_red")
-  tipoMaterialRed        String?   @map("tipo_material_red")
-  profundidadRed         String?   @map("profundidad_red")
-  diametroToma           String?   @map("diametro_toma")
-  tomaExistente          String?   @map("toma_existente")
-  diametroTomaExistente  String?   @map("diametro_toma_existente")
-  estadoTomaExistente    String?   @map("estado_toma_existente")
-  medidorExistente       String?   @map("medidor_existente")
-  numMedidorExistente    String?   @map("num_medidor_existente")
-  observaciones          String?
-  createdAt              DateTime  @default(now()) @map("created_at")
-  updatedAt              DateTime  @updatedAt @map("updated_at")
-  solicitud              Solicitud @relation(fields: [solicitudId], references: [id], onDelete: Cascade)
+  id                           String    @id @default(cuid())
+  solicitudId                  String    @unique @map("solicitud_id")
+  estado                       String    @default("en_proceso")
+  fechaInspeccion              String?   @map("fecha_inspeccion")
+  numeroOficial                String?   @map("numero_oficial")
+  tipoUso                      String?   @map("tipo_uso")
+  giro                         String?
+  areaTerreno                  String?   @map("area_terreno")
+  condicionToma                String?   @map("condicion_toma")
+  condicionesPredio            String?   @map("condiciones_predio")
+  infraHidraulicaExterna       String?   @map("infra_hidraulica_externa")
+  infraSanitaria               String?   @map("infra_sanitaria")
+  materialCalle                String?   @map("material_calle")
+  materialBanqueta             String?   @map("material_banqueta")
+  metrosRupturaAguaBanqueta    String?   @map("metros_ruptura_agua_banqueta")
+  metrosRupturaAguaCalle       String?   @map("metros_ruptura_agua_calle")
+  metrosRupturaDrenajeBanqueta String?   @map("metros_ruptura_drenaje_banqueta")
+  metrosRupturaDrenajeCalle    String?   @map("metros_ruptura_drenaje_calle")
+  observaciones                String?
+  evidencias                   Json?
+  resultadoEjecucion           String?   @map("resultado_ejecucion")
+  resultadoInspeccion          String?   @map("resultado_inspeccion")
+  inspectorNumEmpleado         String?   @map("inspector_num_empleado")
+  inspectorNombre              String?   @map("inspector_nombre")
+  firmaInspector               String?   @map("firma_inspector")
+  inspectoresAdicionales       Json?     @map("inspectores_adicionales")
+  inicio                       String?
+  fin                          String?
+  tipoOrdenCorrecto            String?   @map("tipo_orden_correcto")
+  // ── Legacy (backward compat) ──────────────────────────────────────────────
+  inspector                    String?
+  diametroToma                 String?   @map("diametro_toma")
+  medidorExistente             String?   @map("medidor_existente")
+  numMedidorExistente          String?   @map("num_medidor_existente")
+  metrosRupturaCalle           String?   @map("metros_ruptura_calle")
+  metrosRupturaBanqueta        String?   @map("metros_ruptura_banqueta")
+  existeRed                    String?   @map("existe_red")
+  distanciaRed                 String?   @map("distancia_red")
+  presionRed                   String?   @map("presion_red")
+  tipoMaterialRed              String?   @map("tipo_material_red")
+  profundidadRed               String?   @map("profundidad_red")
+  tomaExistente                String?   @map("toma_existente")
+  diametroTomaExistente        String?   @map("diametro_toma_existente")
+  estadoTomaExistente          String?   @map("estado_toma_existente")
+  createdAt                    DateTime  @default(now()) @map("created_at")
+  updatedAt                    DateTime  @updatedAt @map("updated_at")
+  solicitud                    Solicitud @relation(fields: [solicitudId], references: [id], onDelete: Cascade)
 
   @@map("solicitud_inspecciones")
 }

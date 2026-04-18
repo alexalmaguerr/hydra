@@ -61,24 +61,40 @@ import type { SolicitudRecord, OrdenInspeccionData, SolicitudEstado } from '@/ty
 function inspDtoToOrden(insp: SolicitudInspeccionDto): OrdenInspeccionData {
   return {
     estado: insp.estado as OrdenInspeccionData['estado'],
-    inspector: insp.inspector ?? undefined,
     fechaInspeccion: insp.fechaInspeccion ?? undefined,
-    materialCalle: (insp.materialCalle as OrdenInspeccionData['materialCalle']) ?? undefined,
-    materialBanqueta: (insp.materialBanqueta as OrdenInspeccionData['materialBanqueta']) ?? undefined,
+    numeroOficial: insp.numeroOficial ?? undefined,
+    tipoUso: insp.tipoUso ?? undefined,
+    giro: insp.giro ?? undefined,
+    areaTerreno: insp.areaTerreno ?? undefined,
+    condicionToma: insp.condicionToma ?? undefined,
+    condicionesPredio: insp.condicionesPredio ?? undefined,
+    infraHidraulicaExterna: (insp.infraHidraulicaExterna as 'si' | 'no' | '') ?? '',
+    infraSanitaria: (insp.infraSanitaria as 'si' | 'no' | '') ?? '',
+    materialCalle: insp.materialCalle ?? undefined,
+    materialBanqueta: insp.materialBanqueta ?? undefined,
+    metrosRupturaAguaBanqueta: insp.metrosRupturaAguaBanqueta ?? undefined,
+    metrosRupturaAguaCalle: insp.metrosRupturaAguaCalle ?? undefined,
+    metrosRupturaDrenajeBanqueta: insp.metrosRupturaDrenajeBanqueta ?? undefined,
+    metrosRupturaDrenajeCalle: insp.metrosRupturaDrenajeCalle ?? undefined,
+    observaciones: insp.observaciones ?? undefined,
+    evidencias: (insp.evidencias as string[]) ?? undefined,
+    resultadoEjecucion: insp.resultadoEjecucion ?? undefined,
+    resultadoInspeccion: insp.resultadoInspeccion ?? undefined,
+    inspectorNumEmpleado: insp.inspectorNumEmpleado ?? undefined,
+    inspectorNombre: insp.inspectorNombre ?? undefined,
+    firmaInspector: insp.firmaInspector ?? undefined,
+    inspectoresAdicionales: (insp.inspectoresAdicionales as OrdenInspeccionData['inspectoresAdicionales']) ?? undefined,
+    inicio: insp.inicio ?? undefined,
+    fin: insp.fin ?? undefined,
+    tipoOrdenCorrecto: (insp.tipoOrdenCorrecto as 'si' | 'no' | '') ?? '',
+    // Legacy
+    inspector: insp.inspector ?? undefined,
+    diametroToma: insp.diametroToma ?? undefined,
+    medidorExistente: (insp.medidorExistente as 'si' | 'no' | '') ?? '',
+    numMedidorExistente: insp.numMedidorExistente ?? undefined,
     metrosRupturaCalle: insp.metrosRupturaCalle ?? undefined,
     metrosRupturaBanqueta: insp.metrosRupturaBanqueta ?? undefined,
     existeRed: (insp.existeRed as 'si' | 'no' | '') ?? '',
-    distanciaRed: insp.distanciaRed ?? undefined,
-    presionRed: insp.presionRed ?? undefined,
-    tipoMaterialRed: insp.tipoMaterialRed ?? undefined,
-    profundidadRed: insp.profundidadRed ?? undefined,
-    diametroToma: insp.diametroToma ?? undefined,
-    tomaExistente: (insp.tomaExistente as 'si' | 'no' | '') ?? '',
-    diametroTomaExistente: insp.diametroTomaExistente ?? undefined,
-    estadoTomaExistente: insp.estadoTomaExistente ?? undefined,
-    medidorExistente: (insp.medidorExistente as 'si' | 'no' | '') ?? '',
-    numMedidorExistente: insp.numMedidorExistente ?? undefined,
-    observaciones: insp.observaciones ?? undefined,
   };
 }
 
@@ -107,6 +123,7 @@ function dtoToRecord(dto: SolicitudDto): SolicitudRecord {
 // ── Catalogues for inspection form ───────────────────────────────────────────
 
 const MATERIAL_CALLE = [
+  { id: 'empedrado', label: 'Empedrado' },
   { id: 'concreto_hidraulico', label: 'Concreto hidráulico' },
   { id: 'concreto_asfaltico', label: 'Concreto asfáltico' },
   { id: 'tierra', label: 'Tierra' },
@@ -115,10 +132,46 @@ const MATERIAL_CALLE = [
 ];
 
 const MATERIAL_BANQUETA = [
+  { id: 'concreto', label: 'Concreto' },
   { id: 'concreto_hidraulico', label: 'Concreto hidráulico' },
   { id: 'tierra', label: 'Tierra' },
   { id: 'adoquin', label: 'Adoquín' },
   { id: 'otro', label: 'Otro' },
+];
+
+const CONDICION_TOMA = [
+  { id: 'no_tiene', label: 'No tiene' },
+  { id: 'buena', label: 'Buena' },
+  { id: 'regular', label: 'Regular' },
+  { id: 'mala', label: 'Mala' },
+  { id: 'registrada', label: 'Registrada' },
+];
+
+const CONDICIONES_PREDIO = [
+  { id: 'baldio', label: 'Baldío' },
+  { id: 'construido', label: 'Construido' },
+  { id: 'en_construccion', label: 'En construcción' },
+  { id: 'fraccionamiento', label: 'Fraccionamiento' },
+];
+
+const TIPO_USO = [
+  { id: 'domestico', label: 'Doméstico' },
+  { id: 'no_domestico', label: 'No Doméstico' },
+  { id: 'baldio', label: 'Baldío' },
+  { id: 'comercial', label: 'Comercial' },
+  { id: 'industrial', label: 'Industrial' },
+];
+
+const RESULTADO_EJECUCION = [
+  { id: 'visitada_ejecutada', label: 'Visitada y Ejecutada' },
+  { id: 'no_ejecutada', label: 'No Ejecutada' },
+  { id: 'cancelada', label: 'Cancelada' },
+];
+
+const RESULTADO_INSPECCION = [
+  { id: 'ejecutada', label: 'Ejecutada' },
+  { id: 'no_ejecutada', label: 'No Ejecutada' },
+  { id: 'pendiente', label: 'Pendiente' },
 ];
 
 const DIAMETROS_TOMA = ['1/2"', '3/4"', '1"', '1.5"', '2"', '3"', '4"'];
@@ -187,12 +240,17 @@ function EstadoBadge({ estado }: { estado: SolicitudEstado }) {
 // ── Inspection detail helpers ─────────────────────────────────────────────────
 
 const MATERIAL_LABEL: Record<string, string> = {
+  empedrado: 'Empedrado',
   concreto_hidraulico: 'Concreto hidráulico',
   concreto_asfaltico: 'Concreto asfáltico',
+  concreto: 'Concreto',
   tierra: 'Tierra',
   adoquin: 'Adoquín',
   otro: 'Otro',
 };
+
+const CATALOG_LABEL = (list: { id: string; label: string }[], id?: string) =>
+  list.find((x) => x.id === id)?.label ?? id ?? '—';
 
 function DetailRow({ label, value }: { label: string; value?: string | null }) {
   if (!value) return null;
@@ -239,24 +297,29 @@ function YesNo({
 
 const MOCK_INSPECCION: OrdenInspeccionData = {
   estado: 'completada',
-  inspector: 'Carlos Mendoza',
-  fechaInspeccion: '2026-04-16',
-  materialCalle: 'concreto_asfaltico',
-  materialBanqueta: 'tierra',
-  metrosRupturaCalle: '0.29',
-  metrosRupturaBanqueta: '0.15',
-  existeRed: 'si',
-  distanciaRed: '2.5',
-  presionRed: '1.8',
-  tipoMaterialRed: 'PVC',
-  profundidadRed: '1.2',
-  diametroToma: '1"',
-  tomaExistente: 'no',
-  diametroTomaExistente: '',
-  estadoTomaExistente: '',
-  medidorExistente: 'no',
-  numMedidorExistente: '',
-  observaciones: 'Acceso sin restricciones. Terreno apto para instalación.',
+  fechaInspeccion: '2026-04-13',
+  numeroOficial: 'No marcado',
+  tipoUso: 'baldio',
+  giro: 'Baldío',
+  areaTerreno: '180',
+  condicionToma: 'no_tiene',
+  condicionesPredio: 'baldio',
+  infraHidraulicaExterna: 'si',
+  infraSanitaria: 'si',
+  materialCalle: 'empedrado',
+  materialBanqueta: 'concreto',
+  metrosRupturaAguaBanqueta: '2',
+  metrosRupturaAguaCalle: '0',
+  metrosRupturaDrenajeBanqueta: '2',
+  metrosRupturaDrenajeCalle: '3',
+  observaciones: 'Solar baldío físicamente no se aprecian las preparaciones de agua y drenaje, se marcan metros de ruptura.',
+  resultadoEjecucion: 'visitada_ejecutada',
+  resultadoInspeccion: 'ejecutada',
+  inspectorNumEmpleado: '180076',
+  inspectorNombre: 'Sergio Leonardo Nuñez López',
+  inicio: '2026-04-13T13:15:09',
+  fin: '2026-04-13T13:19:25',
+  tipoOrdenCorrecto: 'si',
 };
 
 // ── Inspection Sheet ──────────────────────────────────────────────────────────
@@ -361,52 +424,38 @@ function OrdenInspeccionSheet({
               </div>
 
               <Separator />
-
-              {/* Inspector / fecha */}
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Información general</p>
               <div className="grid grid-cols-2 gap-4">
-                <DetailRow label="Inspector" value={orden.inspector} />
                 <DetailRow label="Fecha de inspección" value={orden.fechaInspeccion} />
+                <DetailRow label="Número oficial" value={orden.numeroOficial} />
+                <DetailRow label="Tipo de uso" value={CATALOG_LABEL(TIPO_USO, orden.tipoUso)} />
+                <DetailRow label="Giro" value={orden.giro} />
+                <DetailRow label="Área terreno (m²)" value={orden.areaTerreno ? `${orden.areaTerreno} m²` : undefined} />
+                <DetailRow label="Condición de la toma" value={CATALOG_LABEL(CONDICION_TOMA, orden.condicionToma)} />
+                <DetailRow label="Condiciones del predio" value={CATALOG_LABEL(CONDICIONES_PREDIO, orden.condicionesPredio)} />
               </div>
 
               <Separator />
-              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Vía pública</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Infraestructura</p>
               <div className="grid grid-cols-2 gap-4">
+                <DetailRow label="Infra. hidráulica externa" value={orden.infraHidraulicaExterna === 'si' ? 'Sí' : orden.infraHidraulicaExterna === 'no' ? 'No' : undefined} />
+                <DetailRow label="Infra. sanitaria" value={orden.infraSanitaria === 'si' ? 'Sí' : orden.infraSanitaria === 'no' ? 'No' : undefined} />
                 <DetailRow label="Material de calle" value={orden.materialCalle ? MATERIAL_LABEL[orden.materialCalle] : undefined} />
                 <DetailRow label="Material de banqueta" value={orden.materialBanqueta ? MATERIAL_LABEL[orden.materialBanqueta] : undefined} />
-                <DetailRow label="Metros ruptura de calle" value={orden.metrosRupturaCalle ? `${orden.metrosRupturaCalle} ml` : undefined} />
-                <DetailRow label="Metros ruptura de banqueta" value={orden.metrosRupturaBanqueta ? `${orden.metrosRupturaBanqueta} ml` : undefined} />
               </div>
 
               <Separator />
-              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Red de agua</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Ruptura AGUA</p>
               <div className="grid grid-cols-2 gap-4">
-                <DetailRow label="¿Existe red en frente del predio?" value={orden.existeRed === 'si' ? 'Sí' : orden.existeRed === 'no' ? 'No' : undefined} />
-                <DetailRow label="Distancia de la red al predio" value={orden.distanciaRed ? `${orden.distanciaRed} m` : undefined} />
-                <DetailRow label="Presión en la red" value={orden.presionRed ? `${orden.presionRed} kg/cm²` : undefined} />
-                <DetailRow label="Tipo de material de la red" value={orden.tipoMaterialRed} />
-                <DetailRow label="Profundidad de la red" value={orden.profundidadRed ? `${orden.profundidadRed} m` : undefined} />
+                <DetailRow label="Banqueta (ml)" value={orden.metrosRupturaAguaBanqueta} />
+                <DetailRow label="Calle (ml)" value={orden.metrosRupturaAguaCalle} />
               </div>
 
               <Separator />
-              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Toma</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Ruptura DRENAJE</p>
               <div className="grid grid-cols-2 gap-4">
-                <DetailRow label="Diámetro de toma requerido" value={orden.diametroToma} />
-                <DetailRow label="¿Existe toma actualmente?" value={orden.tomaExistente === 'si' ? 'Sí' : orden.tomaExistente === 'no' ? 'No' : undefined} />
-                {orden.tomaExistente === 'si' && (
-                  <>
-                    <DetailRow label="Diámetro de toma existente" value={orden.diametroTomaExistente} />
-                    <DetailRow label="Estado de toma existente" value={orden.estadoTomaExistente} />
-                  </>
-                )}
-              </div>
-
-              <Separator />
-              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Medidor</p>
-              <div className="grid grid-cols-2 gap-4">
-                <DetailRow label="¿Existe medidor actualmente?" value={orden.medidorExistente === 'si' ? 'Sí' : orden.medidorExistente === 'no' ? 'No' : undefined} />
-                {orden.medidorExistente === 'si' && (
-                  <DetailRow label="Núm. de medidor existente" value={orden.numMedidorExistente} />
-                )}
+                <DetailRow label="Banqueta (ml)" value={orden.metrosRupturaDrenajeBanqueta} />
+                <DetailRow label="Calle (ml)" value={orden.metrosRupturaDrenajeCalle} />
               </div>
 
               {orden.observaciones && (
@@ -418,6 +467,63 @@ function OrdenInspeccionSheet({
                   </div>
                 </>
               )}
+
+              {orden.evidencias && orden.evidencias.length > 0 && (
+                <>
+                  <Separator />
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Evidencia fotográfica</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {orden.evidencias.map((src, i) => (
+                      <img key={i} src={src} alt={`Evidencia ${i + 1}`} className="w-full rounded-md border object-cover aspect-video" />
+                    ))}
+                  </div>
+                </>
+              )}
+
+              <Separator />
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Resultados</p>
+              <div className="grid grid-cols-2 gap-4">
+                <DetailRow label="Resultado de ejecución" value={CATALOG_LABEL(RESULTADO_EJECUCION, orden.resultadoEjecucion)} />
+                <DetailRow label="Resultado de inspección" value={CATALOG_LABEL(RESULTADO_INSPECCION, orden.resultadoInspeccion)} />
+              </div>
+
+              <Separator />
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Inspector asignado</p>
+              <div className="grid grid-cols-2 gap-4">
+                <DetailRow label="No. Empleado" value={orden.inspectorNumEmpleado} />
+                <DetailRow label="Nombre" value={orden.inspectorNombre} />
+              </div>
+              {orden.firmaInspector && (
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">Firma del inspector</p>
+                  <img src={orden.firmaInspector} alt="Firma inspector" className="max-h-28 rounded-md border bg-white p-2" />
+                </div>
+              )}
+
+              {orden.inspectoresAdicionales && orden.inspectoresAdicionales.length > 0 && (
+                <>
+                  <Separator />
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Inspectores adicionales</p>
+                  {orden.inspectoresAdicionales.map((insp, i) => (
+                    <div key={i} className="rounded-md border p-3 space-y-2">
+                      <div className="grid grid-cols-2 gap-2">
+                        <DetailRow label="No. Empleado" value={insp.noEmpleado} />
+                        <DetailRow label="Nombre" value={insp.nombre} />
+                      </div>
+                      {insp.firma && (
+                        <img src={insp.firma} alt={`Firma inspector ${i + 2}`} className="max-h-28 rounded-md border bg-white p-2" />
+                      )}
+                    </div>
+                  ))}
+                </>
+              )}
+
+              <Separator />
+              <div className="grid grid-cols-2 gap-4">
+                <DetailRow label="Inicio" value={orden.inicio} />
+                <DetailRow label="Fin" value={orden.fin} />
+                <DetailRow label="Tipo de orden correcto" value={orden.tipoOrdenCorrecto === 'si' ? 'Sí' : orden.tipoOrdenCorrecto === 'no' ? 'No' : undefined} />
+              </div>
             </div>
           )}
 
@@ -459,24 +565,70 @@ function OrdenInspeccionSheet({
                 </div>
               </div>
 
+              {/* Información general */}
+              <Separator />
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Información general</p>
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <Label className="text-sm">Inspector</Label>
-                  <Input className="h-9" placeholder="Nombre del inspector" value={draft.inspector ?? ''} onChange={(e) => set({ inspector: e.target.value })} />
-                </div>
                 <div className="space-y-1">
                   <Label className="text-sm">Fecha de inspección</Label>
                   <Input className="h-9" type="date" value={draft.fechaInspeccion ?? ''} onChange={(e) => set({ fechaInspeccion: e.target.value })} />
                 </div>
+                <div className="space-y-1">
+                  <Label className="text-sm">Número oficial</Label>
+                  <Input className="h-9" placeholder="Ej. 123 o No marcado" value={draft.numeroOficial ?? ''} onChange={(e) => set({ numeroOficial: e.target.value })} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-sm">Tipo de uso</Label>
+                  <Select value={draft.tipoUso ?? ''} onValueChange={(v) => set({ tipoUso: v })}>
+                    <SelectTrigger className="h-9"><SelectValue placeholder="Seleccionar…" /></SelectTrigger>
+                    <SelectContent>
+                      {TIPO_USO.map((t) => <SelectItem key={t.id} value={t.id}>{t.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-sm">Giro</Label>
+                  <Input className="h-9" placeholder="Ej. Baldío, Restaurante…" value={draft.giro ?? ''} onChange={(e) => set({ giro: e.target.value })} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-sm">Área terreno (m²)</Label>
+                  <Input className="h-9" type="number" min="0" placeholder="0" value={draft.areaTerreno ?? ''} onChange={(e) => set({ areaTerreno: e.target.value })} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-sm">Condición de la toma</Label>
+                  <Select value={draft.condicionToma ?? ''} onValueChange={(v) => set({ condicionToma: v })}>
+                    <SelectTrigger className="h-9"><SelectValue placeholder="Seleccionar…" /></SelectTrigger>
+                    <SelectContent>
+                      {CONDICION_TOMA.map((c) => <SelectItem key={c.id} value={c.id}>{c.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="col-span-2 space-y-1">
+                  <Label className="text-sm">Condiciones del predio</Label>
+                  <Select value={draft.condicionesPredio ?? ''} onValueChange={(v) => set({ condicionesPredio: v })}>
+                    <SelectTrigger className="h-9"><SelectValue placeholder="Seleccionar…" /></SelectTrigger>
+                    <SelectContent>
+                      {CONDICIONES_PREDIO.map((c) => <SelectItem key={c.id} value={c.id}>{c.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
+              {/* Infraestructura */}
               <Separator />
-              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Vía pública</p>
-
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Infraestructura</p>
               <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="text-sm">¿Infra. hidráulica externa?</Label>
+                  <YesNo value={draft.infraHidraulicaExterna ?? ''} onChange={(v) => set({ infraHidraulicaExterna: v })} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-sm">¿Infra. sanitaria?</Label>
+                  <YesNo value={draft.infraSanitaria ?? ''} onChange={(v) => set({ infraSanitaria: v })} />
+                </div>
                 <div className="space-y-1">
                   <Label className="text-sm">Material de calle</Label>
-                  <Select value={draft.materialCalle ?? ''} onValueChange={(v) => set({ materialCalle: v as OrdenInspeccionData['materialCalle'] })}>
+                  <Select value={draft.materialCalle ?? ''} onValueChange={(v) => set({ materialCalle: v })}>
                     <SelectTrigger className="h-9"><SelectValue placeholder="Seleccionar…" /></SelectTrigger>
                     <SelectContent>
                       {MATERIAL_CALLE.map((m) => <SelectItem key={m.id} value={m.id}>{m.label}</SelectItem>)}
@@ -485,115 +637,231 @@ function OrdenInspeccionSheet({
                 </div>
                 <div className="space-y-1">
                   <Label className="text-sm">Material de banqueta</Label>
-                  <Select value={draft.materialBanqueta ?? ''} onValueChange={(v) => set({ materialBanqueta: v as OrdenInspeccionData['materialBanqueta'] })}>
+                  <Select value={draft.materialBanqueta ?? ''} onValueChange={(v) => set({ materialBanqueta: v })}>
                     <SelectTrigger className="h-9"><SelectValue placeholder="Seleccionar…" /></SelectTrigger>
                     <SelectContent>
                       {MATERIAL_BANQUETA.map((m) => <SelectItem key={m.id} value={m.id}>{m.label}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
+              </div>
+
+              {/* Ruptura AGUA */}
+              <Separator />
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Metros de ruptura — AGUA</p>
+              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <Label className="text-sm">Metros ruptura de calle (ml)</Label>
-                  <Input className="h-9" type="number" min="0" step="0.01" placeholder="0.00" value={draft.metrosRupturaCalle ?? ''} onChange={(e) => set({ metrosRupturaCalle: e.target.value })} />
+                  <Label className="text-sm">Banqueta (ml)</Label>
+                  <Input className="h-9" type="number" min="0" step="0.01" placeholder="0" value={draft.metrosRupturaAguaBanqueta ?? ''} onChange={(e) => set({ metrosRupturaAguaBanqueta: e.target.value })} />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-sm">Metros ruptura de banqueta (ml)</Label>
-                  <Input className="h-9" type="number" min="0" step="0.01" placeholder="0.00" value={draft.metrosRupturaBanqueta ?? ''} onChange={(e) => set({ metrosRupturaBanqueta: e.target.value })} />
+                  <Label className="text-sm">Calle (ml)</Label>
+                  <Input className="h-9" type="number" min="0" step="0.01" placeholder="0" value={draft.metrosRupturaAguaCalle ?? ''} onChange={(e) => set({ metrosRupturaAguaCalle: e.target.value })} />
                 </div>
               </div>
 
+              {/* Ruptura DRENAJE */}
               <Separator />
-              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Red de agua</p>
-
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Metros de ruptura — DRENAJE</p>
               <div className="grid grid-cols-2 gap-4">
-                <div className="col-span-2 space-y-1.5">
-                  <Label className="text-sm">¿Existe red en frente del predio?</Label>
-                  <YesNo value={draft.existeRed ?? ''} onChange={(v) => set({ existeRed: v })} />
+                <div className="space-y-1">
+                  <Label className="text-sm">Banqueta (ml)</Label>
+                  <Input className="h-9" type="number" min="0" step="0.01" placeholder="0" value={draft.metrosRupturaDrenajeBanqueta ?? ''} onChange={(e) => set({ metrosRupturaDrenajeBanqueta: e.target.value })} />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-sm">Distancia de la red al predio (m)</Label>
-                  <Input className="h-9" type="number" min="0" step="0.1" placeholder="0.0" value={draft.distanciaRed ?? ''} onChange={(e) => set({ distanciaRed: e.target.value })} />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-sm">Presión en la red (kg/cm²)</Label>
-                  <Input className="h-9" type="number" min="0" step="0.01" placeholder="0.00" value={draft.presionRed ?? ''} onChange={(e) => set({ presionRed: e.target.value })} />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-sm">Tipo de material de la red</Label>
-                  <Input className="h-9" placeholder="Ej. PVC, Asbesto…" value={draft.tipoMaterialRed ?? ''} onChange={(e) => set({ tipoMaterialRed: e.target.value })} />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-sm">Profundidad de la red (m)</Label>
-                  <Input className="h-9" type="number" min="0" step="0.01" placeholder="0.00" value={draft.profundidadRed ?? ''} onChange={(e) => set({ profundidadRed: e.target.value })} />
+                  <Label className="text-sm">Calle (ml)</Label>
+                  <Input className="h-9" type="number" min="0" step="0.01" placeholder="0" value={draft.metrosRupturaDrenajeCalle ?? ''} onChange={(e) => set({ metrosRupturaDrenajeCalle: e.target.value })} />
                 </div>
               </div>
 
+              {/* Observaciones y evidencia */}
               <Separator />
-              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Toma</p>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <Label className="text-sm">Diámetro de toma requerido</Label>
-                  <Select value={draft.diametroToma ?? ''} onValueChange={(v) => set({ diametroToma: v })}>
-                    <SelectTrigger className="h-9"><SelectValue placeholder="Seleccionar…" /></SelectTrigger>
-                    <SelectContent>
-                      {DIAMETROS_TOMA.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="col-span-2 space-y-1.5">
-                  <Label className="text-sm">¿Existe toma actualmente?</Label>
-                  <YesNo value={draft.tomaExistente ?? ''} onChange={(v) => set({ tomaExistente: v })} />
-                </div>
-                {draft.tomaExistente === 'si' && (
-                  <>
-                    <div className="space-y-1">
-                      <Label className="text-sm">Diámetro toma existente</Label>
-                      <Select value={draft.diametroTomaExistente ?? ''} onValueChange={(v) => set({ diametroTomaExistente: v })}>
-                        <SelectTrigger className="h-9"><SelectValue placeholder="Seleccionar…" /></SelectTrigger>
-                        <SelectContent>
-                          {DIAMETROS_TOMA.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-sm">Estado de toma existente</Label>
-                      <Select value={draft.estadoTomaExistente ?? ''} onValueChange={(v) => set({ estadoTomaExistente: v })}>
-                        <SelectTrigger className="h-9"><SelectValue placeholder="Seleccionar…" /></SelectTrigger>
-                        <SelectContent>
-                          {['Buena', 'Regular', 'Mala'].map((e) => <SelectItem key={e} value={e}>{e}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </>
-                )}
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Observaciones y evidencia</p>
+              <div className="space-y-1">
+                <Label className="text-sm">Observaciones</Label>
+                <textarea
+                  className="min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"
+                  placeholder="Descripción de las condiciones encontradas…"
+                  value={draft.observaciones ?? ''}
+                  onChange={(e) => set({ observaciones: e.target.value })}
+                />
               </div>
-
-              <Separator />
-              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Medidor</p>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="col-span-2 space-y-1.5">
-                  <Label className="text-sm">¿Existe medidor actualmente?</Label>
-                  <YesNo value={draft.medidorExistente ?? ''} onChange={(v) => set({ medidorExistente: v })} />
-                </div>
-                {draft.medidorExistente === 'si' && (
-                  <div className="space-y-1">
-                    <Label className="text-sm">Núm. de medidor existente</Label>
-                    <Input className="h-9" placeholder="Núm. medidor" value={draft.numMedidorExistente ?? ''} onChange={(e) => set({ numMedidorExistente: e.target.value })} />
+              <div className="space-y-2">
+                <Label className="text-sm">Evidencia fotográfica</Label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="block w-full text-sm text-muted-foreground file:mr-3 file:rounded file:border-0 file:bg-muted file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-foreground hover:file:bg-muted/80"
+                  onChange={(e) => {
+                    const files = Array.from(e.target.files ?? []);
+                    files.forEach((file) => {
+                      const reader = new FileReader();
+                      reader.onload = (ev) => {
+                        const b64 = ev.target?.result as string;
+                        set({ evidencias: [...(draft.evidencias ?? []), b64] });
+                      };
+                      reader.readAsDataURL(file);
+                    });
+                    e.target.value = '';
+                  }}
+                />
+                {draft.evidencias && draft.evidencias.length > 0 && (
+                  <div className="grid grid-cols-2 gap-2">
+                    {draft.evidencias.map((src, i) => (
+                      <div key={i} className="relative group">
+                        <img src={src} alt={`Evidencia ${i + 1}`} className="w-full rounded-md border object-cover aspect-video" />
+                        <button
+                          type="button"
+                          onClick={() => set({ evidencias: draft.evidencias!.filter((_, j) => j !== i) })}
+                          className="absolute top-1 right-1 hidden group-hover:flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-white text-xs"
+                        >✕</button>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
 
+              {/* Resultados */}
               <Separator />
-              <div className="space-y-1">
-                <Label className="text-sm">Observaciones del inspector</Label>
-                <textarea
-                  className="min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  placeholder="Notas adicionales del inspector…"
-                  value={draft.observaciones ?? ''}
-                  onChange={(e) => set({ observaciones: e.target.value })}
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Resultados</p>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <Label className="text-sm">Resultado de ejecución</Label>
+                  <Select value={draft.resultadoEjecucion ?? ''} onValueChange={(v) => set({ resultadoEjecucion: v })}>
+                    <SelectTrigger className="h-9"><SelectValue placeholder="Seleccionar…" /></SelectTrigger>
+                    <SelectContent>
+                      {RESULTADO_EJECUCION.map((r) => <SelectItem key={r.id} value={r.id}>{r.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-sm">Resultado de inspección</Label>
+                  <Select value={draft.resultadoInspeccion ?? ''} onValueChange={(v) => set({ resultadoInspeccion: v })}>
+                    <SelectTrigger className="h-9"><SelectValue placeholder="Seleccionar…" /></SelectTrigger>
+                    <SelectContent>
+                      {RESULTADO_INSPECCION.map((r) => <SelectItem key={r.id} value={r.id}>{r.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Inspector principal */}
+              <Separator />
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Inspector asignado</p>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <Label className="text-sm">No. Empleado</Label>
+                  <Input className="h-9" placeholder="180076" value={draft.inspectorNumEmpleado ?? ''} onChange={(e) => set({ inspectorNumEmpleado: e.target.value })} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-sm">Nombre</Label>
+                  <Input className="h-9" placeholder="Nombre completo" value={draft.inspectorNombre ?? ''} onChange={(e) => set({ inspectorNombre: e.target.value })} />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-sm">Firma del inspector</Label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="block w-full text-sm text-muted-foreground file:mr-3 file:rounded file:border-0 file:bg-muted file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-foreground hover:file:bg-muted/80"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = (ev) => set({ firmaInspector: ev.target?.result as string });
+                    reader.readAsDataURL(file);
+                  }}
                 />
+                {draft.firmaInspector && (
+                  <div className="flex items-start gap-2">
+                    <img src={draft.firmaInspector} alt="Firma" className="max-h-24 rounded-md border bg-white p-2" />
+                    <button type="button" onClick={() => set({ firmaInspector: undefined })} className="text-xs text-destructive hover:underline">Eliminar</button>
+                  </div>
+                )}
+              </div>
+
+              {/* Inspectores adicionales */}
+              <Separator />
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Inspectores adicionales</p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={() => set({ inspectoresAdicionales: [...(draft.inspectoresAdicionales ?? []), { noEmpleado: '', nombre: '' }] })}
+                >
+                  + Agregar
+                </Button>
+              </div>
+              {(draft.inspectoresAdicionales ?? []).map((insp, i) => (
+                <div key={i} className="rounded-md border p-3 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-medium text-muted-foreground">Inspector {i + 2}</p>
+                    <button
+                      type="button"
+                      onClick={() => set({ inspectoresAdicionales: draft.inspectoresAdicionales!.filter((_, j) => j !== i) })}
+                      className="text-xs text-destructive hover:underline"
+                    >Eliminar</button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs">No. Empleado</Label>
+                      <Input className="h-8" placeholder="110152" value={insp.noEmpleado} onChange={(e) => {
+                        const updated = [...draft.inspectoresAdicionales!];
+                        updated[i] = { ...updated[i], noEmpleado: e.target.value };
+                        set({ inspectoresAdicionales: updated });
+                      }} />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Nombre</Label>
+                      <Input className="h-8" placeholder="Nombre completo" value={insp.nombre} onChange={(e) => {
+                        const updated = [...draft.inspectoresAdicionales!];
+                        updated[i] = { ...updated[i], nombre: e.target.value };
+                        set({ inspectoresAdicionales: updated });
+                      }} />
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Firma</Label>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="block w-full text-xs text-muted-foreground file:mr-2 file:rounded file:border-0 file:bg-muted file:px-2 file:py-1 file:text-xs file:font-medium"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        const reader = new FileReader();
+                        reader.onload = (ev) => {
+                          const updated = [...draft.inspectoresAdicionales!];
+                          updated[i] = { ...updated[i], firma: ev.target?.result as string };
+                          set({ inspectoresAdicionales: updated });
+                        };
+                        reader.readAsDataURL(file);
+                      }}
+                    />
+                    {insp.firma && <img src={insp.firma} alt="Firma" className="max-h-20 rounded-md border bg-white p-1" />}
+                  </div>
+                </div>
+              ))}
+
+              {/* Tiempos y validación */}
+              <Separator />
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Tiempos y validación</p>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <Label className="text-sm">Inicio</Label>
+                  <Input className="h-9" type="datetime-local" value={draft.inicio ?? ''} onChange={(e) => set({ inicio: e.target.value })} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-sm">Fin</Label>
+                  <Input className="h-9" type="datetime-local" value={draft.fin ?? ''} onChange={(e) => set({ fin: e.target.value })} />
+                </div>
+                <div className="col-span-2 space-y-1.5">
+                  <Label className="text-sm">¿El tipo de inspección y número de orden es correcto?</Label>
+                  <YesNo value={draft.tipoOrdenCorrecto ?? ''} onChange={(v) => set({ tipoOrdenCorrecto: v })} />
+                </div>
               </div>
             </div>
           )}
@@ -691,18 +959,22 @@ function calcularCotizacion(orden: OrdenInspeccionData): ConceptoCotizacion[] {
   // Derechos de conexión (fixed)
   conceptos.push({ descripcion: 'Derechos de conexión', cantidad: 1, unidad: 'servicio', precioUnitario: 1200, subtotal: 1200 });
 
-  // Ruptura y reposición de calle
-  const mlCalle = parseFloat(orden.metrosRupturaCalle ?? '0') || 0;
+  // Ruptura y reposición de calle (agua + drenaje, con fallback a legacy)
+  const mlCalleAgua = parseFloat(orden.metrosRupturaAguaCalle ?? orden.metrosRupturaCalle ?? '0') || 0;
+  const mlCalleDrenaje = parseFloat(orden.metrosRupturaDrenajeCalle ?? '0') || 0;
+  const mlCalle = mlCalleAgua + mlCalleDrenaje;
   if (mlCalle > 0) {
     const pu = PRECIO_CALLE[orden.materialCalle ?? ''] ?? 400;
-    conceptos.push({ descripcion: `Reposición de calle (${orden.materialCalle ?? 'N/A'})`, cantidad: mlCalle, unidad: 'ml', precioUnitario: pu, subtotal: mlCalle * pu });
+    conceptos.push({ descripcion: `Reposición de calle (${MATERIAL_LABEL[orden.materialCalle ?? ''] ?? 'N/A'})`, cantidad: mlCalle, unidad: 'ml', precioUnitario: pu, subtotal: mlCalle * pu });
   }
 
-  // Ruptura y reposición de banqueta
-  const mlBanqueta = parseFloat(orden.metrosRupturaBanqueta ?? '0') || 0;
+  // Ruptura y reposición de banqueta (agua + drenaje, con fallback a legacy)
+  const mlBanquetaAgua = parseFloat(orden.metrosRupturaAguaBanqueta ?? orden.metrosRupturaBanqueta ?? '0') || 0;
+  const mlBanquetaDrenaje = parseFloat(orden.metrosRupturaDrenajeBanqueta ?? '0') || 0;
+  const mlBanqueta = mlBanquetaAgua + mlBanquetaDrenaje;
   if (mlBanqueta > 0) {
     const pu = PRECIO_BANQUETA[orden.materialBanqueta ?? ''] ?? 350;
-    conceptos.push({ descripcion: `Reposición de banqueta (${orden.materialBanqueta ?? 'N/A'})`, cantidad: mlBanqueta, unidad: 'ml', precioUnitario: pu, subtotal: mlBanqueta * pu });
+    conceptos.push({ descripcion: `Reposición de banqueta (${MATERIAL_LABEL[orden.materialBanqueta ?? ''] ?? 'N/A'})`, cantidad: mlBanqueta, unidad: 'ml', precioUnitario: pu, subtotal: mlBanqueta * pu });
   }
 
   // Instalación de toma
