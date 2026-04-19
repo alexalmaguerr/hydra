@@ -226,8 +226,33 @@ type StepKey = typeof STEPS[number]['key'];
 
 // ── Per-step validation ───────────────────────────────────────────────────────
 
-function validDir(d: { estadoINEGIId: string; municipioINEGIId: string; coloniaINEGIId: string; calle: string; numExterior: string }) {
-  return !!(d.estadoINEGIId && d.municipioINEGIId && d.coloniaINEGIId && d.calle.trim() && d.numExterior.trim());
+function validDir(d: {
+  estadoINEGIId: string;
+  municipioINEGIId: string;
+  localidadINEGIId: string;
+  coloniaINEGIId: string;
+  calle: string;
+  numExterior: string;
+}) {
+  return !!(
+    d.estadoINEGIId &&
+    d.municipioINEGIId &&
+    d.localidadINEGIId &&
+    d.coloniaINEGIId &&
+    d.calle.trim() &&
+    d.numExterior.trim()
+  );
+}
+
+/** Validación condominio — preguntas c y d marcadas obligatorias en UI */
+function validCondominioCd(form: SolicitudState): boolean {
+  if (!form.condoAreasComunes || !form.condoAgrupacion) return false;
+  if (form.condoAreasComunes === 'si') {
+    const n = Number(form.condoNumAreas);
+    if (!form.condoNumAreas.trim() || !Number.isFinite(n) || n < 1) return false;
+  }
+  if (form.condoAgrupacion === 'si' && !form.condoNombreAgrupacion.trim()) return false;
+  return true;
 }
 
 function canAdvance(step: number, form: SolicitudState): boolean {
@@ -256,10 +281,12 @@ function canAdvance(step: number, form: SolicitudState): boolean {
       return true;
     }
 
-    case 3: // Solicitud
+    case 3: { // Solicitud
       if (!form.usoDomestico || !form.hayTuberias) return false;
       if (form.usoDomestico === 'no') return !!form.noDomHayInfra;
+      if (form.usoDomestico === 'si' && form.esCondominio === 'si' && !validCondominioCd(form)) return false;
       return true;
+    }
 
     case 4: // Contratación
       return !!(form.adminId && form.tipoContratacionId && form.distritoId && form.grupoActividadId && form.actividadId);
@@ -528,10 +555,19 @@ function StepSolicitud({ form, set }: { form: SolicitudState; set: (p: Partial<S
                 </div>
 
                 <div className="space-y-2">
-                  <p className="text-sm">c. ¿Se pretende contratar servicio para áreas comunes? <span className="text-xs text-muted-foreground">(Excepto áreas verdes)</span></p>
+                  <p className="text-sm">
+                    c. ¿Se pretende contratar servicio para áreas comunes?{' '}
+                    <span className="text-xs text-muted-foreground">(Excepto áreas verdes)</span>{' '}
+                    <span className="text-destructive">*</span>
+                  </p>
                   <YesNo id="condo-areas" value={form.condoAreasComunes} onChange={(v) => set({ condoAreasComunes: v, condoNumAreas: '' })} />
                   {form.condoAreasComunes === 'si' && (
-                    <Input className="mt-1.5 h-9 max-w-xs" type="number" min="1" placeholder="¿Cuántas áreas?" value={form.condoNumAreas} onChange={(e) => set({ condoNumAreas: e.target.value })} />
+                    <div className="mt-1.5 space-y-1.5">
+                      <Label className="text-sm font-normal leading-snug">
+                        ¿Cuántas áreas? <span className="text-destructive">*</span>
+                      </Label>
+                      <Input className="h-9 max-w-xs" type="number" min="1" placeholder="Ej. 2" value={form.condoNumAreas} onChange={(e) => set({ condoNumAreas: e.target.value })} />
+                    </div>
                   )}
                 </div>
 
@@ -539,7 +575,12 @@ function StepSolicitud({ form, set }: { form: SolicitudState; set: (p: Partial<S
                   <p className="text-sm">d. ¿Existe una agrupación formal de colonos o condominios? <span className="text-destructive">*</span></p>
                   <YesNo id="condo-agrupacion" value={form.condoAgrupacion} onChange={(v) => set({ condoAgrupacion: v, condoNombreAgrupacion: '' })} />
                   {form.condoAgrupacion === 'si' && (
-                    <Input className="mt-1.5 h-9 max-w-sm" placeholder="Nombre de la agrupación" value={form.condoNombreAgrupacion} onChange={(e) => set({ condoNombreAgrupacion: e.target.value })} />
+                    <div className="mt-1.5 space-y-1.5">
+                      <Label className="text-sm font-normal leading-snug">
+                        Nombre de la agrupación <span className="text-destructive">*</span>
+                      </Label>
+                      <Input className="h-9 max-w-sm" placeholder="Nombre de la agrupación" value={form.condoNombreAgrupacion} onChange={(e) => set({ condoNombreAgrupacion: e.target.value })} />
+                    </div>
                   )}
                 </div>
               </div>
