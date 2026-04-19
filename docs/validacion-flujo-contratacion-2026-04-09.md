@@ -74,11 +74,11 @@ Documento de brechas entre el flujo operativo deseado (lista de pasos + notas SI
 ### Facturación, PDF e impresión de contrato (2026-04-10)
 
 - **`Contrato.textoContratoSnapshot`** (campo `Text?`): se captura automáticamente al crear el contrato, resolviendo el snapshot de cláusulas para reimpresión fiel.
-- **`GET /contratos/:id/contrato-pdf`**: devuelve HTML print-ready con el texto del snapshot (o preview si no hay snapshot). El frontend abre en nueva pestaña para imprimir/guardar PDF vía navegador.
+- **`GET /contratos/:id/contrato-pdf`**: devuelve HTML print-ready con el texto del snapshot (o preview si no hay snapshot). Requiere **JWT**; el frontend no debe abrir la URL cruda en una pestaña nueva (el navegador no envía `Authorization`). Obtiene el HTML con `fetch` autenticado y abre un `blob:` en nueva pestaña para imprimir/guardar PDF.
 - **`POST /contratos/:id/factura-contratacion`**: genera `Timbrado` (estado Pendiente, sin consumo) + registros `CostoContrato` con los conceptos de cobro del tipo de contratación. Controlado por `FEATURE_FACTURACION_CONTRATACION=true`.
 - **Wizard**: checkbox "Generar factura de contratación al crear el contrato" en el paso **Facturación** (`PasoFacturacion.tsx`, visible solo con `VITE_FEATURE_FACTURACION_CONTRATACION=true`); por defecto marcado; envía `generarFacturaContratacion` en el POST de alta cuando aplica.
 - **Tab Facturación** en detalle: botón "Facturar contratación" (visible solo con flag) para generar la factura post-alta.
-- **Tab Texto contrato** en detalle: botón "Imprimir / PDF" que abre el endpoint HTML en nueva pestaña.
+- **Tab Texto contrato** en detalle: botón "Imprimir / PDF" que descarga el HTML con sesión (`fetchContratoPdfHtml`) y lo abre en nueva pestaña (`blob:`).
 - **Feature flag**: `FEATURE_FACTURACION_CONTRATACION` (backend) / `VITE_FEATURE_FACTURACION_CONTRATACION` (frontend), default `false`.
 
 ### Documentación del sistema anterior en el repo (2026-04-16)
