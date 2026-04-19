@@ -66,7 +66,7 @@ export function useSolicitudesStore() {
         adminId: formData.adminId,
         tipoContratacionId: formData.tipoContratacionId,
         usoDomestico: formData.usoDomestico,
-        estado: 'borrador',
+        estado: formData.generarOrdenInspeccion ? 'inspeccion_pendiente' : 'espera_cliente',
         formData,
         createdAt: now,
       };

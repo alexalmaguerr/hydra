@@ -155,7 +155,9 @@ export default function DomicilioPickerForm({ value, onChange, disabled = false 
 
       {/* Localidad */}
       <div className="space-y-1">
-        <Label>Localidad</Label>
+        <Label>
+          Localidad <span className="text-destructive">*</span>
+        </Label>
         {loadingLocs ? (
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <Loader2 className="h-3.5 w-3.5 animate-spin" /> Cargando…

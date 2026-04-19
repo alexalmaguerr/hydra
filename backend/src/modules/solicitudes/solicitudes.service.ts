@@ -60,6 +60,10 @@ export class SolicitudesService {
     formData: object;
   }) {
     const folio = await this.generarFolio();
+    const fd = dto.formData as Record<string, unknown>;
+    const genInsp = fd.generarOrdenInspeccion === true;
+    /** CEAFUS01: con orden de inspección → cola de inspección; sin orden → espera de acciones del cliente. */
+    const estadoInicial = genInsp ? 'inspeccion_pendiente' : 'espera_cliente';
     return this.prisma.solicitud.create({
       data: {
         folio,
@@ -72,7 +76,7 @@ export class SolicitudesService {
         claveCatastral: dto.claveCatastral ?? null,
         adminId: dto.adminId ?? null,
         tipoContratacionId: dto.tipoContratacionId ?? null,
-        estado: 'inspeccion_pendiente',
+        estado: estadoInicial,
         formData: dto.formData,
       },
       include: { inspeccion: true },

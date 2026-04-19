@@ -86,6 +86,11 @@ export class ContratosController {
     return this.billingEngine.calcular(body.tipoContratacionId, body.variables ?? {});
   }
 
+  @Get(':id/orden-inspeccion')
+  getOrdenInspeccion(@Param('id') id: string) {
+    return this.contratosService.getOrdenInspeccionContrato(id);
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.contratosService.findOne(id);

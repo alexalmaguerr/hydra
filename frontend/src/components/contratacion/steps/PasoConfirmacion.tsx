@@ -40,7 +40,7 @@ export default function PasoConfirmacion({ data }: StepProps) {
             <dd className="font-medium">{data.propietario?.nombre?.trim() || '—'}</dd>
           </div>
           <div>
-            <dt className="text-muted-foreground">Total facturación (estimado)</dt>
+            <dt className="text-muted-foreground">Total de cuantificación (estimado)</dt>
             <dd className="text-lg font-semibold tabular-nums">{totalLabel}</dd>
           </div>
         </dl>

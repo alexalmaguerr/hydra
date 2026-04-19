@@ -7,7 +7,6 @@ import {
   aceptarSolicitud as apiAceptarSolicitud,
   rechazarSolicitud as apiRechazarSolicitud,
   type SolicitudDto,
-  type SolicitudInspeccionDto,
 } from '@/api/solicitudes';
 import {
   ClipboardPlus,
@@ -55,48 +54,9 @@ import { Separator } from '@/components/ui/separator';
 import { toast } from '@/components/ui/sonner';
 import { cn } from '@/lib/utils';
 import type { SolicitudRecord, OrdenInspeccionData, SolicitudEstado } from '@/types/solicitudes';
+import { solicitudInspeccionDtoToOrden } from '@/lib/orden-inspeccion-mapper';
 
 // ── DTO → local record mappers ────────────────────────────────────────────────
-
-function inspDtoToOrden(insp: SolicitudInspeccionDto): OrdenInspeccionData {
-  return {
-    estado: insp.estado as OrdenInspeccionData['estado'],
-    fechaInspeccion: insp.fechaInspeccion ?? undefined,
-    numeroOficial: insp.numeroOficial ?? undefined,
-    tipoUso: insp.tipoUso ?? undefined,
-    giro: insp.giro ?? undefined,
-    areaTerreno: insp.areaTerreno ?? undefined,
-    condicionToma: insp.condicionToma ?? undefined,
-    condicionesPredio: insp.condicionesPredio ?? undefined,
-    infraHidraulicaExterna: (insp.infraHidraulicaExterna as 'si' | 'no' | '') ?? '',
-    infraSanitaria: (insp.infraSanitaria as 'si' | 'no' | '') ?? '',
-    materialCalle: insp.materialCalle ?? undefined,
-    materialBanqueta: insp.materialBanqueta ?? undefined,
-    metrosRupturaAguaBanqueta: insp.metrosRupturaAguaBanqueta ?? undefined,
-    metrosRupturaAguaCalle: insp.metrosRupturaAguaCalle ?? undefined,
-    metrosRupturaDrenajeBanqueta: insp.metrosRupturaDrenajeBanqueta ?? undefined,
-    metrosRupturaDrenajeCalle: insp.metrosRupturaDrenajeCalle ?? undefined,
-    observaciones: insp.observaciones ?? undefined,
-    evidencias: (insp.evidencias as string[]) ?? undefined,
-    resultadoEjecucion: insp.resultadoEjecucion ?? undefined,
-    resultadoInspeccion: insp.resultadoInspeccion ?? undefined,
-    inspectorNumEmpleado: insp.inspectorNumEmpleado ?? undefined,
-    inspectorNombre: insp.inspectorNombre ?? undefined,
-    firmaInspector: insp.firmaInspector ?? undefined,
-    inspectoresAdicionales: (insp.inspectoresAdicionales as OrdenInspeccionData['inspectoresAdicionales']) ?? undefined,
-    inicio: insp.inicio ?? undefined,
-    fin: insp.fin ?? undefined,
-    tipoOrdenCorrecto: (insp.tipoOrdenCorrecto as 'si' | 'no' | '') ?? '',
-    // Legacy
-    inspector: insp.inspector ?? undefined,
-    diametroToma: insp.diametroToma ?? undefined,
-    medidorExistente: (insp.medidorExistente as 'si' | 'no' | '') ?? '',
-    numMedidorExistente: insp.numMedidorExistente ?? undefined,
-    metrosRupturaCalle: insp.metrosRupturaCalle ?? undefined,
-    metrosRupturaBanqueta: insp.metrosRupturaBanqueta ?? undefined,
-    existeRed: (insp.existeRed as 'si' | 'no' | '') ?? '',
-  };
-}
 
 function dtoToRecord(dto: SolicitudDto): SolicitudRecord {
   const fd = dto.formData as any;
@@ -113,7 +73,7 @@ function dtoToRecord(dto: SolicitudDto): SolicitudRecord {
     tipoContratacionId: dto.tipoContratacionId ?? '',
     usoDomestico: (fd?.usoDomestico as 'si' | 'no' | '') ?? '',
     estado: dto.estado as SolicitudEstado,
-    ordenInspeccion: dto.inspeccion ? inspDtoToOrden(dto.inspeccion) : undefined,
+    ordenInspeccion: dto.inspeccion ? solicitudInspeccionDtoToOrden(dto.inspeccion) : undefined,
     formData: dto.formData,
     contratoId: dto.contratoId ?? undefined,
     createdAt: dto.createdAt,
@@ -180,12 +140,17 @@ const DIAMETROS_TOMA = ['1/2"', '3/4"', '1"', '1.5"', '2"', '3"', '4"'];
 
 const ESTADO_CONFIG: Record<SolicitudEstado, { label: string; icon: React.ElementType; className: string }> = {
   borrador: {
-    label: 'Pendiente de inspección',
+    label: 'Borrador',
     icon: Clock,
     className: 'border-slate-300 bg-slate-50 text-slate-700 dark:bg-slate-900/40 dark:text-slate-300',
   },
+  espera_cliente: {
+    label: 'En espera de cliente',
+    icon: CalendarClock,
+    className: 'border-violet-400/60 bg-violet-50 text-violet-900 dark:bg-violet-950/40 dark:text-violet-200',
+  },
   inspeccion_pendiente: {
-    label: 'Pendiente de inspección',
+    label: 'En espera de inspección',
     icon: Clock,
     className: 'border-amber-400/60 bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300',
   },

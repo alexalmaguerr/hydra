@@ -18,7 +18,7 @@ export const WIZARD_STEPS: { key: WizardStep; label: string }[] = [
   { key: 'configContrato', label: 'Configuración' },
   { key: 'variables', label: 'Variables' },
   { key: 'documentos', label: 'Documentos' },
-  { key: 'facturacion', label: 'Facturación' },
+  { key: 'facturacion', label: 'Cuantificación' },
   { key: 'ordenes', label: 'Órdenes' },
   { key: 'resumen', label: 'Resumen' },
   { key: 'confirmacion', label: 'Confirmación' },
@@ -51,6 +51,8 @@ export interface WizardData {
   actividadId?: string;
   /** Nombre legible de la actividad (catálogo), para resumen y revisión. */
   actividadNombre?: string;
+  /** Catálogo CIG2018 — filtra actividades; obligatorio en configuración. */
+  grupoActividadId?: string;
   tipoContratacionId?: string;
   /** Descripción del tipo seleccionado (para reglas UI, p. ej. individualización). */
   tipoContratacionDescripcion?: string;
@@ -191,6 +193,8 @@ function computeCanGoNext(step: number, data: WizardData): boolean {
       return (
         !!data.administracion?.trim() &&
         !!data.tipoContratacionId?.trim() &&
+        !!data.distritoId?.trim() &&
+        !!data.grupoActividadId?.trim() &&
         !!data.actividadId?.trim() &&
         refPadreOk
       );

@@ -1,4 +1,5 @@
 import { apiRequest, apiRequestText, hasApi } from './client';
+import type { SolicitudInspeccionDto } from './solicitudes';
 
 export interface ContratoDto {
   id: string;
@@ -248,6 +249,24 @@ export async function cancelarContrato(id: string): Promise<ContratoDto> {
     method: 'PATCH',
     body: JSON.stringify({ estado: 'Cancelado' }),
   });
+}
+
+export type OrdenInspeccionContratoResponse =
+  | {
+      status: 'en_proceso';
+      solicitudId: string | null;
+      ordenId: string | null;
+    }
+  | {
+      status: 'completada';
+      solicitudId: string | null;
+      ordenId: string | null;
+      inspeccion: SolicitudInspeccionDto | null;
+      datosOrden: Record<string, unknown> | null;
+    };
+
+export function fetchOrdenInspeccionContrato(contratoId: string): Promise<OrdenInspeccionContratoResponse> {
+  return apiRequest<OrdenInspeccionContratoResponse>(`/contratos/${contratoId}/orden-inspeccion`);
 }
 
 export { hasApi };

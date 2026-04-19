@@ -9,6 +9,8 @@ import {
   fetchContratoPdfHtml,
   crearFacturaContratacion,
   cancelarContrato,
+  fetchOrdenInspeccionContrato,
+  type OrdenInspeccionContratoResponse,
   hasApi,
 } from '@/api/contratos';
 import { toast } from '@/components/ui/sonner';
@@ -43,6 +45,7 @@ import {
   Pencil,
   PlayCircle,
   Trash2,
+  ClipboardList,
 } from 'lucide-react';
 import { fetchAdministraciones } from '@/api/catalogos';
 import { fetchTiposContratacion, type TipoContratacion } from '@/api/tipos-contratacion';
@@ -63,6 +66,23 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { useSearchParams } from 'react-router-dom';
 import { WizardContratacion } from '@/components/contratacion/WizardContratacion';
+import { OrdenInspeccionResultadosView } from '@/components/contratos/OrdenInspeccionResultadosView';
+import { solicitudInspeccionDtoToOrden } from '@/lib/orden-inspeccion-mapper';
+import type { OrdenInspeccionData } from '@/types/solicitudes';
+
+function mergeOrdenInspeccionContratoResponse(
+  res: Extract<OrdenInspeccionContratoResponse, { status: 'completada' }>,
+): OrdenInspeccionData {
+  const fromSolicitud = res.inspeccion
+    ? solicitudInspeccionDtoToOrden(res.inspeccion)
+    : { estado: 'completada' as const };
+  const fromOrden = (res.datosOrden ?? {}) as Partial<OrdenInspeccionData>;
+  return {
+    ...fromSolicitud,
+    ...fromOrden,
+    estado: 'completada',
+  };
+}
 
 /** Inline editable field for linking/updating the CEA contract number */
 function CeaNumInput({ contratoId, initial, onSaved }: { contratoId: string; initial: string; onSaved: (v: string) => void }) {
@@ -183,6 +203,7 @@ const Contratos = () => {
   const [showWizard, setShowWizard] = useState(false);
   const [confirmCloseWizard, setConfirmCloseWizard] = useState(false);
   const [detail, setDetail] = useState<string | null>(null);
+  const [ordenInspeccionOpen, setOrdenInspeccionOpen] = useState(false);
   const [resumingContratoId, setResumingContratoId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [openingPdfId, setOpeningPdfId] = useState<string | null>(null);
@@ -386,6 +407,12 @@ const Contratos = () => {
     });
     return { pagadas, porCobrar, vencidas };
   }, [selected, timbrados, recibos, preFacturas, pagos]);
+
+  const ordenInspeccionQuery = useQuery({
+    queryKey: ['contrato', detail, 'orden-inspeccion'],
+    queryFn: () => fetchOrdenInspeccionContrato(detail!),
+    enabled: Boolean(detail && ordenInspeccionOpen && useApi),
+  });
 
   const activos = contratosVisibles.filter((c: { estado: string }) => c.estado === 'Activo').length;
   const pendientesAlta = contratosVisibles.filter((c: { estado: string }) => c.estado === 'Pendiente de alta').length;
@@ -632,7 +659,15 @@ const Contratos = () => {
       </AlertDialog>
 
       {/* Detail */}
-      <Dialog open={!!detail} onOpenChange={() => setDetail(null)}>
+      <Dialog
+        open={!!detail}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDetail(null);
+            setOrdenInspeccionOpen(false);
+          }
+        }}
+      >
         <DialogContent className="max-w-6xl w-[95vw] h-[90vh] flex flex-col gap-0 p-0 overflow-hidden">
           <DialogHeader className="sr-only">
             <DialogTitle>
@@ -821,6 +856,15 @@ const Contratos = () => {
                             }}
                           >
                             <Pencil className="h-3.5 w-3.5" /> Editar
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="gap-1.5 text-xs"
+                            type="button"
+                            onClick={() => setOrdenInspeccionOpen(true)}
+                          >
+                            <ClipboardList className="h-3.5 w-3.5" /> Orden de inspección
                           </Button>
                         </div>
                       </div>
@@ -1100,6 +1144,34 @@ const Contratos = () => {
               </div>
             );
           })()}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={ordenInspeccionOpen && !!detail} onOpenChange={setOrdenInspeccionOpen}>
+        <DialogContent className="max-w-3xl w-[95vw] max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Orden de inspección</DialogTitle>
+            <DialogDescription>
+              Resultados del sistema de órdenes o del registro de inspección vinculado a la solicitud de este contrato.
+            </DialogDescription>
+          </DialogHeader>
+          {!useApi && (
+            <p className="text-sm text-muted-foreground">Conecte la API para consultar la orden de inspección.</p>
+          )}
+          {useApi && ordenInspeccionQuery.isPending && (
+            <p className="text-sm text-muted-foreground py-6 text-center">Cargando…</p>
+          )}
+          {useApi && ordenInspeccionQuery.isError && (
+            <p className="text-sm text-destructive py-4">
+              No se pudo cargar la información. Intente de nuevo.
+            </p>
+          )}
+          {useApi && ordenInspeccionQuery.data?.status === 'en_proceso' && (
+            <p className="text-sm text-center py-10 text-muted-foreground">Orden de inspección en proceso</p>
+          )}
+          {useApi && ordenInspeccionQuery.data?.status === 'completada' && (
+            <OrdenInspeccionResultadosView orden={mergeOrdenInspeccionContratoResponse(ordenInspeccionQuery.data)} />
+          )}
         </DialogContent>
       </Dialog>
     </div>

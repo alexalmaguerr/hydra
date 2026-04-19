@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createSolicitud, fetchSolicitud, updateSolicitud } from '@/api/solicitudes';
 import type { CatalogoEstadoINEGI, CatalogoMunicipioINEGIRow, PaginatedInegi } from '@/api/domicilios-inegi';
 import { fetchInegiEstados, fetchInegiMunicipiosCatalogo, fetchInegiLocalidadesCatalogo, fetchInegiColoniasCatalogo } from '@/api/domicilios-inegi';
-import { ArrowLeft, Check, FileText, MapPin, User, HelpCircle, Settings, Receipt, ClipboardCheck, Wand2 } from 'lucide-react';
+import { ArrowLeft, FileText, Wand2 } from 'lucide-react';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { toast } from '@/components/ui/sonner';
 import DomicilioPickerForm from '@/components/contratacion/DomicilioPickerForm';
@@ -54,92 +55,12 @@ const USOS_CFDI = [
 
 // ── Mock data for demos ───────────────────────────────────────────────────────
 
-// Data split per wizard step so prellenar can fill them one by one
-const MOCK_STEP_DATA: Partial<SolicitudState>[] = [
-  // 0 – Predio  (estadoINEGIId/municipioINEGIId hold claveINEGI codes; resolveDir() swaps them for real UUIDs at runtime)
-  {
-    claveCatastral: '22001-045-012',
-    folioExpediente: '',
-    predioDir: {
-      estadoINEGIId: '22',      // claveINEGI → resolved to UUID by handlePrellenar
-      municipioINEGIId: '014',  // claveINEGI of municipio within state
-      localidadINEGIId: '',
-      coloniaINEGIId: '',
-      codigoPostal: '76030',
-      calle: 'Av. Constituyentes',
-      numExterior: '425',
-      numInterior: 'Depto. 3',
-      referencia: 'Entre Av. 5 de Febrero y calle Hidalgo',
-    },
-    predioManzana: '12',
-    predioLote: '04',
-    superficieTotal: '180',
-    superficieConstruida: '120',
-  },
-  // 1 – Propietario
-  {
-    propTipoPersona: 'fisica',
-    propPaterno: 'García',
-    propMaterno: 'Ramírez',
-    propNombre: 'María Elena',
-    propRazonSocial: '',
-    propRfc: 'GARM850312AB3',
-    propCorreo: 'mgarcia@correo.com',
-    propTelefono: '4421234567',
-    propDir: {
-      estadoINEGIId: '22',
-      municipioINEGIId: '014',
-      localidadINEGIId: '',
-      coloniaINEGIId: '',
-      codigoPostal: '76030',
-      calle: 'Calle Independencia',
-      numExterior: '88',
-      numInterior: 'Int. 3',
-      referencia: '',
-    },
-    propManzana: '',
-    propLote: '',
-  },
-  // 2 – Fiscal (mismosDatosProp='si' → copiar de propietario al seleccionar)
-  {
-    requiereFactura: 'si',
-    mismosDatosProp: 'si',
-    fiscalRegimenFiscal: '616',
-    fiscalUsoCfdi: 'G03',
-  },
-  // 3 – Solicitud
-  {
-    usoDomestico: 'si',
-    hayTuberias: 'si',
-    hayInfraCEA: 'si',
-    esCondominio: 'no',
-    condoViviendas: '',
-    condoUbicacionTomas: '',
-    condoTieneMedidorMacro: '',
-    condoNumMedidor: '',
-    condoAreasComunes: '',
-    condoNumAreas: '',
-    condoAgrupacion: '',
-    condoNombreAgrupacion: '',
-    personasVivienda: '4',
-    tieneCertConexion: 'si',
-  },
-  // 4 – Contratación (adminId/tipoContratacionId resolved at runtime; distritoId/grupoActividadId/actividadId pick first available)
-  {
-    adminId: '1',
-    distritoId: '__first__',
-    grupoActividadId: '__first__',
-    actividadId: '__first__',
-    contratoPadre: '',
-  },
-];
-
 const MOCK_DATA: SolicitudState = {
   claveCatastral: '22001-045-012',
   folioExpediente: '',
   predioDir: {
     estadoINEGIId: '22',        // Querétaro
-    municipioINEGIId: '22014',  // Querétaro (municipio)
+    municipioINEGIId: '22001',  // Querétaro (capital) — clave INEGI en catálogo sembrado
     localidadINEGIId: '',
     coloniaINEGIId: '',
     codigoPostal: '76030',
@@ -162,17 +83,17 @@ const MOCK_DATA: SolicitudState = {
   propTelefono: '4421234567',
   propDir: {
     estadoINEGIId: '22',
-    municipioINEGIId: '22014',
+    municipioINEGIId: '22001',
     localidadINEGIId: '',
     coloniaINEGIId: '',
     codigoPostal: '76030',
     calle: 'Calle Independencia',
     numExterior: '88',
     numInterior: 'Int. 3',
-    referencia: '',
+    referencia: 'Entre Av. 5 de Febrero y calle Hidalgo',
   },
-  propManzana: '',
-  propLote: '',
+  propManzana: '12',
+  propLote: '04',
   usoDomestico: 'si',
   hayTuberias: 'si',
   hayInfraCEA: 'si',
@@ -198,7 +119,7 @@ const MOCK_DATA: SolicitudState = {
   fiscalCorreo: 'mgarcia@correo.com',
   fiscalDir: {
     estadoINEGIId: '22',
-    municipioINEGIId: '22014',
+    municipioINEGIId: '22001',
     localidadINEGIId: '',
     coloniaINEGIId: '',
     codigoPostal: '76030',
@@ -209,67 +130,102 @@ const MOCK_DATA: SolicitudState = {
   },
   fiscalRegimenFiscal: '616',
   fiscalUsoCfdi: 'G03',
+  generarOrdenInspeccion: true,
 };
 
-// ── Wizard steps definition ───────────────────────────────────────────────────
+// ── Validación CEAFUS01 (envío) ───────────────────────────────────────────────
 
-const STEPS = [
-  { key: 'predio',        label: 'Predio',        icon: MapPin },
-  { key: 'propietario',   label: 'Propietario',   icon: User },
-  { key: 'fiscal',        label: 'Fiscal',        icon: Receipt },
-  { key: 'solicitud',     label: 'Solicitud',     icon: HelpCircle },
-  { key: 'contratacion',  label: 'Contratación',  icon: Settings },
-  { key: 'resumen',       label: 'Resumen',       icon: ClipboardCheck },
-] as const;
-
-type StepKey = typeof STEPS[number]['key'];
-
-// ── Per-step validation ───────────────────────────────────────────────────────
-
-function validDir(d: { estadoINEGIId: string; municipioINEGIId: string; coloniaINEGIId: string; calle: string; numExterior: string }) {
-  return !!(d.estadoINEGIId && d.municipioINEGIId && d.coloniaINEGIId && d.calle.trim() && d.numExterior.trim());
+function validDir(d: {
+  estadoINEGIId: string;
+  municipioINEGIId: string;
+  localidadINEGIId: string;
+  coloniaINEGIId: string;
+  calle: string;
+  numExterior: string;
+}) {
+  return !!(
+    d.estadoINEGIId &&
+    d.municipioINEGIId &&
+    d.localidadINEGIId &&
+    d.coloniaINEGIId &&
+    d.calle.trim() &&
+    d.numExterior.trim()
+  );
 }
 
-function canAdvance(step: number, form: SolicitudState): boolean {
-  switch (step) {
-    case 0: // Predio
-      return validDir(form.predioDir);
+/** Catálogo obligatorio: no aceptar placeholder de preset (`__first__`). */
+function catalogoSeleccionValido(id: string | undefined): boolean {
+  const t = id?.trim();
+  return !!t && t !== '__first__';
+}
 
-    case 1: { // Propietario
-      if (!form.propTipoPersona) return false;
-      if (form.propTipoPersona === 'moral' && !form.propRazonSocial.trim()) return false;
-      if (form.propTipoPersona === 'fisica' && (!form.propPaterno.trim() || !form.propNombre.trim())) return false;
-      if (!form.propCorreo.trim() || !form.propTelefono.trim()) return false;
-      return validDir(form.propDir);
-    }
-
-    case 2: { // Fiscal
-      if (!form.requiereFactura) return false;
-      if (form.requiereFactura === 'no') return true;
-      // requiere factura = si
-      if (!form.mismosDatosProp) return false;
-      if (!form.fiscalTipoPersona) return false;
-      if (form.fiscalTipoPersona === 'moral' && !form.fiscalRazonSocial.trim()) return false;
-      if (!form.fiscalRfc.trim() || !form.fiscalCorreo.trim()) return false;
-      if (!validDir(form.fiscalDir)) return false;
-      if (!form.fiscalRegimenFiscal || !form.fiscalUsoCfdi) return false;
-      return true;
-    }
-
-    case 3: // Solicitud
-      if (!form.usoDomestico || !form.hayTuberias) return false;
-      if (form.usoDomestico === 'no') return !!form.noDomHayInfra;
-      return true;
-
-    case 4: // Contratación
-      return !!(form.adminId && form.tipoContratacionId && form.distritoId && form.grupoActividadId && form.actividadId);
-
-    case 5: // Resumen
-      return true;
-
-    default:
-      return true;
+/** Mensajes en español para toast / accesibilidad */
+function validateCeafus01(form: SolicitudState): string[] {
+  const e: string[] = [];
+  if (!validDir(form.predioDir)) {
+    e.push('Complete el domicilio del predio (INEGI: estado, municipio, localidad, colonia, calle y número exterior).');
   }
+  if (!form.propTipoPersona) e.push('Seleccione el tipo de persona del propietario.');
+  if (form.propTipoPersona === 'moral' && !form.propRazonSocial.trim()) e.push('Indique la razón social del propietario.');
+  if (form.propTipoPersona === 'fisica' && (!form.propPaterno.trim() || !form.propNombre.trim())) {
+    e.push('Indique apellido paterno y nombre del propietario.');
+  }
+  if (!form.propCorreo.trim()) e.push('Correo electrónico del propietario.');
+  if (!form.propTelefono.trim()) e.push('Teléfono del propietario.');
+  if (!validDir(form.propDir)) e.push('Complete el domicilio del propietario.');
+  if (!form.requiereFactura) e.push('Indique si requiere facturar.');
+  if (form.requiereFactura === 'si') {
+    if (!form.mismosDatosProp) e.push('Indique si la factura usará los mismos datos que el propietario.');
+    if (form.mismosDatosProp === 'si' || form.mismosDatosProp === 'no') {
+      if (!form.fiscalTipoPersona) e.push('Tipo de persona para facturación.');
+      if (form.fiscalTipoPersona === 'moral' && !form.fiscalRazonSocial.trim()) e.push('Razón social para facturación.');
+      if (!form.fiscalRfc.trim()) e.push('RFC para facturación.');
+      if (!form.fiscalCorreo.trim()) e.push('Correo para facturación.');
+      if (!validDir(form.fiscalDir)) e.push('Complete el domicilio fiscal.');
+      if (!form.fiscalRegimenFiscal || !form.fiscalUsoCfdi) e.push('Régimen fiscal y uso del CFDI.');
+    }
+  }
+  if (!form.usoDomestico || !form.hayTuberias) {
+    e.push('Responda el tipo de uso del servicio y si hay instalaciones de tuberías en el predio.');
+  }
+  if (form.usoDomestico === 'no' && !form.noDomHayInfra) {
+    e.push('Indique si cuenta con infraestructura para tomas (uso no doméstico).');
+  }
+  if (form.usoDomestico === 'si' && form.esCondominio === 'si') {
+    if (form.condoAreasComunes === 'si') {
+      const n = parseInt(form.condoNumAreas, 10);
+      if (!form.condoNumAreas.trim() || !Number.isFinite(n) || n < 1) {
+        e.push('Indique cuántas áreas comunes (número válido).');
+      }
+    }
+    if (form.condoAgrupacion === 'si' && !form.condoNombreAgrupacion.trim()) {
+      e.push('Indique el nombre de la agrupación formal.');
+    }
+  }
+  if (!form.adminId || !form.tipoContratacionId) {
+    e.push('Seleccione administración y tipo de contratación.');
+  }
+  if (!catalogoSeleccionValido(form.distritoId)) e.push('Seleccione distrito.');
+  if (!catalogoSeleccionValido(form.grupoActividadId)) e.push('Seleccione grupo de actividad.');
+  if (!catalogoSeleccionValido(form.actividadId)) e.push('Seleccione actividad.');
+  return e;
+}
+
+function FormSection({
+  id,
+  title,
+  children,
+}: {
+  id?: string;
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section id={id} className="scroll-mt-6 space-y-4">
+      <h2 className="border-b border-primary/25 pb-2 text-sm font-bold uppercase tracking-wide text-primary">{title}</h2>
+      {children}
+    </section>
+  );
 }
 
 // ── Shared sub-components ─────────────────────────────────────────────────────
@@ -478,7 +434,16 @@ function StepSolicitud({ form, set }: { form: SolicitudState; set: (p: Partial<S
             { value: 'no', label: 'No Doméstico', sub: '(comercial, industrial, otros)' },
           ]}
           value={form.usoDomestico}
-          onChange={(v) => set({ usoDomestico: v as 'si' | 'no', hayInfraCEA: '', esCondominio: '', ...resetCondo })}
+          onChange={(v) => {
+            const next = v as 'si' | 'no';
+            set({
+              usoDomestico: next,
+              hayInfraCEA: '',
+              esCondominio: '',
+              ...resetCondo,
+              ...(next === 'si' ? CLEAR_ALL_NO_DOM : {}),
+            });
+          }}
         />
       </div>
 
@@ -528,18 +493,41 @@ function StepSolicitud({ form, set }: { form: SolicitudState; set: (p: Partial<S
                 </div>
 
                 <div className="space-y-2">
-                  <p className="text-sm">c. ¿Se pretende contratar servicio para áreas comunes? <span className="text-xs text-muted-foreground">(Excepto áreas verdes)</span></p>
+                  <p className="text-sm">
+                    c. ¿Se pretende contratar servicio para áreas comunes?{' '}
+                    <span className="text-xs text-muted-foreground">(Excepto áreas verdes)</span>
+                  </p>
                   <YesNo id="condo-areas" value={form.condoAreasComunes} onChange={(v) => set({ condoAreasComunes: v, condoNumAreas: '' })} />
                   {form.condoAreasComunes === 'si' && (
-                    <Input className="mt-1.5 h-9 max-w-xs" type="number" min="1" placeholder="¿Cuántas áreas?" value={form.condoNumAreas} onChange={(e) => set({ condoNumAreas: e.target.value })} />
+                    <div className="mt-1.5 max-w-xs">
+                      <Field label="¿Cuántas áreas?" required>
+                        <Input
+                          className="h-9"
+                          type="number"
+                          min="1"
+                          placeholder="Número de áreas"
+                          value={form.condoNumAreas}
+                          onChange={(e) => set({ condoNumAreas: e.target.value })}
+                        />
+                      </Field>
+                    </div>
                   )}
                 </div>
 
                 <div className="space-y-2">
-                  <p className="text-sm">d. ¿Existe una agrupación formal de colonos o condominios? <span className="text-destructive">*</span></p>
+                  <p className="text-sm">d. ¿Existe una agrupación formal de colonos o condominios?</p>
                   <YesNo id="condo-agrupacion" value={form.condoAgrupacion} onChange={(v) => set({ condoAgrupacion: v, condoNombreAgrupacion: '' })} />
                   {form.condoAgrupacion === 'si' && (
-                    <Input className="mt-1.5 h-9 max-w-sm" placeholder="Nombre de la agrupación" value={form.condoNombreAgrupacion} onChange={(e) => set({ condoNombreAgrupacion: e.target.value })} />
+                    <div className="mt-1.5 max-w-sm">
+                      <Field label="Nombre de la agrupación" required>
+                        <Input
+                          className="h-9"
+                          placeholder="Nombre de la agrupación"
+                          value={form.condoNombreAgrupacion}
+                          onChange={(e) => set({ condoNombreAgrupacion: e.target.value })}
+                        />
+                      </Field>
+                    </div>
                   )}
                 </div>
               </div>
@@ -574,7 +562,12 @@ function StepSolicitud({ form, set }: { form: SolicitudState; set: (p: Partial<S
             <YesNo
               id="no-dom-hay-infra"
               value={form.noDomHayInfra}
-              onChange={(v) => set({ noDomHayInfra: v })}
+              onChange={(v) =>
+                set({
+                  noDomHayInfra: v,
+                  ...(v === 'si' ? CLEAR_NO_DOM_REQ : CLEAR_NO_DOM_GIROS),
+                })
+              }
             />
           </div>
 
@@ -767,7 +760,15 @@ function StepContratacion({ form, set }: { form: SolicitudState; set: (p: Partia
         <Field label="Administración" required>
           <Select
             value={form.adminId}
-            onValueChange={(v) => set({ adminId: v, tipoContratacionId: '' })}
+            onValueChange={(v) =>
+              set({
+                adminId: v,
+                tipoContratacionId: '',
+                distritoId: '',
+                grupoActividadId: '',
+                actividadId: '',
+              })
+            }
             disabled={!useApi || adminsLoading || administraciones.length === 0}
           >
             <SelectTrigger className="h-9">
@@ -828,6 +829,10 @@ function StepContratacion({ form, set }: { form: SolicitudState; set: (p: Partia
           </Select>
         </Field>
       </div>
+
+      <Field label="Contrato padre (solo individualizaciones)">
+        <Input className="h-9" placeholder="Folio o número de contrato padre" value={form.contratoPadre} onChange={(e) => set({ contratoPadre: e.target.value })} />
+      </Field>
 
       <div className="grid gap-4 sm:grid-cols-3">
         <Field label="Distrito" required>
@@ -893,10 +898,6 @@ function StepContratacion({ form, set }: { form: SolicitudState; set: (p: Partia
           </Select>
         </Field>
       </div>
-
-      <Field label="Contrato padre (solo individualizaciones)">
-        <Input className="h-9" placeholder="Folio o número de contrato padre" value={form.contratoPadre} onChange={(e) => set({ contratoPadre: e.target.value })} />
-      </Field>
 
       {selectedTipo && (
         <div className="rounded-md border bg-muted/30 px-3 py-2.5 text-sm">
@@ -1052,19 +1053,38 @@ function StepFiscal({
                 />
               </div>
 
+              {locked && form.fiscalTipoPersona === 'fisica' && (
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <Field label="Apellido paterno" required>
+                    <Input className="h-9 bg-muted/40" value={form.propPaterno} readOnly disabled />
+                  </Field>
+                  <Field label="Apellido materno">
+                    <Input className="h-9 bg-muted/40" value={form.propMaterno} readOnly disabled />
+                  </Field>
+                  <Field label="Nombre(s)" required>
+                    <Input className="h-9 bg-muted/40" value={form.propNombre} readOnly disabled />
+                  </Field>
+                </div>
+              )}
+
               {form.fiscalTipoPersona === 'moral' && (
                 <Field label="Razón social" required>
                   <Input className="h-9" value={form.fiscalRazonSocial} readOnly={locked} disabled={locked} onChange={(e) => set({ fiscalRazonSocial: e.target.value })} />
                 </Field>
               )}
 
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className={cn('grid gap-4', locked ? 'sm:grid-cols-3' : 'sm:grid-cols-2')}>
                 <Field label="RFC para facturación" required>
                   <Input className="h-9 font-mono text-xs" placeholder="XXXX000000XX0" value={form.fiscalRfc} readOnly={locked} disabled={locked} onChange={(e) => set({ fiscalRfc: e.target.value.toUpperCase() })} maxLength={13} />
                 </Field>
                 <Field label="Correo electrónico" required>
                   <Input className="h-9" type="email" value={form.fiscalCorreo} readOnly={locked} disabled={locked} onChange={(e) => set({ fiscalCorreo: e.target.value })} />
                 </Field>
+                {locked && (
+                  <Field label="Teléfono" required>
+                    <Input className="h-9 bg-muted/40" type="tel" value={form.propTelefono} readOnly disabled />
+                  </Field>
+                )}
               </div>
 
               <Separator />
@@ -1073,6 +1093,17 @@ function StepFiscal({
                 {locked && <span className="ml-2 font-normal normal-case text-muted-foreground/70">(precargado del propietario)</span>}
               </p>
               <DomicilioPickerForm value={form.fiscalDir} onChange={locked ? () => {} : (v) => set({ fiscalDir: v })} disabled={locked} />
+
+              {locked && (
+                <div className="grid grid-cols-4 gap-4">
+                  <Field label="Manzana">
+                    <Input className="h-9 bg-muted/40" value={form.propManzana} readOnly disabled />
+                  </Field>
+                  <Field label="Lote">
+                    <Input className="h-9 bg-muted/40" value={form.propLote} readOnly disabled />
+                  </Field>
+                </div>
+              )}
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field label="Régimen fiscal" required>
@@ -1116,131 +1147,7 @@ function StepFiscal({
   );
 }
 
-function ResumenRow({ label, value }: { label: string; value?: string | null }) {
-  if (!value) return null;
-  return (
-    <div className="flex flex-col gap-0.5">
-      <span className="text-xs text-muted-foreground">{label}</span>
-      <span className="text-sm font-medium">{value}</span>
-    </div>
-  );
-}
-
-function StepResumen({ form }: { form: SolicitudState }) {
-  const useApi = hasApi();
-  const today = new Date().toLocaleDateString('es-MX', { year: 'numeric', month: '2-digit', day: '2-digit' });
-
-  const { data: administraciones = [] } = useQuery({
-    queryKey: ['catalogos-operativos', 'administraciones'],
-    queryFn: fetchAdministraciones,
-    enabled: useApi,
-    staleTime: 60 * 60 * 1000,
-  });
-
-  const { data: tiposRes } = useQuery({
-    queryKey: ['tipos-contratacion', form.adminId, 'solicitud-servicio'],
-    queryFn: () =>
-      fetchTiposContratacion({
-        administracionId: form.adminId,
-        activo: true,
-        page: 1,
-        limit: 200,
-      }),
-    enabled: useApi && !!form.adminId,
-  });
-
-  const tiposList: TipoContratacion[] = tiposRes?.data ?? [];
-  const selectedTipo = tiposList.find((t) => t.id === form.tipoContratacionId);
-  const adminNombre = form.adminId ? administraciones.find((a) => a.id === form.adminId)?.nombre : undefined;
-  const nombre = form.propTipoPersona === 'moral'
-    ? form.propRazonSocial
-    : [form.propPaterno, form.propMaterno, form.propNombre].filter(Boolean).join(' ');
-
-  return (
-    <div className="space-y-5">
-      <div className="flex items-center gap-3">
-        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
-          <ClipboardCheck className="h-6 w-6" />
-        </div>
-        <div>
-          <p className="font-semibold">Revise los datos antes de guardar</p>
-          <p className="text-sm text-muted-foreground">Al guardar, la solicitud quedará registrada y podrá editarse después.</p>
-        </div>
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Card>
-          <CardHeader className="pb-2 pt-4">
-            <CardTitle className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Predio</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-2 pb-4">
-            <ResumenRow label="Fecha de solicitud" value={today} />
-            <ResumenRow label="Clave catastral" value={form.claveCatastral || '—'} />
-            <ResumenRow label="Calle" value={form.predioDir.calle || '—'} />
-            <ResumenRow label="Núm. exterior" value={form.predioDir.numExterior} />
-            <ResumenRow label="Código postal" value={form.predioDir.codigoPostal} />
-            {form.predioManzana && <ResumenRow label="Manzana" value={form.predioManzana} />}
-            {form.predioLote && <ResumenRow label="Lote" value={form.predioLote} />}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2 pt-4">
-            <CardTitle className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Propietario</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-2 pb-4">
-            <ResumenRow label="Tipo de persona" value={form.propTipoPersona === 'fisica' ? 'Persona física' : form.propTipoPersona === 'moral' ? 'Persona moral' : '—'} />
-            <ResumenRow label="Nombre / Razón social" value={nombre || '—'} />
-            <ResumenRow label="RFC" value={form.propRfc} />
-            <ResumenRow label="Teléfono" value={form.propTelefono} />
-            <ResumenRow label="Correo" value={form.propCorreo} />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2 pt-4">
-            <CardTitle className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Tipo de solicitud</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-2 pb-4">
-            <ResumenRow label="Uso" value={form.usoDomestico === 'si' ? 'Doméstico' : form.usoDomestico === 'no' ? 'No doméstico' : '—'} />
-            <ResumenRow label="Hay tuberías" value={form.hayTuberias === 'si' ? 'Sí' : form.hayTuberias === 'no' ? 'No' : '—'} />
-            {form.usoDomestico === 'si' && (
-              <>
-                <ResumenRow label="Infraestructura CEA" value={form.hayInfraCEA === 'si' ? 'Sí' : form.hayInfraCEA === 'no' ? 'No' : '—'} />
-                <ResumenRow label="Es condominio" value={form.esCondominio === 'si' ? 'Sí' : form.esCondominio === 'no' ? 'No' : '—'} />
-                {form.esCondominio === 'no' && form.personasVivienda && (
-                  <ResumenRow label="Personas en vivienda" value={form.personasVivienda} />
-                )}
-                <ResumenRow label="Cert. de conexión" value={form.tieneCertConexion === 'si' ? 'Sí' : form.tieneCertConexion === 'no' ? 'No' : '—'} />
-              </>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2 pt-4">
-            <CardTitle className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Contratación</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-2 pb-4">
-            <ResumenRow label="Administración" value={adminNombre || form.adminId || '—'} />
-            <ResumenRow
-              label="Tipo de contratación"
-              value={
-                selectedTipo
-                  ? `${selectedTipo.descripcion?.trim() || selectedTipo.nombre} (${selectedTipo.codigo})`
-                  : form.tipoContratacionId || '—'
-              }
-            />
-            {form.contratoPadre && <ResumenRow label="Contrato padre" value={form.contratoPadre} />}
-            <ResumenRow label="Requiere factura" value={form.requiereFactura === 'si' ? 'Sí' : form.requiereFactura === 'no' ? 'No' : '—'} />
-          </CardContent>
-        </Card>
-      </div>
-    </div>
-  );
-}
-
-// ── Main wizard ───────────────────────────────────────────────────────────────
+// ── Formulario CEAFUS01 (una sola vista) ─────────────────────────────────────
 
 export default function SolicitudServicio() {
   const { id } = useParams<{ id: string }>();
@@ -1250,7 +1157,7 @@ export default function SolicitudServicio() {
 
   const isEditMode = !!id;
   const localRecord = isEditMode && id ? store.getById(id) : undefined;
-  const { data: apiSolicitud } = useQuery({
+  const { data: apiSolicitud, isPending: isSolicitudLoading } = useQuery({
     queryKey: ['solicitud', id],
     queryFn: () => fetchSolicitud(id!),
     enabled: isEditMode && !!id && !localRecord,
@@ -1258,11 +1165,14 @@ export default function SolicitudServicio() {
   });
 
   const [form, setForm] = useState<SolicitudState>(localRecord?.formData ?? SOLICITUD_STATE_EMPTY);
-  const [currentStep, setCurrentStep] = useState(0);
 
   useEffect(() => {
     if (!localRecord && apiSolicitud?.formData) {
-      setForm(apiSolicitud.formData as SolicitudState);
+      const fd = apiSolicitud.formData as SolicitudState;
+      setForm({
+        ...fd,
+        generarOrdenInspeccion: fd.generarOrdenInspeccion === true,
+      });
     }
   }, [localRecord, apiSolicitud?.id, apiSolicitud?.formData]);
 
@@ -1305,9 +1215,6 @@ export default function SolicitudServicio() {
     setForm((prev) => ({ ...prev, ...patch }));
   }
 
-  const isLastStep = currentStep === STEPS.length - 1;
-  const canNext = canAdvance(currentStep, form);
-
   async function resolveDir(dir: DomicilioFormValue | undefined): Promise<DomicilioFormValue | undefined> {
     if (!dir) return dir;
 
@@ -1329,11 +1236,18 @@ export default function SolicitudServicio() {
       staleTime: 10 * 60 * 1000,
     });
     const municipios = mpioRes?.data ?? [];
-    // Match by claveINEGI (with/without leading zeros), full combined code, or UUID
+    // Match UUID, full claveINEGI (ej. "22001"), concatenación estado+municipio de 3 dígitos (ej. "001" → "22001"), o sufijos legacy
     const rawMpio = dir.municipioINEGIId ?? '';
+    const estadoClave = estado?.claveINEGI ?? '';
+    const munDigits = rawMpio.replace(/\D/g, '');
+    const combinedMunClave =
+      estadoClave && munDigits.length > 0 && munDigits.length <= 3
+        ? `${estadoClave}${munDigits.padStart(3, '0')}`
+        : null;
     const mpio =
       municipios.find((m) => m.id === rawMpio) ??
       municipios.find((m) => m.claveINEGI === rawMpio) ??
+      (combinedMunClave ? municipios.find((m) => m.claveINEGI === combinedMunClave) : undefined) ??
       municipios.find((m) => m.claveINEGI === rawMpio.slice(-3)) ??
       municipios.find((m) => m.claveINEGI === rawMpio.replace(/^0+/, '')) ??
       municipios[0]; // fallback: first municipio in state (demo only)
@@ -1371,123 +1285,110 @@ export default function SolicitudServicio() {
   async function handlePrellenar() {
     if (!hasApi()) {
       setForm({ ...MOCK_DATA });
-      setCurrentStep(0);
-      toast.success('Datos de demo cargados', {
-        description: 'Defina administración y tipo desde el catálogo en el paso de contratación.',
-      });
-      return;
-    }
-
-    const stepData = MOCK_STEP_DATA[currentStep];
-    if (!stepData) {
-      toast.info('No hay datos de demo para este paso');
+      toast.success('Datos de demo cargados');
       return;
     }
 
     try {
-      let patch: Partial<SolicitudState> = { ...stepData };
+      let next: SolicitudState = { ...MOCK_DATA };
 
-      if (currentStep === 4) {
-        const administraciones = await queryClient.fetchQuery({
-          queryKey: ['catalogos-operativos', 'administraciones'],
-          queryFn: fetchAdministraciones,
-        });
-        if (!administraciones.length) {
-          toast.error('No hay administraciones en el catálogo');
-          return;
-        }
-        // Find first admin that actually has tipos de contratación
-        let chosenAdmin = null;
-        let chosenTipo = null;
-        for (const admin of administraciones) {
-          const { data: tipos } = await fetchTiposContratacion({
-            administracionId: admin.id,
-            activo: true,
-            page: 1,
-            limit: 10,
-          });
-          const tipo = tipos.find((t) => t.activo) ?? tipos[0];
-          if (tipo) {
-            chosenAdmin = admin;
-            chosenTipo = tipo;
-            break;
-          }
-        }
-        if (!chosenAdmin || !chosenTipo) {
-          toast.error('No se encontraron tipos de contratación en ninguna administración');
-          return;
-        }
-        // Resolve distrito — pick first available
-        const distritos = await queryClient.fetchQuery({
-          queryKey: ['catalogos', 'distritos'],
-          queryFn: fetchDistritos,
-          staleTime: 60 * 60 * 1000,
-        });
-        const distritoId = distritos?.[0]?.id ?? '';
-
-        // Resolve grupoActividad + actividad — pick first available, filter actividades by grupo
-        const grupos = await queryClient.fetchQuery({
-          queryKey: ['catalogos', 'grupos-actividad'],
-          queryFn: fetchGruposActividad,
-          staleTime: 60 * 60 * 1000,
-        });
-        const grupo = grupos?.[0];
-        const grupoActividadId = grupo?.id ?? '';
-
-        const actividades = await queryClient.fetchQuery({
-          queryKey: ['catalogos', 'actividades'],
-          queryFn: fetchActividades,
-          staleTime: 60 * 60 * 1000,
-        });
-        const actividadFiltrada = grupoActividadId
-          ? (actividades ?? []).find((a) => a.grupoId === grupoActividadId)
-          : (actividades ?? [])[0];
-        const actividadId = actividadFiltrada?.id ?? '';
-
-        patch = { ...patch, adminId: chosenAdmin.id, tipoContratacionId: chosenTipo.id, distritoId, grupoActividadId, actividadId };
+      const administraciones = await queryClient.fetchQuery({
+        queryKey: ['catalogos-operativos', 'administraciones'],
+        queryFn: fetchAdministraciones,
+      });
+      if (!administraciones.length) {
+        toast.error('No hay administraciones en el catálogo');
+        return;
       }
-
-      if (currentStep === 0 && patch.predioDir) {
-        patch = { ...patch, predioDir: await resolveDir(patch.predioDir) };
-      }
-      if (currentStep === 1 && patch.propDir) {
-        patch = { ...patch, propDir: await resolveDir(patch.propDir) };
-      }
-      if (currentStep === 2) {
-        if (patch.mismosDatosProp === 'si') {
-          // Copy propietario data into fiscal fields (mirrors handleMismosDatos)
-          const resolvedPropDir = await resolveDir({ ...form.propDir });
-          patch = {
-            ...patch,
-            fiscalTipoPersona: form.propTipoPersona,
-            fiscalRazonSocial: form.propRazonSocial,
-            fiscalRfc: form.propRfc,
-            fiscalCorreo: form.propCorreo,
-            fiscalDir: resolvedPropDir ?? { ...form.propDir },
-          };
-        } else if (patch.fiscalDir) {
-          patch = { ...patch, fiscalDir: await resolveDir(patch.fiscalDir) };
+      let chosenAdmin = null as (typeof administraciones)[0] | null;
+      let chosenTipo = null as TipoContratacion | null;
+      for (const admin of administraciones) {
+        const { data: tipos } = await fetchTiposContratacion({
+          administracionId: admin.id,
+          activo: true,
+          page: 1,
+          limit: 10,
+        });
+        const tipo = tipos.find((t) => t.activo) ?? tipos[0];
+        if (tipo) {
+          chosenAdmin = admin;
+          chosenTipo = tipo;
+          break;
         }
       }
+      if (!chosenAdmin || !chosenTipo) {
+        toast.error('No se encontraron tipos de contratación en ninguna administración');
+        return;
+      }
+      const distritos = await queryClient.fetchQuery({
+        queryKey: ['catalogos', 'distritos'],
+        queryFn: fetchDistritos,
+        staleTime: 60 * 60 * 1000,
+      });
+      const distritoId = distritos?.[0]?.id ?? '';
+      const grupos = await queryClient.fetchQuery({
+        queryKey: ['catalogos', 'grupos-actividad'],
+        queryFn: fetchGruposActividad,
+        staleTime: 60 * 60 * 1000,
+      });
+      const grupo = grupos?.[0];
+      const grupoActividadId = grupo?.id ?? '';
+      const actividades = await queryClient.fetchQuery({
+        queryKey: ['catalogos', 'actividades'],
+        queryFn: fetchActividades,
+        staleTime: 60 * 60 * 1000,
+      });
+      const actividadFiltrada = grupoActividadId
+        ? (actividades ?? []).find((a) => a.grupoId === grupoActividadId)
+        : (actividades ?? [])[0];
+      const actividadId = actividadFiltrada?.id ?? '';
 
-      setForm((prev) => ({ ...prev, ...patch }));
-      toast.success('Datos de demo del paso actual');
+      next = {
+        ...next,
+        adminId: chosenAdmin.id,
+        tipoContratacionId: chosenTipo.id,
+        distritoId,
+        grupoActividadId,
+        actividadId,
+      };
+
+      next = {
+        ...next,
+        predioDir: (await resolveDir(next.predioDir)) ?? next.predioDir,
+        propDir: (await resolveDir(next.propDir)) ?? next.propDir,
+      };
+
+      if (next.mismosDatosProp === 'si') {
+        const resolvedPropDir = await resolveDir({ ...next.propDir });
+        next = {
+          ...next,
+          fiscalTipoPersona: next.propTipoPersona,
+          fiscalRazonSocial: next.propRazonSocial,
+          fiscalRfc: next.propRfc,
+          fiscalCorreo: next.propCorreo,
+          fiscalDir: resolvedPropDir ?? { ...next.propDir },
+        };
+      } else {
+        next = { ...next, fiscalDir: (await resolveDir(next.fiscalDir)) ?? next.fiscalDir };
+      }
+
+      setForm(next);
+      toast.success('Datos de demo cargados');
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Error al cargar catálogos';
       toast.error('No se pudo prellenar', { description: message });
     }
   }
 
-  async function handleNext() {
-    if (!canNext) return;
-    if (isLastStep) {
-      await handleGuardar();
-    } else {
-      setCurrentStep((s) => s + 1);
-    }
-  }
-
   async function handleGuardar() {
+    const validationErrors = validateCeafus01(form);
+    if (validationErrors.length > 0) {
+      toast.error('Complete los campos obligatorios', {
+        description: validationErrors.slice(0, 5).join(' · '),
+      });
+      return;
+    }
+
     const propNombreCompleto = deriveName(form);
     const predioResumen = derivePredioResumen(form);
 
@@ -1525,10 +1426,10 @@ export default function SolicitudServicio() {
           tipoContratacionId: form.tipoContratacionId || undefined,
           formData: form,
         });
-        toast.success(`Solicitud ${dto.folio} guardada`);
+        toast.success(`Solicitud ${dto.folio} registrada`);
       } catch {
         const record = store.create(form);
-        toast.success(`Solicitud ${record.folio} guardada`);
+        toast.success(`Solicitud ${record.folio} registrada`);
         navigate('/app/solicitudes');
         return;
       }
@@ -1536,16 +1437,7 @@ export default function SolicitudServicio() {
     navigate('/app/solicitudes');
   }
 
-  const stepContent: Record<StepKey, React.ReactNode> = {
-    predio: <StepPredio form={form} set={set} />,
-    propietario: <StepPropietario form={form} set={set} />,
-    solicitud: <StepSolicitud form={form} set={set} />,
-    contratacion: <StepContratacion form={form} set={set} />,
-    fiscal: <StepFiscal form={form} set={set} />,
-    resumen: <StepResumen form={form} />,
-  };
-
-  const currentStepKey = STEPS[currentStep].key;
+  const saving = createMutation.isPending || updateMutation.isPending;
 
   return (
     <div className="flex flex-col gap-6">
@@ -1560,12 +1452,22 @@ export default function SolicitudServicio() {
           </div>
           <div>
             <h1 className="text-base font-semibold leading-tight">
-              {isEditMode && existingRecord
-                ? `Editar solicitud — ${existingRecord.folio}`
-                : 'CEA-FUS01 — Nueva Solicitud de Servicios'}
+              {!isEditMode
+                ? 'CEA-FUS01 — Solicitud de Servicios'
+                : isSolicitudLoading && !localRecord
+                  ? 'Cargando solicitud…'
+                  : existingRecord
+                    ? `Editar solicitud — ${existingRecord.folio}`
+                    : 'Editar solicitud'}
             </h1>
-            <p className="inline-flex items-center gap-1 text-xs font-medium text-destructive bg-destructive/10 border border-destructive/30 rounded-md px-2 py-0.5">
-              <span className="text-sm font-bold leading-none">*</span> Los campos marcados son obligatorios
+            <p
+              className="mt-1 inline-flex flex-wrap items-center gap-1.5 rounded-md border border-amber-500/50 bg-amber-500/15 px-3 py-1.5 text-sm font-semibold text-amber-950 shadow-sm dark:border-amber-400/40 dark:bg-amber-400/10 dark:text-amber-50"
+              role="note"
+            >
+              <span className="text-base font-bold leading-none text-destructive">*</span>
+              <span>
+                Los campos con <span className="font-bold text-destructive">*</span> son obligatorios
+              </span>
             </p>
           </div>
         </div>
@@ -1583,75 +1485,69 @@ export default function SolicitudServicio() {
         )}
       </div>
 
-      {/* ── Step progress ─────────────────────────────────────────────── */}
-      <nav aria-label="Pasos de la solicitud" className="w-full overflow-x-auto pb-1">
-        <ol className="flex min-w-[560px] items-center sm:min-w-0">
-          {STEPS.map((step, i) => {
-            const done = i < currentStep;
-            const active = i === currentStep;
-            const segDone = i < currentStep;
-            const Icon = step.icon;
-            return (
-              <React.Fragment key={step.key}>
-                <li className="flex flex-col items-center gap-1">
-                  <button
-                    type="button"
-                    disabled={!done && !active}
-                    onClick={() => { if (done) setCurrentStep(i); }}
-                    className={cn(
-                      'flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 transition-colors',
-                      done && 'border-emerald-600 bg-emerald-600 text-white cursor-pointer',
-                      active && !done && 'border-primary bg-primary text-primary-foreground',
-                      !active && !done && 'border-muted-foreground/30 bg-muted text-muted-foreground',
-                    )}
-                    aria-current={active ? 'step' : undefined}
-                  >
-                    {done ? <Check className="h-4 w-4" strokeWidth={3} /> : <Icon className="h-4 w-4" />}
-                  </button>
-                  <span className={cn(
-                    'hidden max-w-[5rem] truncate text-center text-[10px] leading-tight sm:block',
-                    active ? 'font-medium text-foreground' : 'text-muted-foreground',
-                  )}>
-                    {step.label}
-                  </span>
-                </li>
-                {i < STEPS.length - 1 && (
-                  <div className={cn('mx-1 h-0.5 min-w-[12px] flex-1 transition-colors', segDone ? 'bg-emerald-600' : 'bg-border')} aria-hidden />
-                )}
-              </React.Fragment>
-            );
-          })}
-        </ol>
-      </nav>
+      <div className="rounded-lg border bg-card p-5 shadow-sm">
+        <div className="mx-auto max-w-4xl space-y-10">
+          <FormSection title="A. Predio donde se requerirán los servicios">
+            <StepPredio form={form} set={set} />
+          </FormSection>
 
-      {/* ── Step content ──────────────────────────────────────────────── */}
-      <div className="min-h-[260px] rounded-lg border bg-card p-5 shadow-sm">
-        {stepContent[currentStepKey]}
+          <Separator />
+
+          <FormSection title="B. Datos del propietario">
+            <StepPropietario form={form} set={set} />
+          </FormSection>
+
+          <Separator />
+
+          <FormSection title="C. Facturación">
+            <StepFiscal form={form} set={set} />
+          </FormSection>
+
+          <Separator />
+
+          <FormSection title="D. Uso del servicio">
+            <StepSolicitud form={form} set={set} />
+          </FormSection>
+
+          <Separator />
+
+          <FormSection title="E. Contratación">
+            <StepContratacion form={form} set={set} />
+          </FormSection>
+
+          <Separator />
+
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <label className="flex cursor-pointer items-start gap-3 text-sm">
+              <Checkbox
+                id="generar-orden-inspeccion"
+                checked={form.generarOrdenInspeccion}
+                onCheckedChange={(c) => set({ generarOrdenInspeccion: c === true })}
+                className="mt-0.5"
+              />
+              <span>
+                <span className="font-medium">Generar orden de inspección</span>
+                <span className="mt-1 block text-xs text-muted-foreground">
+                  Si se marca, el trámite quedará en espera de inspección; si no, en espera de cliente (hasta conectar el sistema de órdenes).
+                </span>
+              </span>
+            </label>
+          </div>
+        </div>
       </div>
 
-      {/* ── Navigation ────────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-4">
         <Button type="button" variant="ghost" onClick={() => navigate('/app/solicitudes')}>
           Cancelar
         </Button>
-        <div className="flex gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => setCurrentStep((s) => Math.max(s - 1, 0))}
-            disabled={currentStep === 0}
-          >
-            Anterior
-          </Button>
-          <Button
-            type="button"
-            onClick={handleNext}
-            disabled={!canNext}
-            className={isLastStep ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'bg-[#007BFF] hover:bg-blue-600 text-white'}
-          >
-            {isLastStep ? (isEditMode ? 'Guardar cambios' : 'Guardar solicitud') : 'Siguiente'}
-          </Button>
-        </div>
+        <Button
+          type="button"
+          onClick={() => void handleGuardar()}
+          disabled={saving}
+          className="min-w-[180px] bg-[#007BFF] text-white hover:bg-blue-600"
+        >
+          {saving ? 'Guardando…' : isEditMode ? 'Guardar cambios' : 'Enviar solicitud'}
+        </Button>
       </div>
     </div>
   );

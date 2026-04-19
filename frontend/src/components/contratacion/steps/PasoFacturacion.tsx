@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Info, Loader2 } from 'lucide-react';
 
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
@@ -54,11 +55,35 @@ export default function PasoFacturacion({ data, updateData }: StepProps) {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-base font-semibold">Facturación</h2>
+        <h2 className="text-base font-semibold">Cuantificación del costo de contratación</h2>
         <p className="text-sm text-muted-foreground">
-          Vista previa con tarifas vigentes del tipo de contratación y conceptos de lectura periódica opcionales.
+          Presupuesto estimado con tarifas vigentes según el tipo de contratación y las variables capturadas (equivalente a la sección de
+          cuantificación del presupuesto de contratación del sistema anterior).
         </p>
       </div>
+
+      <Alert className="border-muted-foreground/25 bg-muted/30">
+        <Info className="h-4 w-4" aria-hidden />
+        <AlertTitle className="text-sm">Guía operativa</AlertTitle>
+        <AlertDescription>
+          <ul className="list-disc space-y-1.5 pl-4 text-sm text-muted-foreground">
+            <li>
+              Los importes se arman con el catálogo de conceptos del tipo y el motor tarifario; incluyen, según aplique al tipo y variables,
+              partidas como derechos de infraestructura, derechos de contratación, equipo de medición, consumos o cargos adicionales
+              parametrizados.
+            </li>
+            <li>
+              Revise el desglose y el total antes de continuar: son la base de los{' '}
+              <span className="font-medium text-foreground">costos del contrato</span> en el alta y, si activa la opción más abajo, de la
+              factura de contratación.
+            </li>
+            <li>
+              Esquemas de convenio de pago o anticipos fuera del timbrado quedan fuera de este paso; documente acuerdos por la vía que defina
+              negocio (p. ej. convenio de recaudación).
+            </li>
+          </ul>
+        </AlertDescription>
+      </Alert>
 
       <div className="space-y-2 max-w-md">
         <Label htmlFor="tipo-envio-factura">Tipo de entrega de factura</Label>
@@ -78,8 +103,8 @@ export default function PasoFacturacion({ data, updateData }: StepProps) {
           </SelectContent>
         </Select>
         <p className="text-xs text-muted-foreground">
-          Valores almacenados: <span className="font-mono">PAPEL</span>, <span className="font-mono">PDF</span>,{' '}
-          <span className="font-mono">PAPEL_PDF</span>.
+          Aplica al envío de facturas posteriores al alta. Valores: <span className="font-mono">PAPEL</span>,{' '}
+          <span className="font-mono">PDF</span>, <span className="font-mono">PAPEL_PDF</span>.
         </p>
       </div>
 

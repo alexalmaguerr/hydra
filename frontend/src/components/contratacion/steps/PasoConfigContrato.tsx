@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Check, ChevronsUpDown, Loader2 } from 'lucide-react';
 
-import { fetchActividades, fetchAdministraciones, fetchDistritos } from '@/api/catalogos';
+import { fetchActividades, fetchAdministraciones, fetchDistritos, fetchGruposActividad } from '@/api/catalogos';
 import { fetchTiposContratacion } from '@/api/tipos-contratacion';
 import { Button } from '@/components/ui/button';
 import {
@@ -40,6 +40,12 @@ export default function PasoConfigContrato({ data, updateData }: StepProps) {
   });
   const actividades = (actividadesQ.data ?? []).filter((a) => a.activo);
 
+  const gruposQ = useQuery({
+    queryKey: ['catalogos', 'grupos-actividad', 'wizard'],
+    queryFn: fetchGruposActividad,
+  });
+  const grupos = (gruposQ.data ?? []).filter((g) => g.activo);
+
   const distritosQ = useQuery({
     queryKey: ['catalogos', 'distritos', 'wizard'],
     queryFn: fetchDistritos,
@@ -73,12 +79,27 @@ export default function PasoConfigContrato({ data, updateData }: StepProps) {
 
   const selectedTipo = tiposList.find((t) => t.id === data.tipoContratacionId);
 
+  const actividadesFiltradas = data.grupoActividadId
+    ? actividades.filter((a) => a.grupoId === data.grupoActividadId)
+    : [];
+
+  /** Precarga: si hay actividad pero no grupo, derivar grupo del catálogo. */
+  useEffect(() => {
+    if (!data.actividadId?.trim() || data.grupoActividadId?.trim()) return;
+    const row = actividades.find((a) => a.id === data.actividadId);
+    const gid = row?.grupoId?.trim();
+    if (gid) updateData({ grupoActividadId: gid });
+  }, [data.actividadId, data.grupoActividadId, actividades, updateData]);
+
   const onTipoChange = (tipoId: string) => {
     const row = tiposList.find((t) => t.id === tipoId);
     const desc = (row?.descripcion?.trim() || row?.nombre?.trim() || '') ?? '';
     updateData({
       tipoContratacionId: tipoId,
       tipoContratacionDescripcion: desc,
+      grupoActividadId: undefined,
+      actividadId: undefined,
+      actividadNombre: undefined,
       documentosRecibidos: [],
       variablesCapturadas: {},
       conceptosOverride: undefined,
@@ -113,6 +134,9 @@ export default function PasoConfigContrato({ data, updateData }: StepProps) {
               administracion: v,
               tipoContratacionId: undefined,
               tipoContratacionDescripcion: '',
+              distritoId: undefined,
+              grupoActividadId: undefined,
+              actividadId: undefined,
               actividadNombre: undefined,
               documentosRecibidos: [],
               variablesCapturadas: {},
@@ -145,81 +169,170 @@ export default function PasoConfigContrato({ data, updateData }: StepProps) {
         )}
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        {/* ── Tipo de contratación (combobox) ─────────────────────────── */}
-        <div className="space-y-2">
-          <Label>Tipo de contratación <span className="text-destructive">*</span></Label>
+      <div className="space-y-2">
+        <Label>Tipo de contratación <span className="text-destructive">*</span></Label>
 
-          {!adminId ? (
-            <p className="rounded-md border border-dashed bg-muted/20 px-3 py-2.5 text-sm text-muted-foreground">
-              Seleccione la administración primero.
-            </p>
-          ) : tiposQ.isLoading ? (
+        {!adminId ? (
+          <p className="rounded-md border border-dashed bg-muted/20 px-3 py-2.5 text-sm text-muted-foreground">
+            Seleccione la administración primero.
+          </p>
+        ) : tiposQ.isLoading ? (
+          <div className="flex h-10 items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+            Cargando tipos…
+          </div>
+        ) : tiposQ.isError ? (
+          <p className="text-sm text-destructive">No se pudieron cargar los tipos de contratación.</p>
+        ) : tiposList.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            Sin tipos de contratación para esta administración (revise que existan registros activos con administración asignada).
+          </p>
+        ) : (
+          <Popover open={tipoOpen} onOpenChange={setTipoOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                role="combobox"
+                aria-expanded={tipoOpen}
+                className="w-full justify-between font-normal h-auto min-h-10 whitespace-normal text-left"
+              >
+                <span className={cn(!selectedTipo && 'text-muted-foreground')}>
+                  {selectedTipo
+                    ? `${selectedTipo.descripcion?.trim() || selectedTipo.nombre} (${selectedTipo.codigo})`
+                    : 'Buscar tipo de contratación…'}
+                </span>
+                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+              <Command>
+                <CommandInput placeholder="Buscar…" className="h-9" />
+                <CommandList>
+                  <CommandEmpty>Sin resultados.</CommandEmpty>
+                  <CommandGroup>
+                    {tiposList.map((t) => {
+                      const label = t.descripcion?.trim() || t.nombre;
+                      return (
+                        <CommandItem
+                          key={t.id}
+                          value={`${label} ${t.codigo} ${t.id}`}
+                          onSelect={() => onTipoChange(t.id)}
+                        >
+                          <Check
+                            className={cn(
+                              'mr-2 h-4 w-4 shrink-0',
+                              data.tipoContratacionId === t.id ? 'opacity-100' : 'opacity-0',
+                            )}
+                          />
+                          <span className="flex-1 text-sm">
+                            {label}
+                            <span className="ml-1.5 font-mono text-xs text-muted-foreground">
+                              ({t.codigo})
+                            </span>
+                          </span>
+                        </CommandItem>
+                      );
+                    })}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
+        )}
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="wizard-ref">
+          {requiereContratoPadre ? (
+            <>
+              Contrato padre (individualizaciones) <span className="text-destructive">*</span>
+            </>
+          ) : (
+            <>Contrato padre (individualizaciones)</>
+          )}
+        </Label>
+        <Input
+          id="wizard-ref"
+          value={data.referenciaContratoAnterior ?? ''}
+          onChange={(e) => updateData({ referenciaContratoAnterior: e.target.value })}
+          placeholder="Número o folio del contrato padre"
+          aria-required={requiereContratoPadre}
+        />
+        {requiereContratoPadre && (
+          <p className="text-xs text-amber-700 dark:text-amber-500">
+            Tipo catalogado como individualización: la referencia al contrato padre es obligatoria.
+          </p>
+        )}
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-3">
+        <div className="space-y-2">
+          <Label htmlFor="wizard-distrito">
+            Distrito <span className="text-destructive">*</span>
+          </Label>
+          {distritosQ.isLoading ? (
             <div className="flex h-10 items-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-              Cargando tipos…
+              Cargando…
             </div>
-          ) : tiposQ.isError ? (
-            <p className="text-sm text-destructive">No se pudieron cargar los tipos de contratación.</p>
-          ) : tiposList.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              Sin tipos de contratación para esta administración (revise que existan registros activos con administración asignada).
-            </p>
+          ) : distritosQ.isError ? (
+            <p className="text-sm text-destructive">No se pudieron cargar los distritos.</p>
           ) : (
-            <Popover open={tipoOpen} onOpenChange={setTipoOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  role="combobox"
-                  aria-expanded={tipoOpen}
-                  className="w-full justify-between font-normal h-auto min-h-10 whitespace-normal text-left"
-                >
-                  <span className={cn(!selectedTipo && 'text-muted-foreground')}>
-                    {selectedTipo
-                      ? `${selectedTipo.descripcion?.trim() || selectedTipo.nombre} (${selectedTipo.codigo})`
-                      : 'Buscar tipo de contratación…'}
-                  </span>
-                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
-                <Command>
-                  <CommandInput placeholder="Buscar…" className="h-9" />
-                  <CommandList>
-                    <CommandEmpty>Sin resultados.</CommandEmpty>
-                    <CommandGroup>
-                      {tiposList.map((t) => {
-                        const label = t.descripcion?.trim() || t.nombre;
-                        return (
-                          <CommandItem
-                            key={t.id}
-                            value={`${label} ${t.codigo} ${t.id}`}
-                            onSelect={() => onTipoChange(t.id)}
-                          >
-                            <Check
-                              className={cn(
-                                'mr-2 h-4 w-4 shrink-0',
-                                data.tipoContratacionId === t.id ? 'opacity-100' : 'opacity-0',
-                              )}
-                            />
-                            <span className="flex-1 text-sm">
-                              {label}
-                              <span className="ml-1.5 font-mono text-xs text-muted-foreground">
-                                ({t.codigo})
-                              </span>
-                            </span>
-                          </CommandItem>
-                        );
-                      })}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
+            <Select
+              value={data.distritoId ?? ''}
+              onValueChange={(v) => updateData({ distritoId: v || undefined })}
+            >
+              <SelectTrigger id="wizard-distrito" aria-label="Distrito">
+                <SelectValue placeholder="Seleccione distrito…" />
+              </SelectTrigger>
+              <SelectContent>
+                {(distritosQ.data ?? []).map((d) => (
+                  <SelectItem key={d.id} value={d.id}>
+                    {d.nombre}
+                    <span className="ml-1.5 font-mono text-[10px] text-muted-foreground">{d.zonaId}</span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           )}
         </div>
 
-        {/* ── Actividad ────────────────────────────────────────────────── */}
+        <div className="space-y-2">
+          <Label htmlFor="wizard-grupo-actividad">
+            Grupo actividad <span className="text-destructive">*</span>
+          </Label>
+          {gruposQ.isLoading ? (
+            <div className="flex h-10 items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+              Cargando…
+            </div>
+          ) : gruposQ.isError ? (
+            <p className="text-sm text-destructive">No se pudieron cargar los grupos.</p>
+          ) : (
+            <Select
+              value={data.grupoActividadId ?? ''}
+              onValueChange={(v) =>
+                updateData({
+                  grupoActividadId: v || undefined,
+                  actividadId: undefined,
+                  actividadNombre: undefined,
+                })
+              }
+            >
+              <SelectTrigger id="wizard-grupo-actividad" aria-label="Grupo de actividad">
+                <SelectValue placeholder="Seleccione grupo…" />
+              </SelectTrigger>
+              <SelectContent>
+                {grupos.map((g) => (
+                  <SelectItem key={g.id} value={g.id}>
+                    {g.codigo} – {g.descripcion}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </div>
+
         <div className="space-y-2">
           <Label htmlFor="wizard-actividad">
             Actividad <span className="text-destructive">*</span>
@@ -235,20 +348,29 @@ export default function PasoConfigContrato({ data, updateData }: StepProps) {
             <Select
               value={data.actividadId ?? ''}
               onValueChange={(v) => {
-                const row = actividades.find((a) => a.id === v);
+                const row = actividadesFiltradas.find((a) => a.id === v);
                 const nombre = row
                   ? (row.descripcion?.trim() || row.codigo?.trim() || v)
                   : v;
                 updateData({ actividadId: v, actividadNombre: nombre });
               }}
+              disabled={!data.grupoActividadId || actividadesFiltradas.length === 0}
             >
               <SelectTrigger id="wizard-actividad" aria-label="Actividad económica">
-                <SelectValue placeholder="Seleccione actividad" />
+                <SelectValue
+                  placeholder={
+                    !data.grupoActividadId
+                      ? 'Primero seleccione grupo'
+                      : actividadesFiltradas.length === 0
+                        ? 'Sin actividades para este grupo'
+                        : 'Seleccione actividad…'
+                  }
+                />
               </SelectTrigger>
               <SelectContent>
-                {actividades.map((a) => (
+                {actividadesFiltradas.map((a) => (
                   <SelectItem key={a.id} value={a.id}>
-                    {a.descripcion || a.codigo}
+                    {a.codigo} – {a.descripcion}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -256,6 +378,11 @@ export default function PasoConfigContrato({ data, updateData }: StepProps) {
           )}
         </div>
       </div>
+
+      <p className="text-xs text-muted-foreground">
+        Distrito y actividad se incorporan al alta del contrato (<span className="font-mono">variablesCapturadas</span> /
+        catálogo).
+      </p>
 
       <div className="grid gap-4 sm:grid-cols-2">
         {/* ── Clase de contratación ───────────────────────────────────── */}
@@ -299,38 +426,6 @@ export default function PasoConfigContrato({ data, updateData }: StepProps) {
             </SelectContent>
           </Select>
         </div>
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="wizard-distrito">Distrito (catálogo)</Label>
-        {distritosQ.isLoading ? (
-          <div className="flex h-10 items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-            Cargando distritos…
-          </div>
-        ) : distritosQ.isError ? (
-          <p className="text-sm text-destructive">No se pudieron cargar los distritos.</p>
-        ) : (
-          <Select
-            value={data.distritoId ?? ''}
-            onValueChange={(v) => updateData({ distritoId: v || undefined })}
-          >
-            <SelectTrigger id="wizard-distrito" aria-label="Distrito">
-              <SelectValue placeholder="Seleccione distrito (opcional)…" />
-            </SelectTrigger>
-            <SelectContent>
-              {(distritosQ.data ?? []).map((d) => (
-                <SelectItem key={d.id} value={d.id}>
-                  {d.nombre}
-                  <span className="ml-1.5 font-mono text-[10px] text-muted-foreground">{d.zonaId}</span>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-        <p className="text-xs text-muted-foreground">
-          El identificador de distrito se envía en <span className="font-mono">variablesCapturadas</span> al crear el contrato.
-        </p>
       </div>
 
       <div className="space-y-4 rounded-lg border border-dashed p-4">
@@ -430,30 +525,6 @@ export default function PasoConfigContrato({ data, updateData }: StepProps) {
             />
           </div>
         </div>
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="wizard-ref">
-          {requiereContratoPadre ? (
-            <>
-              Contrato padre / referencia <span className="text-destructive">*</span>
-            </>
-          ) : (
-            <>Referencia contrato anterior (opcional)</>
-          )}
-        </Label>
-        <Input
-          id="wizard-ref"
-          value={data.referenciaContratoAnterior ?? ''}
-          onChange={(e) => updateData({ referenciaContratoAnterior: e.target.value })}
-          placeholder="Número o folio del contrato padre"
-          aria-required={requiereContratoPadre}
-        />
-        {requiereContratoPadre && (
-          <p className="text-xs text-amber-700 dark:text-amber-500">
-            Tipo catalogado como individualización: la referencia al contrato padre es obligatoria.
-          </p>
-        )}
       </div>
     </section>
   );

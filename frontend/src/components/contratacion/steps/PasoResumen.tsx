@@ -137,7 +137,12 @@ export default function PasoResumen({ data, config }: StepProps) {
   const personasOk = [prop, fiscal, contacto].some(
     (p) => p && (p.nombre?.trim() || p.rfc?.trim() || p.personaId),
   );
-  const configOk = !!(data.actividadId && data.tipoContratacionId);
+  const configOk = !!(
+    data.actividadId &&
+    data.tipoContratacionId &&
+    data.distritoId?.trim() &&
+    data.grupoActividadId?.trim()
+  );
   const varsOk = variablesStepSatisfied(data, config);
   const docsOk = data.documentosRecibidos.length > 0;
   const billingOk =
@@ -343,7 +348,7 @@ export default function PasoResumen({ data, config }: StepProps) {
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-lg">Facturación</CardTitle>
+          <CardTitle className="text-lg">Cuantificación</CardTitle>
           <SectionBadge ok={billingOk} />
         </CardHeader>
         <CardContent>

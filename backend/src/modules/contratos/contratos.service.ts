@@ -111,6 +111,69 @@ export class ContratosService {
     return c;
   }
 
+  /**
+   * Resultados de inspección para la ficha de contrato: solicitud vinculada (solicitud_inspecciones)
+   * y/o orden de campo con `datosCampo` cuando el sistema de órdenes finaliza la ejecución.
+   */
+  async getOrdenInspeccionContrato(contratoId: string) {
+    await this.findOne(contratoId);
+
+    const solicitud = await this.prisma.solicitud.findFirst({
+      where: { contratoId },
+      orderBy: { updatedAt: 'desc' },
+      include: { inspeccion: true },
+    });
+
+    const tiposInspeccion = [
+      'Inspeccion',
+      'InspeccionContratar',
+      'Inspección',
+      'InspeccionParaContratar',
+      'InspeccionContrato',
+    ];
+
+    const ordenInspeccion = await this.prisma.orden.findFirst({
+      where: {
+        contratoId,
+        tipo: { in: tiposInspeccion },
+      },
+      orderBy: { fechaSolicitud: 'desc' },
+    });
+
+    const ins = solicitud?.inspeccion;
+    const solicitudTieneResultados =
+      !!ins &&
+      (ins.estado === 'completada' ||
+        (!!ins.resultadoInspeccion && String(ins.resultadoInspeccion).trim().length > 0));
+
+    const rawDatos = ordenInspeccion?.datosCampo;
+    const datosObj =
+      rawDatos && typeof rawDatos === 'object' && !Array.isArray(rawDatos)
+        ? (rawDatos as Record<string, unknown>)
+        : null;
+    const ordenTieneDatos =
+      !!ordenInspeccion &&
+      ordenInspeccion.estado === 'Ejecutada' &&
+      !!datosObj &&
+      Object.keys(datosObj).length > 0;
+
+    if (solicitudTieneResultados || ordenTieneDatos) {
+      return {
+        status: 'completada' as const,
+        solicitudId: solicitud?.id ?? null,
+        ordenId: ordenInspeccion?.id ?? null,
+        inspeccion: ins ?? null,
+        datosOrden: ordenTieneDatos ? datosObj : null,
+      };
+    }
+
+    return {
+      status: 'en_proceso' as const,
+      solicitudId: solicitud?.id ?? null,
+      ordenId: ordenInspeccion?.id ?? null,
+    };
+  }
+
   async update(
     id: string,
     dto: {

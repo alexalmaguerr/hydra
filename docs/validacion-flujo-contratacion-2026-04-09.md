@@ -13,7 +13,7 @@ Documento de brechas entre el flujo operativo deseado (lista de pasos + notas SI
 | Paso / requerimiento | Estado | Notas |
 |----------------------|--------|--------|
 | Inspección cuando aplica | Parcial | Existen `Factibilidad` / `Construccion` / `Toma` en territorio-obra, pero el alta de contrato en UI no las encadena ni crea hitos de inspección en `ProcesoContratacion`. |
-| Cuantificación del costo | Parcial | `CostoContrato` y motor tarifario (otras tareas); no hay flujo guiado en el wizard de alta. |
+| Cuantificación del costo | Implementado (wizard) | Paso **Cuantificación** (`PasoFacturacion`): desglose vía `POST /contratos/preview-facturacion`; guía operativa alineada al presupuesto legado (`CUANTIFICACION CONTRATACION.PDF`). Persistencia de `CostoContrato` en el alta sin cambios. Esquema de convenio/anticipo fuera del wizard → ver F-02 en pendientes. |
 | 1. Punto de servicio | Implementado | `PasoServicioPoint` + `puntoServicioId` en `POST /contratos` (`WizardContratacion` / `buildCreateContratoDto`). |
 | 2. Persona propietaria | Parcial | Wizard `PasoPersonas`; `POST /contratos` crea `Persona` + `RolPersonaContrato` (PROPIETARIO) salvo `omitirRegistroPersonaTitular`. |
 | 3. Persona fiscal | Implementado | `personaFiscal` en wizard y DTO; alta hace upsert de rol FISCAL cuando aplica (`contratos.service.ts`). |
@@ -76,7 +76,7 @@ Documento de brechas entre el flujo operativo deseado (lista de pasos + notas SI
 - **`Contrato.textoContratoSnapshot`** (campo `Text?`): se captura automáticamente al crear el contrato, resolviendo el snapshot de cláusulas para reimpresión fiel.
 - **`GET /contratos/:id/contrato-pdf`**: devuelve HTML print-ready con el texto del snapshot (o preview si no hay snapshot). Requiere **JWT**; el frontend no debe abrir la URL cruda en una pestaña nueva (el navegador no envía `Authorization`). Obtiene el HTML con `fetch` autenticado y abre un `blob:` en nueva pestaña para imprimir/guardar PDF.
 - **`POST /contratos/:id/factura-contratacion`**: genera `Timbrado` (estado Pendiente, sin consumo) + registros `CostoContrato` con los conceptos de cobro del tipo de contratación. Controlado por `FEATURE_FACTURACION_CONTRATACION=true`.
-- **Wizard**: checkbox "Generar factura de contratación al crear el contrato" en el paso **Facturación** (`PasoFacturacion.tsx`, visible solo con `VITE_FEATURE_FACTURACION_CONTRATACION=true`); por defecto marcado; envía `generarFacturaContratacion` en el POST de alta cuando aplica.
+- **Wizard**: checkbox "Generar factura de contratación al crear el contrato" en el paso **Cuantificación** (`PasoFacturacion.tsx`, visible solo con `VITE_FEATURE_FACTURACION_CONTRATACION=true`); por defecto marcado; envía `generarFacturaContratacion` en el POST de alta cuando aplica.
 - **Tab Facturación** en detalle: botón "Facturar contratación" (visible solo con flag) para generar la factura post-alta.
 - **Tab Texto contrato** en detalle: botón "Imprimir / PDF" que descarga el HTML con sesión (`fetchContratoPdfHtml`) y lo abre en nueva pestaña (`blob:`).
 - **Feature flag**: `FEATURE_FACTURACION_CONTRATACION` (backend) / `VITE_FEATURE_FACTURACION_CONTRATACION` (frontend), default `false`.

@@ -79,6 +79,8 @@ export interface SolicitudState {
   fiscalDir: DomicilioFormValue;
   fiscalRegimenFiscal: string;
   fiscalUsoCfdi: string;
+  /** Si es true, la solicitud queda en espera de inspección; si false, en espera de cliente (sin orden de inspección por ahora). */
+  generarOrdenInspeccion: boolean;
 }
 
 export const SOLICITUD_STATE_EMPTY: SolicitudState = {
@@ -145,6 +147,7 @@ export const SOLICITUD_STATE_EMPTY: SolicitudState = {
   fiscalDir: { estadoINEGIId: '', municipioINEGIId: '', localidadINEGIId: '', coloniaINEGIId: '', codigoPostal: '', calle: '', numExterior: '', numInterior: '', referencia: '' },
   fiscalRegimenFiscal: '',
   fiscalUsoCfdi: '',
+  generarOrdenInspeccion: false,
 };
 
 // ── Inspection order ──────────────────────────────────────────────────────────
@@ -207,6 +210,7 @@ export interface OrdenInspeccionData {
 
 export type SolicitudEstado =
   | 'borrador'
+  | 'espera_cliente'
   | 'inspeccion_pendiente'
   | 'inspeccion_en_proceso'
   | 'inspeccion_completada'
