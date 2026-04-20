@@ -63,6 +63,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { useSearchParams } from 'react-router-dom';
 import { WizardContratacion } from '@/components/contratacion/WizardContratacion';
+import { ContratoEditDialog } from '@/components/contratos/ContratoEditDialog';
 
 /** Inline editable field for linking/updating the CEA contract number */
 function CeaNumInput({ contratoId, initial, onSaved }: { contratoId: string; initial: string; onSaved: (v: string) => void }) {
@@ -183,6 +184,8 @@ const Contratos = () => {
   const [showWizard, setShowWizard] = useState(false);
   const [confirmCloseWizard, setConfirmCloseWizard] = useState(false);
   const [detail, setDetail] = useState<string | null>(null);
+  /** Edición vía PATCH (distinto del modal de solo lectura / ficha). */
+  const [editContratoId, setEditContratoId] = useState<string | null>(null);
   const [resumingContratoId, setResumingContratoId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [openingPdfId, setOpeningPdfId] = useState<string | null>(null);
@@ -521,14 +524,32 @@ const Contratos = () => {
                         <Button
                           variant="ghost"
                           size="sm"
-                          disabled={resumingContratoId === c.id}
+                          disabled={resumingContratoId === c.id || !useApi}
                           onClick={() => resumeContratacionWizard({ id: c.id, tipoContratacionId: c.tipoContratacionId })}
                           title="Continuar registro de contrato"
                         >
                           <PlayCircle className={`h-4 w-4 ${resumingContratoId === c.id ? 'opacity-50' : 'text-[#007BFF]'}`} />
                         </Button>
                       )}
-                      <Button variant="ghost" size="sm" onClick={() => setDetail(c.id)} title="Abrir ficha (editar en detalle)">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={!useApi || resumingContratoId === c.id}
+                        onClick={() => {
+                          if (c.estado === 'Pendiente de alta') {
+                            void resumeContratacionWizard({ id: c.id, tipoContratacionId: c.tipoContratacionId });
+                            return;
+                          }
+                          setEditContratoId(c.id);
+                        }}
+                        title={
+                          !useApi
+                            ? 'Requiere API (VITE_API_URL)'
+                            : c.estado === 'Pendiente de alta'
+                              ? 'Continuar registro (asistente)'
+                              : 'Editar contrato'
+                        }
+                      >
                         <Pencil className="h-4 w-4 text-muted-foreground" />
                       </Button>
                       <Button variant="ghost" size="sm" onClick={() => setDeletingId(c.id)} title="Cancelar contrato">
@@ -627,7 +648,15 @@ const Contratos = () => {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Detail */}
+      <ContratoEditDialog
+        open={!!editContratoId}
+        contratoId={editContratoId}
+        onOpenChange={(o) => {
+          if (!o) setEditContratoId(null);
+        }}
+      />
+
+      {/* Detail (solo lectura + campos puntuales como CEA en línea) */}
       <Dialog open={!!detail} onOpenChange={() => setDetail(null)}>
         <DialogContent className="max-w-6xl w-[95vw] h-[90vh] flex flex-col gap-0 p-0 overflow-hidden">
           <DialogHeader className="sr-only">
@@ -801,7 +830,7 @@ const Contratos = () => {
                             size="sm"
                             variant="outline"
                             className="gap-1.5 text-xs"
-                            disabled={resumingContratoId === selected.id}
+                            disabled={resumingContratoId === selected.id || !useApi}
                             onClick={() => {
                               if (selected.estado === 'Pendiente de alta') {
                                 void resumeContratacionWizard({
@@ -810,10 +839,8 @@ const Contratos = () => {
                                 });
                                 return;
                               }
-                              toast.info('Edición del contrato', {
-                                description:
-                                  'Use las pestañas de esta ficha o los campos editables (por ejemplo N° Contrato CEA). Para un trámite en curso, revise la pestaña Procesos.',
-                              });
+                              setDetail(null);
+                              setEditContratoId(selected.id);
                             }}
                           >
                             <Pencil className="h-3.5 w-3.5" /> Editar

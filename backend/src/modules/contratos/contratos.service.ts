@@ -1046,9 +1046,6 @@ export class ContratosService {
     }
 
     const numeroContrato = c.ceaNumContrato?.trim() || c.id;
-    const domTitular =
-      this.formatDomicilioForPdf(c.domicilio) || c.direccion?.trim() || '';
-    const bloqueIntroPartesHtml = this.buildIntroPartesHtml(c.nombre, domTitular);
     const bloqueDatosInstalacionHtml = this.buildDatosInstalacionHtml(c, {
       calibreMedidorLabel: calibreDescripcion,
     });
@@ -1056,7 +1053,6 @@ export class ContratosService {
     return this.wrapTextoHtml(body, c.nombre, c.fecha, {
       numeroContrato,
       incluirSegundaCopia: true,
-      bloqueIntroPartesHtml,
       bloqueDatosInstalacionHtml,
     });
   }
@@ -1147,12 +1143,44 @@ export class ContratosService {
     return parts.join(', ').trim();
   }
 
-  private buildIntroPartesHtml(nombre: string, domicilioTitular: string): string {
-    const safeNombre = this.escapeHtmlPlain(String(nombre ?? ''));
-    const safeDom = this.escapeHtmlPlain(
-      domicilioTitular.trim().length > 0 ? domicilioTitular.trim() : '—',
+  /** Separa el párrafo inicial (partes) del resto (transición + cláusulas) como en el impreso oficial. */
+  private splitCuerpoContratoParaPdf(body: string): { antes: string; resto: string } {
+    const b = body.trim();
+    const marker = '\n\nEl presente Contrato se sujetará';
+    const idx = b.toLowerCase().indexOf(marker.toLowerCase());
+    if (idx >= 0) {
+      return {
+        antes: b.slice(0, idx).trim(),
+        resto: b.slice(idx + 2).trim(),
+      };
+    }
+    const pars = b.split(/\n\s*\n/).filter((p) => p.trim().length > 0);
+    if (pars.length >= 2) {
+      return { antes: pars[0].trim(), resto: pars.slice(1).join('\n\n').trim() };
+    }
+    return { antes: b, resto: '' };
+  }
+
+  private formatDiametroTomaMm(raw: string): string {
+    const t = raw.trim();
+    if (!t) return '';
+    if (/\bmm\b/i.test(t)) return t;
+    return `${t} mm`;
+  }
+
+  private escapeHtmlBodyForPdf(body: string): string {
+    const escaped = body
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/\n/g, '<br/>');
+    const parts = escaped.split(/<br\s*\/?>/i);
+    const merged = parts.map((p) =>
+      p.trim() === 'CLÁUSULAS'
+        ? '<span class="titulo-clausulas">CLÁUSULAS</span>'
+        : p,
     );
-    return `<div class="intro-partes"><p>Por una parte <strong>LA COMISIÓN</strong> (Comisión Estatal de Aguas), en los términos del ordenamiento jurídico aplicable, y por la otra <strong>EL USUARIO</strong> <strong>${safeNombre}</strong>, con domicilio en <strong>${safeDom}</strong>, convienen en celebrar el presente contrato conforme a las declaraciones y cláusulas siguientes.</p></div>`;
+    return merged.join('<br/>');
   }
 
   private buildDatosInstalacionHtml(
@@ -1184,39 +1212,44 @@ export class ContratosService {
         ? diametroPunto
         : opts.calibreMedidorLabel.trim();
 
-    const fechaInst = this.readVariablesCapturadasString(
-      c.variablesCapturadas,
-      'fechaInstalacionConexion',
-    );
-    const tipoUsuario = [c.tipoContrato, c.tipoServicio]
-      .map((s) => String(s ?? '').trim())
-      .filter(Boolean)
-      .join(' · ');
+    const tipoUsuario = String(c.tipoContrato ?? '').trim();
+    const uso = String(c.tipoServicio ?? '').trim();
     const giro = c.actividad?.descripcion?.trim() ?? '';
     const unidades =
       c.unidadesServidas != null && c.unidadesServidas >= 0
         ? String(c.unidadesServidas)
         : '';
+    const gasto =
+      this.readVariablesCapturadasString(c.variablesCapturadas, 'gasto') ||
+      this.readVariablesCapturadasString(
+        c.variablesCapturadas,
+        'gastoMaximoInstantaneo',
+      );
 
-    const rows: { k: string; v: string }[] = [
-      { k: 'Dirección del suministro', v: dirServ },
-      { k: 'Diámetro de la toma / calibre', v: diametro },
-      { k: 'Fecha de instalación de la conexión', v: fechaInst },
-      { k: 'Tipo de contrato / servicio', v: tipoUsuario },
-      { k: 'Actividad o giro', v: giro },
-      { k: 'Unidades servidas', v: unidades },
-      { k: 'RFC', v: c.rfc?.trim() ?? '' },
-    ];
-    const any = rows.some((r) => r.v.length > 0);
+    const diametroFmt = this.formatDiametroTomaMm(diametro);
+    const any =
+      dirServ.length > 0 ||
+      diametroFmt.length > 0 ||
+      tipoUsuario.length > 0 ||
+      uso.length > 0 ||
+      giro.length > 0 ||
+      unidades.length > 0 ||
+      gasto.length > 0;
     if (!any) return '';
 
-    const inner = rows
-      .filter((r) => r.v.length > 0)
-      .map(
-        (r) =>
-          `<p class="inst-row"><span class="inst-k">${this.escapeHtmlPlain(r.k)}:</span> ${this.escapeHtmlPlain(r.v)}</p>`,
-      )
-      .join('');
+    const lineaDir = `<p class="inst-linea"><span class="inst-k">Dirección de servicio:</span> ${dirServ.length > 0 ? this.escapeHtmlPlain(dirServ) : '—'}</p>`;
+    const lineaDiam = `<p class="inst-linea"><span class="inst-k">Diámetro de la toma:</span> ${diametroFmt.length > 0 ? this.escapeHtmlPlain(diametroFmt) : '—'}</p>`;
+    const lineaTipoGiro = `<div class="inst-row-dos">
+      <span><span class="inst-k">Tipo de usuario:</span> ${tipoUsuario.length > 0 ? this.escapeHtmlPlain(tipoUsuario) : '—'}</span>
+      <span class="inst-derecha"><span class="inst-k">Giro:</span> ${giro.length > 0 ? this.escapeHtmlPlain(giro) : '—'}</span>
+    </div>`;
+    const lineaUsoGastoUnd = `<div class="inst-row-tres">
+      <span><span class="inst-k">Uso:</span> ${uso.length > 0 ? this.escapeHtmlPlain(uso) : '—'}</span>
+      <span class="inst-centro"><span class="inst-k">Gasto:</span>${gasto.length > 0 ? ` ${this.escapeHtmlPlain(gasto)}` : ''}</span>
+      <span class="inst-derecha"><span class="inst-k">Unidades</span> ${unidades.length > 0 ? this.escapeHtmlPlain(unidades) : '—'}</span>
+    </div>`;
+
+    const inner = [lineaDir, lineaDiam, lineaTipoGiro, lineaUsoGastoUnd].join('');
     return `<div class="datos-instalacion"><h2>Datos de instalación</h2>${inner}</div>`;
   }
 
@@ -1400,48 +1433,38 @@ export class ContratosService {
 
   /**
    * HTML para impresión / PDF del contrato (navegador).
-   * Estructura alineada a la muestra Hydra: cabecera institucional, número de contrato, cuerpo, firmas y segunda copia.
+   * Orden alineado al formato impreso: número de contrato, párrafo de partes (plantilla),
+   * bloque «Datos de instalación», transición + CLÁUSULAS + cuerpo, firmas y segunda copia.
    */
   private wrapTextoHtml(
     body: string,
     nombre: string,
-    fecha: string,
+    _fecha: string,
     opts?: {
       numeroContrato?: string | null;
       incluirSegundaCopia?: boolean;
       /** HTML ya escapado (solo etiquetas seguras generadas en servidor). */
-      bloqueIntroPartesHtml?: string;
       bloqueDatosInstalacionHtml?: string;
     },
   ): string {
-    const escapedBody = body
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/\n/g, '<br/>');
-
     const safeNombre = this.escapeHtmlPlain(String(nombre ?? ''));
-    const safeFecha = this.escapeHtmlPlain(String(fecha ?? ''));
     const rawNum = (opts?.numeroContrato ?? '').toString().trim();
     const safeNum = this.escapeHtmlPlain(rawNum.length > 0 ? rawNum : '—');
     const incluir2 = opts?.incluirSegundaCopia !== false;
     const sig = this.contratoPrintSignaturesHtml();
-    const intro = opts?.bloqueIntroPartesHtml ?? '';
     const datosInst = opts?.bloqueDatosInstalacionHtml ?? '';
+
+    const { antes, resto } = this.splitCuerpoContratoParaPdf(body);
+    const htmlApertura = this.escapeHtmlBodyForPdf(antes);
+    const htmlResto = resto.length > 0 ? this.escapeHtmlBodyForPdf(resto) : '';
 
     const contractSection = (copyLabel: string | null) => `
   <section class="hoja-contrato">
     ${copyLabel ? `<p class="hoja-etiqueta">${this.escapeHtmlPlain(copyLabel)}</p>` : ''}
-    <header class="cabecera-org">
-      <div class="org-nombre">Comisión Estatal de Aguas</div>
-      <h1>Contrato de prestación de servicios integrales de agua potable</h1>
-      <p class="num-contrato">Número de contrato: <strong>${safeNum}</strong></p>
-    </header>
-    <p class="interlocutor"><span class="lbl">Nombre del titular / usuario:</span> ${safeNombre}</p>
-    <p class="interlocutor"><span class="lbl">Fecha del contrato:</span> ${safeFecha}</p>
-    ${intro}
+    <p class="num-contrato-top">Número de contrato: <strong>${safeNum}</strong></p>
+    <div class="apertura-contrato body-text">${htmlApertura}</div>
     ${datosInst}
-    <div class="body-text">${escapedBody}</div>
+    ${htmlResto.length > 0 ? `<div class="cuerpo-contrato body-text">${htmlResto}</div>` : ''}
     ${sig}
   </section>`;
 
@@ -1458,18 +1481,19 @@ export class ContratosService {
   <style>
     @page { size: letter; margin: 1.8cm; }
     body { font-family: 'Times New Roman', Times, serif; font-size: 11pt; line-height: 1.45; color: #111; }
-    h1 { text-align: center; font-size: 13pt; margin: 0.35em 0 0.5em; font-weight: bold; }
-    .cabecera-org { text-align: center; margin-bottom: 0.75em; border-bottom: 1px solid #333; padding-bottom: 0.5em; }
-    .org-nombre { font-size: 12pt; font-weight: bold; letter-spacing: 0.02em; }
-    .num-contrato { text-align: center; font-size: 11pt; margin: 0.25em 0 0.75em; }
-    .interlocutor { font-size: 10.5pt; margin: 0.2em 0; }
-    .interlocutor .lbl { color: #444; }
-    .intro-partes { font-size: 10.5pt; text-align: justify; margin: 0.65em 0 0.35em; }
-    .datos-instalacion { margin: 0.85em 0; padding: 0.65em 0.85em; border: 1px solid #333; background: #fafafa; page-break-inside: avoid; }
-    .datos-instalacion h2 { font-size: 11pt; margin: 0 0 0.45em; text-align: center; font-weight: bold; }
-    .inst-row { margin: 0.12em 0; font-size: 10.5pt; text-align: justify; }
-    .inst-k { font-weight: bold; color: #333; }
-    .body-text { text-align: justify; margin-top: 1em; }
+    .num-contrato-top { text-align: left; font-size: 11pt; margin: 0 0 0.65em; }
+    .apertura-contrato { text-align: justify; margin: 0 0 0.5em; }
+    .cuerpo-contrato { text-align: justify; margin-top: 0.35em; }
+    .titulo-clausulas { display: block; text-align: center; font-weight: bold; margin: 0.65em 0 0.5em; font-size: 11pt; }
+    .datos-instalacion { margin: 0.75em 0; padding: 0; border: none; background: transparent; page-break-inside: avoid; }
+    .datos-instalacion h2 { font-size: 11pt; margin: 0 0 0.4em; text-align: left; font-weight: bold; }
+    .inst-linea { margin: 0.15em 0; font-size: 10.5pt; text-align: justify; }
+    .inst-k { font-weight: bold; color: #111; }
+    .inst-row-dos { display: flex; justify-content: space-between; gap: 1em; font-size: 10.5pt; margin: 0.2em 0; flex-wrap: wrap; }
+    .inst-row-tres { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5em; font-size: 10.5pt; margin: 0.2em 0; flex-wrap: wrap; }
+    .inst-derecha { margin-left: auto; text-align: right; }
+    .inst-centro { flex: 1; text-align: center; min-width: 6em; }
+    .body-text { text-align: justify; }
     .duplicado { margin-top: 1.25em; font-size: 10pt; font-style: italic; text-align: justify; }
     table.firmas { width: 100%; margin-top: 2.5em; border-collapse: collapse; }
     .firma-col { width: 50%; vertical-align: top; padding: 0.5em 1em 0 0; }

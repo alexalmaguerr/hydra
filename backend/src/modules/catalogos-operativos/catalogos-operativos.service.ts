@@ -1,15 +1,18 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
+import { administracionExcluidaDelSelector } from '@/common/administraciones-selector-excluidas';
 import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
 export class CatalogosOperativosService {
   constructor(private readonly prisma: PrismaService) {}
 
-  findAdministraciones() {
-    return this.prisma.administracion.findMany({
+  async findAdministraciones() {
+    const rows = await this.prisma.administracion.findMany({
       select: { id: true, nombre: true },
       orderBy: { nombre: 'asc' },
     });
+    return rows.filter((r) => !administracionExcluidaDelSelector(r.nombre));
   }
 
   private activeFilter(activo?: string) {
@@ -174,6 +177,40 @@ export class CatalogosOperativosService {
     return this.prisma.tipoVariable.findMany({
       where: this.activeFilter(filters.activo),
       orderBy: { nombre: 'asc' },
+    });
+  }
+
+  createTipoVariable(data: {
+    codigo: string;
+    nombre: string;
+    tipoDato: string;
+    valoresPosibles?: Prisma.InputJsonValue;
+    unidad?: string | null;
+  }) {
+    return this.prisma.tipoVariable.create({ data });
+  }
+
+  updateTipoVariable(
+    id: string,
+    data: {
+      nombre?: string;
+      tipoDato?: string;
+      valoresPosibles?: Prisma.InputJsonValue | null;
+      unidad?: string | null;
+      activo?: boolean;
+    },
+  ) {
+    const { valoresPosibles, ...rest } = data;
+    return this.prisma.tipoVariable.update({
+      where: { id },
+      data: {
+        ...rest,
+        ...(valoresPosibles === null
+          ? { valoresPosibles: Prisma.JsonNull }
+          : valoresPosibles !== undefined
+            ? { valoresPosibles }
+            : {}),
+      },
     });
   }
 

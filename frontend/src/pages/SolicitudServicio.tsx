@@ -923,7 +923,7 @@ function StepContratacion({ form, set }: { form: SolicitudState; set: (p: Partia
             <SelectContent>
               {actividadesFiltradas.map((a: CatalogoActividad) => (
                 <SelectItem key={a.id} value={a.id}>
-                  {a.codigo} – {a.descripcion}
+                  {a.descripcion?.trim() || a.codigo}
                 </SelectItem>
               ))}
             </SelectContent>

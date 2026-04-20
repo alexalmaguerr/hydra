@@ -6,6 +6,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import type { PrismaClient } from '@prisma/client';
 import * as XLSX from 'xlsx';
+import { administracionExcluidaDelSelector } from '../src/common/administraciones-selector-excluidas';
 
 /** IDs estables alineados a expid (1–13) del catálogo SIGE. */
 export function expIdToAdministracionId(expId: number): string {
@@ -133,7 +134,14 @@ async function upsertAdministraciones(
   prisma: PrismaClient,
   rows: { expid: number; nombre: string }[],
 ): Promise<void> {
-  for (const r of rows) {
+  const aplicables = rows.filter((r) => !administracionExcluidaDelSelector(r.nombre));
+  const omitidas = rows.length - aplicables.length;
+  if (omitidas > 0) {
+    console.warn(
+      `[catalogos] Se omiten ${omitidas} administración(es) que no corresponden al listado municipal (selector).`,
+    );
+  }
+  for (const r of aplicables) {
     const id = expIdToAdministracionId(r.expid);
     await prisma.administracion.upsert({
       where: { id },
@@ -141,7 +149,7 @@ async function upsertAdministraciones(
       create: { id, nombre: r.nombre },
     });
   }
-  console.log(`Administraciones (catálogo SIGE): ${rows.length} registros`);
+  console.log(`Administraciones (catálogo SIGE): ${aplicables.length} registros`);
 }
 
 export type ImportCatalogosOptions = {

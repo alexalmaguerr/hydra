@@ -19,11 +19,11 @@ En la app interna: **Configuración → Catálogos del contrato** (`/app/catalog
 
 ## API
 
-Sin cambios de contrato: `GET /catalogos/actividades` y `GET /catalogos/grupos-actividad` siguen igual; el listado incluye las actividades sembradas.
+`GET /catalogos/actividades` devuelve **solo** filas cuyo `codigo` comienza por `ACTIPOL_` (catálogo SIGE sembrado desde `catalogo-actividad-sige.json`). Así no aparecen en el wizard ni en catálogos registros demo u híbridos con otro formato. `GET /catalogos/grupos-actividad` no cambia.
 
 ## Entornos ya sembrados
 
-El seed hace **upsert** por `codigo`. No elimina filas antiguas de `catalogo_actividades` (p. ej. códigos tipo `HAB_UNIFAM` de corridas previas). Tras desplegar este cambio, conviene revisar en base si deben borrarse o desactivarse registros obsoletos para evitar duplicidad semántica con el catálogo SIGE.
+El seed hace **upsert** por `codigo` sobre las filas SIGE y pone `activo: true` en cada una. Tras eso, **desactiva** (`activo: false`) cualquier fila de `catalogo_actividades` cuyo `codigo` no empiece por `ACTIPOL_` (p. ej. restos `HAB_UNIFAM` u otras inserciones ajenas al Excel). Vuelva a ejecutar el seed tras importar desde el Excel si regeneró el JSON.
 
 ## Regenerar el JSON desde Excel
 

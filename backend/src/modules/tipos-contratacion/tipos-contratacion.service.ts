@@ -354,8 +354,15 @@ export class TiposContratacionService {
   // ─── Catálogos CIG2018 (actividad, categoría, relación PS) ─────────────────
 
   async findCatalogoActividades(params: { activo?: string } = {}) {
+    const activoWhere =
+      params.activo !== undefined ? { activo: params.activo === 'true' } : {};
+    // Solo catálogo operativo SIGE (hoja Actividad — `ACTIPOL_{actipolid}` en seed).
+    // Excluye filas legacy/demo con otros códigos que no existen en el Excel SIGE.
     return this.prisma.catalogoActividad.findMany({
-      where: params.activo !== undefined ? { activo: params.activo === 'true' } : undefined,
+      where: {
+        ...activoWhere,
+        codigo: { startsWith: 'ACTIPOL_' },
+      },
       include: { grupo: true },
       orderBy: { codigo: 'asc' },
     });

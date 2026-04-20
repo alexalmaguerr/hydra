@@ -26,6 +26,7 @@ import {
   Scale,
   Landmark,
   NotebookTabs,
+  Braces,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -233,6 +234,13 @@ export const APP_ROUTES: AppRouteConfig[] = [
     path: 'tipos-contratacion',
     label: 'Tipos de contratación',
     icon: Settings2,
+    allowedRoles: ['SUPER_ADMIN', 'ADMIN'],
+    group: 'Configuración',
+  },
+  {
+    path: 'variables-contratacion',
+    label: 'Variables de contratación',
+    icon: Braces,
     allowedRoles: ['SUPER_ADMIN', 'ADMIN'],
     group: 'Configuración',
   },

@@ -1,4 +1,5 @@
 import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
+import type { Prisma } from '@prisma/client';
 import { CatalogosOperativosService } from './catalogos-operativos.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
@@ -160,6 +161,50 @@ export class CatalogosOperativosController {
   @Get('tipos-variable')
   getTiposVariable(@Query('activo') activo?: string) {
     return this.service.findTiposVariable({ activo });
+  }
+
+  @Post('tipos-variable')
+  createTipoVariable(
+    @Body()
+    body: {
+      codigo: string;
+      nombre: string;
+      tipoDato: string;
+      valoresPosibles?: unknown;
+      unidad?: string | null;
+    },
+  ) {
+    return this.service.createTipoVariable({
+      codigo: body.codigo,
+      nombre: body.nombre,
+      tipoDato: body.tipoDato,
+      unidad: body.unidad,
+      valoresPosibles: body.valoresPosibles as Prisma.InputJsonValue | undefined,
+    });
+  }
+
+  @Patch('tipos-variable/:id')
+  updateTipoVariable(
+    @Param('id') id: string,
+    @Body()
+    body: {
+      nombre?: string;
+      tipoDato?: string;
+      valoresPosibles?: unknown | null;
+      unidad?: string | null;
+      activo?: boolean;
+    },
+  ) {
+    return this.service.updateTipoVariable(id, {
+      nombre: body.nombre,
+      tipoDato: body.tipoDato,
+      unidad: body.unidad,
+      activo: body.activo,
+      valoresPosibles:
+        body.valoresPosibles === undefined
+          ? undefined
+          : (body.valoresPosibles as Prisma.InputJsonValue | null),
+    });
   }
 
   // ─── Variables por Tipo Contratación ──────────────────────────────────────

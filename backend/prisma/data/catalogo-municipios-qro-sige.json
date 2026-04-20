@@ -1,0 +1,146 @@
+[
+  {
+    "proid": 1,
+    "procomid": 22,
+    "claveINEGI": "22001",
+    "nombre": "AMEALCO DE BONFIL",
+    "activo": true,
+    "fuente": "Catálogos de domicilio.xlsx · hoja «Municipio (provincia)» · procomid 22 (Querétaro)"
+  },
+  {
+    "proid": 2,
+    "procomid": 22,
+    "claveINEGI": "22002",
+    "nombre": "PINAL DE AMOLES",
+    "activo": true,
+    "fuente": "Catálogos de domicilio.xlsx · hoja «Municipio (provincia)» · procomid 22 (Querétaro)"
+  },
+  {
+    "proid": 3,
+    "procomid": 22,
+    "claveINEGI": "22003",
+    "nombre": "ARROYO SECO",
+    "activo": false,
+    "fuente": "Catálogos de domicilio.xlsx · hoja «Municipio (provincia)» · procomid 22 (Querétaro)"
+  },
+  {
+    "proid": 4,
+    "procomid": 22,
+    "claveINEGI": "22004",
+    "nombre": "CADEREYTA DE MONTES",
+    "activo": true,
+    "fuente": "Catálogos de domicilio.xlsx · hoja «Municipio (provincia)» · procomid 22 (Querétaro)"
+  },
+  {
+    "proid": 5,
+    "procomid": 22,
+    "claveINEGI": "22005",
+    "nombre": "COLÓN",
+    "activo": true,
+    "fuente": "Catálogos de domicilio.xlsx · hoja «Municipio (provincia)» · procomid 22 (Querétaro)"
+  },
+  {
+    "proid": 6,
+    "procomid": 22,
+    "claveINEGI": "22006",
+    "nombre": "CORREGIDORA",
+    "activo": false,
+    "fuente": "Catálogos de domicilio.xlsx · hoja «Municipio (provincia)» · procomid 22 (Querétaro)"
+  },
+  {
+    "proid": 7,
+    "procomid": 22,
+    "claveINEGI": "22007",
+    "nombre": "EZEQUIEL MONTES",
+    "activo": true,
+    "fuente": "Catálogos de domicilio.xlsx · hoja «Municipio (provincia)» · procomid 22 (Querétaro)"
+  },
+  {
+    "proid": 8,
+    "procomid": 22,
+    "claveINEGI": "22008",
+    "nombre": "HUIMILPAN",
+    "activo": true,
+    "fuente": "Catálogos de domicilio.xlsx · hoja «Municipio (provincia)» · procomid 22 (Querétaro)"
+  },
+  {
+    "proid": 9,
+    "procomid": 22,
+    "claveINEGI": "22009",
+    "nombre": "JALPAN DE SERRA",
+    "activo": true,
+    "fuente": "Catálogos de domicilio.xlsx · hoja «Municipio (provincia)» · procomid 22 (Querétaro)"
+  },
+  {
+    "proid": 10,
+    "procomid": 22,
+    "claveINEGI": "22010",
+    "nombre": "LANDA DE MATAMOROS",
+    "activo": true,
+    "fuente": "Catálogos de domicilio.xlsx · hoja «Municipio (provincia)» · procomid 22 (Querétaro)"
+  },
+  {
+    "proid": 11,
+    "procomid": 22,
+    "claveINEGI": "22011",
+    "nombre": "EL MARQUÉS",
+    "activo": true,
+    "fuente": "Catálogos de domicilio.xlsx · hoja «Municipio (provincia)» · procomid 22 (Querétaro)"
+  },
+  {
+    "proid": 12,
+    "procomid": 22,
+    "claveINEGI": "22012",
+    "nombre": "PEDRO ESCOBEDO",
+    "activo": true,
+    "fuente": "Catálogos de domicilio.xlsx · hoja «Municipio (provincia)» · procomid 22 (Querétaro)"
+  },
+  {
+    "proid": 13,
+    "procomid": 22,
+    "claveINEGI": "22013",
+    "nombre": "PEÑAMILLER",
+    "activo": true,
+    "fuente": "Catálogos de domicilio.xlsx · hoja «Municipio (provincia)» · procomid 22 (Querétaro)"
+  },
+  {
+    "proid": 14,
+    "procomid": 22,
+    "claveINEGI": "22014",
+    "nombre": "QUERÉTARO",
+    "activo": true,
+    "fuente": "Catálogos de domicilio.xlsx · hoja «Municipio (provincia)» · procomid 22 (Querétaro)"
+  },
+  {
+    "proid": 15,
+    "procomid": 22,
+    "claveINEGI": "22015",
+    "nombre": "SAN JOAQUÍN",
+    "activo": true,
+    "fuente": "Catálogos de domicilio.xlsx · hoja «Municipio (provincia)» · procomid 22 (Querétaro)"
+  },
+  {
+    "proid": 16,
+    "procomid": 22,
+    "claveINEGI": "22016",
+    "nombre": "SAN JUAN DEL RÍO",
+    "activo": true,
+    "fuente": "Catálogos de domicilio.xlsx · hoja «Municipio (provincia)» · procomid 22 (Querétaro)"
+  },
+  {
+    "proid": 17,
+    "procomid": 22,
+    "claveINEGI": "22017",
+    "nombre": "TEQUISQUIAPAN",
+    "activo": true,
+    "fuente": "Catálogos de domicilio.xlsx · hoja «Municipio (provincia)» · procomid 22 (Querétaro)"
+  },
+  {
+    "proid": 18,
+    "procomid": 22,
+    "claveINEGI": "22018",
+    "nombre": "TOLIMÁN",
+    "activo": true,
+    "fuente": "Catálogos de domicilio.xlsx · hoja «Municipio (provincia)» · procomid 22 (Querétaro)"
+  }
+]

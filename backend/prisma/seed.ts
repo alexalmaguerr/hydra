@@ -19,6 +19,20 @@ function loadCatalogoActividadSige(): ActividadSigeRow[] {
   return JSON.parse(fs.readFileSync(file, 'utf8')) as ActividadSigeRow[];
 }
 
+type MunicipioQroSigeRow = {
+  proid: number;
+  procomid: number;
+  claveINEGI: string;
+  nombre: string;
+  activo: boolean;
+  fuente?: string;
+};
+
+function loadCatalogoMunicipiosQroSige(): MunicipioQroSigeRow[] {
+  const file = path.join(__dirname, 'data', 'catalogo-municipios-qro-sige.json');
+  return JSON.parse(fs.readFileSync(file, 'utf8')) as MunicipioQroSigeRow[];
+}
+
 async function main() {
   // Territorial: 13 administraciones (SIGE expid 1–13) y zonas de demo
   for (const a of FALLBACK_ADMINISTRACIONES) {
@@ -591,11 +605,20 @@ async function seedCatalogosActividadRelacionPS() {
   for (const a of actividades) {
     await (prisma as any).catalogoActividad.upsert({
       where: { codigo: a.codigo },
-      update: { descripcion: a.descripcion, grupoId: a.grupoId },
-      create: a,
+      update: { descripcion: a.descripcion, grupoId: a.grupoId, activo: true },
+      create: { ...a, activo: true },
     });
   }
-  console.log('Actividades sembradas:', actividades.length);
+  const deactivated = await (prisma as any).catalogoActividad.updateMany({
+    where: { NOT: { codigo: { startsWith: 'ACTIPOL_' } } },
+    data: { activo: false },
+  });
+  console.log(
+    'Actividades sembradas:',
+    actividades.length,
+    '| actividades no-SIGE desactivadas:',
+    deactivated.count,
+  );
 
   // ─── Categorías de Contrato (21 categorías CIG2018) ─────────────────────────
   const categorias = [
@@ -989,89 +1012,92 @@ async function seedSectoresClasesVariables() {
 }
 
 async function seedInegiQueretaro() {
-  // Estado
   const estado = await prisma.catalogoEstadoINEGI.upsert({
     where: { claveINEGI: '22' },
     update: {},
     create: { claveINEGI: '22', nombre: 'Querétaro', activo: true },
   });
 
-  // Municipio Querétaro
-  const mpio = await prisma.catalogoMunicipioINEGI.upsert({
-    where: { claveINEGI: '22001' },
-    update: {},
-    create: { estadoId: estado.id, claveINEGI: '22001', nombre: 'Querétaro', activo: true },
+  const municipiosQro = loadCatalogoMunicipiosQroSige();
+  for (const row of municipiosQro) {
+    await prisma.catalogoMunicipioINEGI.upsert({
+      where: { claveINEGI: row.claveINEGI },
+      update: { nombre: row.nombre, activo: row.activo, estadoId: estado.id },
+      create: {
+        estadoId: estado.id,
+        claveINEGI: row.claveINEGI,
+        nombre: row.nombre,
+        activo: row.activo,
+      },
+    });
+  }
+
+  const mpioQueretaro = await prisma.catalogoMunicipioINEGI.findUniqueOrThrow({
+    where: { claveINEGI: '22014' },
+  });
+  const mpioMarques = await prisma.catalogoMunicipioINEGI.findUniqueOrThrow({
+    where: { claveINEGI: '22011' },
   });
 
-  // Municipio El Marqués
-  const mpioMarques = await prisma.catalogoMunicipioINEGI.upsert({
-    where: { claveINEGI: '22003' },
-    update: {},
-    create: { estadoId: estado.id, claveINEGI: '22003', nombre: 'El Marqués', activo: true },
-  });
+  // Localidades masivas: ejecutar scripts/import-localidades-sige-qro.ts contra «Catálogos de domicilio.xlsx».
 
-  // Localidad: ciudad de Querétaro
-  await prisma.catalogoLocalidadINEGI.upsert({
-    where: { claveINEGI: '220010001' },
-    update: {},
-    create: { municipioId: mpio.id, claveINEGI: '220010001', nombre: 'Querétaro', activo: true },
-  });
-
-  // Localidad: Juriquilla
-  await prisma.catalogoLocalidadINEGI.upsert({
-    where: { claveINEGI: '220010043' },
-    update: {},
-    create: { municipioId: mpio.id, claveINEGI: '220010043', nombre: 'Juriquilla', activo: true },
-  });
-
-  // Localidad: El Marqués (cabecera)
-  await prisma.catalogoLocalidadINEGI.upsert({
-    where: { claveINEGI: '220030001' },
-    update: {},
-    create: { municipioId: mpioMarques.id, claveINEGI: '220030001', nombre: 'El Marqués', activo: true },
-  });
-
-  // Colonias municipio Querétaro
   const colonias = [
-    { claveINEGI: '22001-0001', nombre: 'Centro Histórico',          codigoPostal: '76000' },
-    { claveINEGI: '22001-0002', nombre: 'Epigmenio González',         codigoPostal: '76140' },
-    { claveINEGI: '22001-0003', nombre: 'Pedregal de Querétaro',      codigoPostal: '76060' },
-    { claveINEGI: '22001-0004', nombre: 'Juriquilla',                 codigoPostal: '76100' },
-    { claveINEGI: '22001-0005', nombre: 'Punta Juriquilla',           codigoPostal: '76230' },
-    { claveINEGI: '22001-0006', nombre: 'La Cañada',                  codigoPostal: '76177' },
-    { claveINEGI: '22001-0007', nombre: 'Satélite',                   codigoPostal: '76150' },
-    { claveINEGI: '22001-0008', nombre: 'El Refugio',                 codigoPostal: '76146' },
-    { claveINEGI: '22001-0009', nombre: 'Cimatario',                  codigoPostal: '76030' },
-    { claveINEGI: '22001-0010', nombre: 'Loma Dorada',                codigoPostal: '76060' },
-    { claveINEGI: '22001-0011', nombre: 'El Cerrito',                 codigoPostal: '76090' },
-    { claveINEGI: '22001-0012', nombre: 'Hacienda Juriquilla',        codigoPostal: '76226' },
-    { claveINEGI: '22001-0013', nombre: 'Los Ángeles',                codigoPostal: '76046' },
-    { claveINEGI: '22001-0014', nombre: 'Carretas',                   codigoPostal: '76050' },
-    { claveINEGI: '22001-0015', nombre: 'Tecnológico',                codigoPostal: '76148' },
+    { claveINEGI: '22014-0001', nombre: 'Centro Histórico', codigoPostal: '76000' },
+    { claveINEGI: '22014-0002', nombre: 'Epigmenio González', codigoPostal: '76140' },
+    { claveINEGI: '22014-0003', nombre: 'Pedregal de Querétaro', codigoPostal: '76060' },
+    { claveINEGI: '22014-0004', nombre: 'Juriquilla', codigoPostal: '76100' },
+    { claveINEGI: '22014-0005', nombre: 'Punta Juriquilla', codigoPostal: '76230' },
+    { claveINEGI: '22014-0006', nombre: 'La Cañada', codigoPostal: '76177' },
+    { claveINEGI: '22014-0007', nombre: 'Satélite', codigoPostal: '76150' },
+    { claveINEGI: '22014-0008', nombre: 'El Refugio', codigoPostal: '76146' },
+    { claveINEGI: '22014-0009', nombre: 'Cimatario', codigoPostal: '76030' },
+    { claveINEGI: '22014-0010', nombre: 'Loma Dorada', codigoPostal: '76060' },
+    { claveINEGI: '22014-0011', nombre: 'El Cerrito', codigoPostal: '76090' },
+    { claveINEGI: '22014-0012', nombre: 'Hacienda Juriquilla', codigoPostal: '76226' },
+    { claveINEGI: '22014-0013', nombre: 'Los Ángeles', codigoPostal: '76046' },
+    { claveINEGI: '22014-0014', nombre: 'Carretas', codigoPostal: '76050' },
+    { claveINEGI: '22014-0015', nombre: 'Tecnológico', codigoPostal: '76148' },
   ];
 
   for (const c of colonias) {
     await prisma.catalogoColoniaINEGI.upsert({
       where: { claveINEGI: c.claveINEGI },
-      update: {},
-      create: { municipioId: mpio.id, claveINEGI: c.claveINEGI, nombre: c.nombre, codigoPostal: c.codigoPostal, activo: true },
+      update: { municipioId: mpioQueretaro.id, nombre: c.nombre, codigoPostal: c.codigoPostal, activo: true },
+      create: {
+        municipioId: mpioQueretaro.id,
+        claveINEGI: c.claveINEGI,
+        nombre: c.nombre,
+        codigoPostal: c.codigoPostal,
+        activo: true,
+      },
     });
   }
 
-  // Colonias municipio El Marqués
   const coloniasMarques = [
-    { claveINEGI: '22003-0001', nombre: 'Zibatá',         codigoPostal: '76269' },
-    { claveINEGI: '22003-0002', nombre: 'El Marqués Centro', codigoPostal: '76260' },
+    { claveINEGI: '22011-0001', nombre: 'Zibatá', codigoPostal: '76269' },
+    { claveINEGI: '22011-0002', nombre: 'El Marqués Centro', codigoPostal: '76260' },
   ];
   for (const c of coloniasMarques) {
     await prisma.catalogoColoniaINEGI.upsert({
       where: { claveINEGI: c.claveINEGI },
-      update: {},
-      create: { municipioId: mpioMarques.id, claveINEGI: c.claveINEGI, nombre: c.nombre, codigoPostal: c.codigoPostal, activo: true },
+      update: { municipioId: mpioMarques.id, nombre: c.nombre, codigoPostal: c.codigoPostal, activo: true },
+      create: {
+        municipioId: mpioMarques.id,
+        claveINEGI: c.claveINEGI,
+        nombre: c.nombre,
+        codigoPostal: c.codigoPostal,
+        activo: true,
+      },
     });
   }
 
-  console.log('INEGI Querétaro: 1 estado, 2 municipios, 3 localidades,', colonias.length + coloniasMarques.length, 'colonias');
+  console.log(
+    'INEGI Querétaro: 1 estado,',
+    municipiosQro.length,
+    'municipios (SIGE/QRO), localidades vía import-localidades-sige-qro,',
+    colonias.length + coloniasMarques.length,
+    'colonias demo',
+  );
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1183,22 +1209,85 @@ async function seedClausulasHydra() {
       titulo: 'DÉCIMA QUINTA — Dispositivos de medición',
       orden: 15,
       contenido:
-        'DÉCIMA QUINTA.- Las Modificaciones o implementación de accesorios y/o dispositivos de medición, aplicados a las tomas de los predios, quedan sujetas a la autorización y aplicación invariablemente por parte de "LA COMISIÓN", considerando las características particulares del predio, modernización de los sistemas, eficientización aplicando avances tecnológicos, normativas vigentes o cualesquiera situaciones que afecten en beneficio de un mejor servicio el sistema de Agua Potable, la medición del servicio o la calidad del agua suministrada.',
+        'DÉCIMA QUINTA.- Las Modificaciones o implementación de accesorios y/o dispositivos de medición, aplicados a las tomas de los predios, quedan sujetas a la autorización y aplicación invariablemente por parte de "LA COMISIÓN", considerando las características particulares del predio, modernización de los sistemas, eficientización aplicando avances tecnológicos, normativas vigentes o cualesquiera situaciones que afecten en beneficio de un mejor servicio el sistema de Agua Potable, la medición del servicio o actividades intrínsecas actuales, quedan sujetas a la autorización y aplicación invariablemente por parte de "LA COMISIÓN".',
     },
-    // ── Cláusulas 16-26: no recuperadas por OCR del documento escaneado. ──
-    // Agregar texto real cuando se disponga de una copia completa.
-    { codigo: 'HYDRA_16_DECIMA_SEXTA', titulo: 'DÉCIMA SEXTA', orden: 16, contenido: '[Pendiente — texto no recuperado del escaneo Hydra. Completar manualmente.]' },
-    { codigo: 'HYDRA_17_DECIMA_SEPTIMA', titulo: 'DÉCIMA SÉPTIMA', orden: 17, contenido: '[Pendiente — texto no recuperado del escaneo Hydra. Completar manualmente.]' },
-    { codigo: 'HYDRA_18_DECIMA_OCTAVA', titulo: 'DÉCIMA OCTAVA', orden: 18, contenido: '[Pendiente — texto no recuperado del escaneo Hydra. Completar manualmente.]' },
-    { codigo: 'HYDRA_19_DECIMA_NOVENA', titulo: 'DÉCIMA NOVENA', orden: 19, contenido: '[Pendiente — texto no recuperado del escaneo Hydra. Completar manualmente.]' },
-    { codigo: 'HYDRA_20_VIGESIMA', titulo: 'VIGÉSIMA', orden: 20, contenido: '[Pendiente — texto no recuperado del escaneo Hydra. Completar manualmente.]' },
-    { codigo: 'HYDRA_21_VIGESIMA_PRIMERA', titulo: 'VIGÉSIMA PRIMERA', orden: 21, contenido: '[Pendiente — texto no recuperado del escaneo Hydra. Completar manualmente.]' },
-    { codigo: 'HYDRA_22_VIGESIMA_SEGUNDA', titulo: 'VIGÉSIMA SEGUNDA', orden: 22, contenido: '[Pendiente — texto no recuperado del escaneo Hydra. Completar manualmente.]' },
-    { codigo: 'HYDRA_23_VIGESIMA_TERCERA', titulo: 'VIGÉSIMA TERCERA', orden: 23, contenido: '[Pendiente — texto no recuperado del escaneo Hydra. Completar manualmente.]' },
-    { codigo: 'HYDRA_24_VIGESIMA_CUARTA', titulo: 'VIGÉSIMA CUARTA', orden: 24, contenido: '[Pendiente — texto no recuperado del escaneo Hydra. Completar manualmente.]' },
-    { codigo: 'HYDRA_25_VIGESIMA_QUINTA', titulo: 'VIGÉSIMA QUINTA', orden: 25, contenido: '[Pendiente — texto no recuperado del escaneo Hydra. Completar manualmente.]' },
-    { codigo: 'HYDRA_26_VIGESIMA_SEXTA', titulo: 'VIGÉSIMA SEXTA', orden: 26, contenido: '[Pendiente — texto no recuperado del escaneo Hydra. Completar manualmente.]' },
-    // ── Fin placeholders ──
+    {
+      codigo: 'HYDRA_16_DECIMA_SEXTA',
+      titulo: 'DÉCIMA SEXTA — Instalación y retiro de medidores',
+      orden: 16,
+      contenido:
+        'DÉCIMA SEXTA.- Los medidores, accesorios y los dispositivos de medición que permitan leer y registrar los consumos y elevar la eficiencia en medición serán instalados y retirados únicamente por personal designado por "LA COMISIÓN".',
+    },
+    {
+      codigo: 'HYDRA_17_DECIMA_SEPTIMA',
+      titulo: 'DÉCIMA SÉPTIMA — Conservación del sitio de medición',
+      orden: 17,
+      contenido:
+        'DÉCIMA SÉPTIMA.- Es obligación de "EL USUARIO", mantener en condiciones aceptables el lugar en el que se instalen los medidores, accesorios y/o dispositivos de medición, con objeto de evitar actos de vandalismos y demás, que aceleren el normal desgaste de aquellos bienes; sin contravenir las demás obligaciones que se establecen las leyes vigentes.',
+    },
+    {
+      codigo: 'HYDRA_18_DECIMA_OCTAVA',
+      titulo: 'DÉCIMA OCTAVA — Responsabilidad del usuario sobre el medidor',
+      orden: 18,
+      contenido:
+        'DÉCIMA OCTAVA.- Al instalarse el aparato medidor y cualquier accesorio y/o dispositivo de medición, será responsabilidad de "EL USUARIO" el cuidado y buen funcionamiento del mismo. En caso de alteración o daño intencional, o por negligencia de "EL USUARIO" el aparato o accesorio no funcione, aquel cubrirá el costo del retiro, reparación o sustitución y de la colocación del aparato medidor o de cualquier accesorio instalado para la medición de los consumos, independientemente de otras sanciones a las que se hiciera acreedor.',
+    },
+    {
+      codigo: 'HYDRA_19_DECIMA_NOVENA',
+      titulo: 'DÉCIMA NOVENA — Vida útil y facturación de bienes',
+      orden: 19,
+      contenido:
+        'DÉCIMA NOVENA.- Los medidores serán reemplazados transcurrida su vida útil de 5 años, pero los accesorios y/o dispositivos de medición, podrán ser reemplazados de conformidad con los términos de las descripciones de tipo, características y vida útil de los mismos, el precio de dichos bienes serán cargados en la factura siguiente de "EL USUARIO" a la fecha de la sustitución o implementación de aquellos.',
+    },
+    {
+      codigo: 'HYDRA_20_VIGESIMA',
+      titulo: 'VIGÉSIMA — Control de accesorios y precios',
+      orden: 20,
+      contenido:
+        'VIGÉSIMA.- "LA COMISIÓN" llevará un control de la totalidad de accesorios y/o dispositivos de medición que se instalen en el predio; así como vigilar que el precio de los bienes y la forma de pago sean aplicados de la manera menos gravosa posible en beneficio de "EL USUARIO".',
+    },
+    {
+      codigo: 'HYDRA_21_VIGESIMA_PRIMERA',
+      titulo: 'VIGÉSIMA PRIMERA — Pago sin medidor',
+      orden: 21,
+      contenido:
+        'VIGÉSIMA PRIMERA.- Cuando no exista aparato medidor, "EL USUARIO" deberá pagar los precios aprobados por "LA COMISIÓN", de acuerdo a las cuotas promedio de la zona, aun y cuando su consumo mensual expresado en metros cúbicos sea inferior a esos volúmenes.',
+    },
+    {
+      codigo: 'HYDRA_22_VIGESIMA_SEGUNDA',
+      titulo: 'VIGÉSIMA SEGUNDA — Suspensión o limitación del agua',
+      orden: 22,
+      contenido:
+        'VIGÉSIMA SEGUNDA.- "LA COMISIÓN" podrá suspender o limitar el suministro de agua por las siguientes causas:\n\na. Por la falta de pago puntual de "EL USUARIO" por el agua consumida.\nb. Porque la instalación hidráulica interior de "EL USUARIO" muestre fugas o se encuentre en condiciones peligrosas.\nc. Para efectuar reparaciones o modificaciones a la red de distribución general.\nd. En los demás casos previstos en la normatividad aplicable.',
+    },
+    {
+      codigo: 'HYDRA_23_VIGESIMA_TERCERA',
+      titulo: 'VIGÉSIMA TERCERA — Suspensión o limitación del alcantarillado',
+      orden: 23,
+      contenido:
+        'VIGÉSIMA TERCERA.- "LA COMISIÓN" podrá suspender o limitar el servicio de alcantarillado en los siguientes casos:\n\ni. Cuando en el inmueble respectivo no exista construcción que implique la utilización de dicho servicio.\nii. Cuando no se cumpla plena y oportunamente con los requisitos y obligaciones en materia de descargas.\niii. Cuando no se cumpla en forma plena y continua con la normatividad aplicable o condiciones particulares de descarga autorizadas.\niv. Cuando no se cubran los derechos por conceptos de la prestación del servicio de alcantarillado o los necesarios para que "LA COMISIÓN" realice el saneamiento correspondiente de las aguas residuales vertidas.\nv. En los demás casos previstos en la normatividad aplicable.',
+    },
+    {
+      codigo: 'HYDRA_24_VIGESIMA_CUARTA',
+      titulo: 'VIGÉSIMA CUARTA — Rescisión del contrato',
+      orden: 24,
+      contenido:
+        'VIGÉSIMA CUARTA.- "LA COMISIÓN" podrá rescindir el presente contrato por el incumplimiento de sus obligaciones estipuladas en el presente contrato, y por contravenir alguna de las disposiciones estipuladas en la Ley que Regula la Prestación de los Servicios de Agua Potable, Alcantarillado y Saneamiento del Estado de Querétaro.',
+    },
+    {
+      codigo: 'HYDRA_25_VIGESIMA_QUINTA',
+      titulo: 'VIGÉSIMA QUINTA — Cesión de derechos',
+      orden: 25,
+      contenido:
+        'VIGÉSIMA QUINTA.- Los derechos y obligaciones de este contrato no podrán ser transmitidos a otra persona en todo o en parte, sin autorización de "LA COMISIÓN" y previo pago de los derechos correspondientes.',
+    },
+    {
+      codigo: 'HYDRA_26_VIGESIMA_SEXTA',
+      titulo: 'VIGÉSIMA SEXTA — Pago y conexión',
+      orden: 26,
+      contenido:
+        'VIGÉSIMA SEXTA.- "EL USUARIO" pagará a "LA COMISIÓN" por los servicios, conforme al precio oficial vigente. Una vez efectuado dicho pago, se hará la conexión correspondiente para iniciar el suministro en su predio.',
+    },
     {
       codigo: 'HYDRA_27_VIGESIMA_SEPTIMA',
       titulo: 'VIGÉSIMA SÉPTIMA — Jurisdicción',

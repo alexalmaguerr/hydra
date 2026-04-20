@@ -45,6 +45,11 @@ En el panel interno, grupo **Configuración**:
 
 - **Administraciones (SIGE)** — lista de jurisdicciones (`/app/administraciones`).
 - **Tipos de contratación** — tabla con columna **Administración** y filtros por administración y con/sin medidor cuando la API está disponible (`/app/tipos-contratacion`).
+- **Variables de contratación** — catálogo maestro (`TipoVariable`) y vínculos por tipo (`VariableTipoContratacion`): orden, obligatorio y valor por defecto (`/app/variables-contratacion`). Define qué variables aparecen en el paso **Variables** del wizard según `GET /tipos-contratacion/:id/configuracion`.
+
+## Excluidas del selector (UI)
+
+Algunos nombres del Excel no representan un municipio (p. ej. entidad operadora). `GET /catalogos-operativos/administraciones` **no** los devuelve para formularios; la lista vive en `backend/src/common/administraciones-selector-excluidas.ts` y el import SIGE los omite al hacer upsert.
 
 ## Cambio respecto a IDs anteriores
 

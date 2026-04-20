@@ -195,8 +195,33 @@ export interface TipoVariable {
   codigo: string;
   nombre: string;
   tipoDato: string;
+  valoresPosibles?: unknown;
   unidad?: string | null;
   activo: boolean;
+}
+
+export interface VariableTipoContratacionAsignacion {
+  id: string;
+  obligatorio: boolean;
+  orden: number;
+  valorDefecto?: string | null;
+  tipoVariable: TipoVariable;
+}
+
+export interface CreateTipoVariableDto {
+  codigo: string;
+  nombre: string;
+  tipoDato: string;
+  valoresPosibles?: unknown;
+  unidad?: string | null;
+}
+
+export interface UpdateTipoVariableDto {
+  nombre?: string;
+  tipoDato?: string;
+  valoresPosibles?: unknown | null;
+  unidad?: string | null;
+  activo?: boolean;
 }
 
 export const fetchMarcasMedidor = () =>
@@ -231,6 +256,44 @@ export const fetchTiposVia = () =>
 
 export const fetchTiposVariable = () =>
   apiRequest<TipoVariable[]>('/catalogos-operativos/tipos-variable');
+
+export const createTipoVariable = (dto: CreateTipoVariableDto) =>
+  apiRequest<TipoVariable>('/catalogos-operativos/tipos-variable', {
+    method: 'POST',
+    body: JSON.stringify(dto),
+  });
+
+export const updateTipoVariable = (id: string, dto: UpdateTipoVariableDto) =>
+  apiRequest<TipoVariable>(`/catalogos-operativos/tipos-variable/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(dto),
+  });
+
+export const fetchVariablesTipoContratacion = (tipoContratacionId: string) =>
+  apiRequest<VariableTipoContratacionAsignacion[]>(
+    `/catalogos-operativos/variables-tipo-contratacion/${tipoContratacionId}`,
+  );
+
+export const assignVariableTipoContratacion = (body: {
+  tipoContratacionId: string;
+  tipoVariableId: string;
+  obligatorio?: boolean;
+  valorDefecto?: string;
+  orden?: number;
+}) =>
+  apiRequest<unknown>('/catalogos-operativos/variables-tipo-contratacion', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+
+export const removeVariableTipoContratacion = (
+  tipoContratacionId: string,
+  tipoVariableId: string,
+) =>
+  apiRequest<void>(
+    `/catalogos-operativos/variables-tipo-contratacion/${tipoContratacionId}/${tipoVariableId}`,
+    { method: 'DELETE' },
+  );
 
 // ── SAT / CFDI (Anexo 20) ───────────────────────────────────────────────────
 

@@ -117,6 +117,24 @@ El script detecta delimitador `,` o tabulador en la primera línea.
 
 Misma lógica para la **primera hoja** de un XLSX de localidades.
 
+## Localidades SIGE / «Catálogos de domicilio» (Querétaro)
+
+Los municipios de Querétaro del sistema anterior se cargan desde `backend/prisma/data/catalogo-municipios-qro-sige.json` (derivado del catálogo territorial compatible con **AGEEML** / SIGE). Las **localidades** masivas para esos mismos municipios están en el Excel **`Catálogos de domicilio.xlsx`**, hoja **`Localidad (Población)`**, columnas `pobid`, `pobnombre`, `pobproid`, `pobcodine`:
+
+- **`pobproid`** coincide con **`proid`** en la hoja «Municipio (provincia)» y con la clave municipal utilizada junto al catálogo ya cargado (equivalente **`cve_mun`** / **`proid`** según la fuente).
+- La relación con la BD es **`pobproid` → `CatalogoMunicipioINEGI`** mediante `claveINEGI` (`22001` … `22018` en Querétaro).
+
+**Import solo para municipios ya presentes en BD** (~3 600 localidades para los 18 municipios de Querétaro si el libro contiene el catálogo nacional completo):
+
+```bash
+cd backend
+npm run import:localidades-sige-qro -- --file "../ruta/a/Catálogos de domicilio.xlsx"
+```
+
+Sin `--file`, el script usa por defecto la ruta interna `_DocumentacIon_Interna_Sistema_Anterior/Gestion Servicio/Contratos/Catálogos de domicilio.xlsx` si existe. También puede definirse **`CAT_DOM_XLSX_PATH`**.
+
+Clave única en tabla: combinación de clave geoestadística (`pobcodine`, 9 dígitos si existe) más `pobid`, para evitar duplicados por datos sucios en el archivo fuente (`skipDuplicates` en `createMany`).
+
 ## Columnas SEPOMEX (CPdescarga)
 
 El script busca por nombre (mayúsculas/minúsculas toleradas):

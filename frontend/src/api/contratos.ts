@@ -27,6 +27,18 @@ export interface ContratoDto {
   actividadId?: string | null;
   categoriaId?: string | null;
   referenciaContratoAnterior?: string | null;
+  observaciones?: string | null;
+  bloqueadoJuridico?: boolean;
+  indicadorEmisionRecibo?: boolean;
+  indicadorExentarFacturacion?: boolean;
+  indicadorContactoCorreo?: boolean;
+  cicloFacturacion?: string | null;
+  /** API puede serializar Decimal como string */
+  superficiePredio?: number | string | null;
+  superficieConstruida?: number | string | null;
+  mesesAdeudo?: number | null;
+  unidadesServidas?: number | null;
+  personasHabitanVivienda?: number | null;
   createdAt: string;
   updatedAt: string;
 }
