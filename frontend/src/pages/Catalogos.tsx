@@ -28,6 +28,8 @@ import {
   fetchClasesContrato,
   fetchTiposVia,
   fetchTiposVariable,
+  fetchCatalogoSat,
+  type CatalogoSatItem,
   type CatalogoActividad,
   type CatalogoGrupoActividad,
   type CatalogoCategoria,
@@ -79,6 +81,7 @@ import {
   SquareStack,
   Signpost,
   Variable,
+  Scale,
 } from 'lucide-react';
 
 // ── Static fallback data ──────────────────────────────────────────────────────
@@ -362,6 +365,14 @@ const Catalogos = () => {
     enabled: useApi,
   });
 
+  const { data: catalogoSat = [] } = useQuery<CatalogoSatItem[]>({
+    queryKey: ['catalogos', 'sat'],
+    queryFn: () => fetchCatalogoSat(),
+    enabled: useApi,
+  });
+  const satRegimen = catalogoSat.filter((r) => r.tipo === 'REGIMEN_FISCAL');
+  const satUsoCfdi = catalogoSat.filter((r) => r.tipo === 'USO_CFDI');
+
   const kpiItems = [
     { label: 'Conceptos cobro', value: conceptos.length, icon: Receipt, color: '#0d9488' },
     { label: 'Cláusulas', value: clausulas.length, icon: FileText, color: '#7c3aed' },
@@ -385,6 +396,12 @@ const Catalogos = () => {
     { label: 'Clases contrato', value: clasesContrato.length, icon: SquareStack, color: '#d97706' },
     { label: 'Tipos vía', value: tiposVia.length, icon: Signpost, color: '#4f46e5' },
     { label: 'Tipos variable', value: tiposVariable.length, icon: Variable, color: '#dc2626' },
+    {
+      label: 'SAT · régimen / uso CFDI',
+      value: `${satRegimen.length} / ${satUsoCfdi.length}`,
+      icon: Scale,
+      color: '#b91c1c',
+    },
   ];
 
   const tabDefs: { value: string; label: string }[] = [
@@ -412,6 +429,7 @@ const Catalogos = () => {
     { value: 'clases-contrato', label: 'Clases contrato' },
     { value: 'tipos-via', label: 'Tipos de vía' },
     { value: 'tipos-variable', label: 'Tipos variable' },
+    { value: 'sat-cfdi', label: 'SAT · CFDI' },
   ];
 
   return (
@@ -1112,6 +1130,85 @@ const Catalogos = () => {
                 ))}
               </tbody>
             </table>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="sat-cfdi" className="mt-0 space-y-8">
+          <div>
+            <h3 className="text-sm font-semibold text-[#003366] mb-3">c_RegimenFiscal</h3>
+            <div className="bg-white rounded-xl border border-border/50 shadow-sm overflow-hidden overflow-x-auto">
+              <table className="w-full text-sm min-w-[720px]">
+                <thead>
+                  <tr className="bg-muted/40">
+                    {['Clave', 'Descripción', 'Física', 'Moral', 'Vigencia inicio', 'Estado'].map((h) => (
+                      <th key={h} className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-4 py-3">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {satRegimen.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground text-sm">
+                        Sin datos. Ejecuta migración y <code className="text-xs">npm run prisma:seed</code> en el backend.
+                      </td>
+                    </tr>
+                  ) : (
+                    satRegimen.map((r, i) => (
+                      <tr key={r.id} className={`${i > 0 ? 'border-t border-border/50' : ''} hover:bg-muted/20 transition-colors`}>
+                        <td className="px-4 py-3 font-mono text-xs text-[#007BFF] font-medium whitespace-nowrap">{r.clave}</td>
+                        <td className="px-4 py-3 max-w-md">{r.descripcion}</td>
+                        <td className="px-4 py-3">{r.aplicaFisica ? 'Sí' : 'No'}</td>
+                        <td className="px-4 py-3">{r.aplicaMoral ? 'Sí' : 'No'}</td>
+                        <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">
+                          {r.vigenciaInicio
+                            ? new Date(r.vigenciaInicio).toLocaleDateString('es-MX')
+                            : '—'}
+                        </td>
+                        <td className="px-4 py-3"><StatusBadge status={r.activo ? 'Activo' : 'Inactivo'} /></td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold text-[#003366] mb-3">c_UsoCFDI</h3>
+            <div className="bg-white rounded-xl border border-border/50 shadow-sm overflow-hidden overflow-x-auto">
+              <table className="w-full text-sm min-w-[960px]">
+                <thead>
+                  <tr className="bg-muted/40">
+                    {['Clave', 'Descripción', 'Física', 'Moral', 'Régimen receptor (referencia)', 'Estado'].map((h) => (
+                      <th key={h} className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-4 py-3">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {satUsoCfdi.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground text-sm">
+                        Sin datos. Ejecuta migración y seed en el backend.
+                      </td>
+                    </tr>
+                  ) : (
+                    satUsoCfdi.map((r, i) => (
+                      <tr key={r.id} className={`${i > 0 ? 'border-t border-border/50' : ''} hover:bg-muted/20 transition-colors`}>
+                        <td className="px-4 py-3 font-mono text-xs text-[#007BFF] font-medium whitespace-nowrap">{r.clave}</td>
+                        <td className="px-4 py-3 max-w-xs">{r.descripcion}</td>
+                        <td className="px-4 py-3">{r.aplicaFisica ? 'Sí' : 'No'}</td>
+                        <td className="px-4 py-3">{r.aplicaMoral ? 'Sí' : 'No'}</td>
+                        <td className="px-4 py-3 text-xs text-muted-foreground max-w-lg">
+                          <span className="line-clamp-3" title={r.regimenesReceptorPermitidos ?? undefined}>
+                            {r.regimenesReceptorPermitidos ?? '—'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3"><StatusBadge status={r.activo ? 'Activo' : 'Inactivo'} /></td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </TabsContent>
       </Tabs>

@@ -1,0 +1,634 @@
+[
+  {
+    "actipolid": 299,
+    "actividad": "INTERÉS MEDIO/RURAL"
+  },
+  {
+    "actipolid": 300,
+    "actividad": "RESIDENCIAL"
+  },
+  {
+    "actipolid": 301,
+    "actividad": "DE LUJO"
+  },
+  {
+    "actipolid": 302,
+    "actividad": "CABECERA MPAL."
+  },
+  {
+    "actipolid": 303,
+    "actividad": "OFICINAS Y/O EDIFICIOS"
+  },
+  {
+    "actipolid": 304,
+    "actividad": "DEPARTAMENTOS"
+  },
+  {
+    "actipolid": 305,
+    "actividad": "TALLERES MECANICOS"
+  },
+  {
+    "actipolid": 306,
+    "actividad": "INSTITUCIONES BANCARIAS"
+  },
+  {
+    "actipolid": 307,
+    "actividad": "FABRICA DE DULCES"
+  },
+  {
+    "actipolid": 308,
+    "actividad": "CARPINTERIAS"
+  },
+  {
+    "actipolid": 309,
+    "actividad": "ZAPATERIAS"
+  },
+  {
+    "actipolid": 310,
+    "actividad": "SALAS DE BELLEZA Y ESTETICAS"
+  },
+  {
+    "actipolid": 311,
+    "actividad": "PANIFICADORAS"
+  },
+  {
+    "actipolid": 312,
+    "actividad": "FARMACIAS"
+  },
+  {
+    "actipolid": 313,
+    "actividad": "TIENDAS DE ROPA"
+  },
+  {
+    "actipolid": 314,
+    "actividad": "MOLINOS DE NIXTAMAL"
+  },
+  {
+    "actipolid": 315,
+    "actividad": "EMPACADORAS"
+  },
+  {
+    "actipolid": 316,
+    "actividad": "VIDEOS (RENTA DE PELICULAS)"
+  },
+  {
+    "actipolid": 317,
+    "actividad": "TORTILLERIAS"
+  },
+  {
+    "actipolid": 318,
+    "actividad": "ABARROTES"
+  },
+  {
+    "actipolid": 319,
+    "actividad": "SALON DE FIESTAS"
+  },
+  {
+    "actipolid": 320,
+    "actividad": "VENTA DE AUTOS"
+  },
+  {
+    "actipolid": 321,
+    "actividad": "REFACCIONARIAS"
+  },
+  {
+    "actipolid": 322,
+    "actividad": "VENTA DE AUTOS USADOS"
+  },
+  {
+    "actipolid": 323,
+    "actividad": "CONSULTORIO MEDICO"
+  },
+  {
+    "actipolid": 324,
+    "actividad": "ESTACIONAMIENTOS"
+  },
+  {
+    "actipolid": 325,
+    "actividad": "VENTA DE HELADO"
+  },
+  {
+    "actipolid": 326,
+    "actividad": "MUEBLERIAS"
+  },
+  {
+    "actipolid": 327,
+    "actividad": "SEGUROS"
+  },
+  {
+    "actipolid": 328,
+    "actividad": "FUNERARIAS Y VELATORIOS"
+  },
+  {
+    "actipolid": 329,
+    "actividad": "PERFUMERIA Y ART DE BELLEZA"
+  },
+  {
+    "actipolid": 330,
+    "actividad": "REFRESQUERIAS"
+  },
+  {
+    "actipolid": 331,
+    "actividad": "MATERIAL ELECTRICO"
+  },
+  {
+    "actipolid": 332,
+    "actividad": "FABRICA DE MUEBLES"
+  },
+  {
+    "actipolid": 333,
+    "actividad": "ANTOJITOS TORTERIA Y TAQUERIA"
+  },
+  {
+    "actipolid": 334,
+    "actividad": "IMPRENTAS"
+  },
+  {
+    "actipolid": 335,
+    "actividad": "COCINAS ECONOMICAS"
+  },
+  {
+    "actipolid": 336,
+    "actividad": "SASTRERIAS"
+  },
+  {
+    "actipolid": 337,
+    "actividad": "FABRICA DE COLCHONES"
+  },
+  {
+    "actipolid": 338,
+    "actividad": "COPIAS FOTOSTATICAS"
+  },
+  {
+    "actipolid": 339,
+    "actividad": "IMPORTADORAS"
+  },
+  {
+    "actipolid": 340,
+    "actividad": "INMOBILIARIAS"
+  },
+  {
+    "actipolid": 341,
+    "actividad": "CONSTRUCTORAS"
+  },
+  {
+    "actipolid": 342,
+    "actividad": "LABORATORIOS"
+  },
+  {
+    "actipolid": 343,
+    "actividad": "PASTEURIZADORAS"
+  },
+  {
+    "actipolid": 344,
+    "actividad": "FAB PRODUCTOS ALIMENTICIOS"
+  },
+  {
+    "actipolid": 345,
+    "actividad": "VINATERIAS"
+  },
+  {
+    "actipolid": 346,
+    "actividad": "SALCHICHONERIAS"
+  },
+  {
+    "actipolid": 347,
+    "actividad": "LOCAL COMERCIAL"
+  },
+  {
+    "actipolid": 348,
+    "actividad": "PRODUCTOS QUIMICOS"
+  },
+  {
+    "actipolid": 349,
+    "actividad": "FABRICA DE TUBERIA"
+  },
+  {
+    "actipolid": 350,
+    "actividad": "MARMOLERAS"
+  },
+  {
+    "actipolid": 351,
+    "actividad": "TRANSPORTISTAS"
+  },
+  {
+    "actipolid": 352,
+    "actividad": "MINISUPER"
+  },
+  {
+    "actipolid": 353,
+    "actividad": "EXP VINOS Y CERVEZA"
+  },
+  {
+    "actipolid": 354,
+    "actividad": "VULCANIZADORA"
+  },
+  {
+    "actipolid": 355,
+    "actividad": "LLANTERAS"
+  },
+  {
+    "actipolid": 356,
+    "actividad": "PAPELERIAS"
+  },
+  {
+    "actipolid": 357,
+    "actividad": "PELUQUERIA"
+  },
+  {
+    "actipolid": 358,
+    "actividad": "FUNDICION"
+  },
+  {
+    "actipolid": 359,
+    "actividad": "HARINERA"
+  },
+  {
+    "actipolid": 360,
+    "actividad": "MISCELANEAS"
+  },
+  {
+    "actipolid": 361,
+    "actividad": "CARNICERIA"
+  },
+  {
+    "actipolid": 362,
+    "actividad": "REGALOS Y NOVEDADES"
+  },
+  {
+    "actipolid": 363,
+    "actividad": "MERCERIA"
+  },
+  {
+    "actipolid": 364,
+    "actividad": "BONETERIA"
+  },
+  {
+    "actipolid": 365,
+    "actividad": "PLANTA AVICOLA"
+  },
+  {
+    "actipolid": 366,
+    "actividad": "FAB QUESOS Y DERIVADOS"
+  },
+  {
+    "actipolid": 367,
+    "actividad": "EXP QUESO Y DERIVADOS"
+  },
+  {
+    "actipolid": 368,
+    "actividad": "FERRETERIA"
+  },
+  {
+    "actipolid": 369,
+    "actividad": "MUELLES"
+  },
+  {
+    "actipolid": 370,
+    "actividad": "CARROCERIAS"
+  },
+  {
+    "actipolid": 371,
+    "actividad": "PROM HABITACIONALES"
+  },
+  {
+    "actipolid": 372,
+    "actividad": "TERM AUTOB SUBURB Y FORANEOS"
+  },
+  {
+    "actipolid": 373,
+    "actividad": "TELEFONIA CELULAR"
+  },
+  {
+    "actipolid": 374,
+    "actividad": "MAT.P/CONSTRUCCION"
+  },
+  {
+    "actipolid": 375,
+    "actividad": "EXP.PERIODICOS Y REVISTAS"
+  },
+  {
+    "actipolid": 376,
+    "actividad": "BAZAR"
+  },
+  {
+    "actipolid": 377,
+    "actividad": "FRUTAS Y VERDURAS"
+  },
+  {
+    "actipolid": 378,
+    "actividad": "SOMBRERERIA"
+  },
+  {
+    "actipolid": 379,
+    "actividad": "ART DE HULE Y PLASTICOS"
+  },
+  {
+    "actipolid": 380,
+    "actividad": "JOYERIA Y RELOJERIA"
+  },
+  {
+    "actipolid": 381,
+    "actividad": "CERRAJERIA"
+  },
+  {
+    "actipolid": 382,
+    "actividad": "TALABARTERIA"
+  },
+  {
+    "actipolid": 383,
+    "actividad": "HERBOLARIAS"
+  },
+  {
+    "actipolid": 384,
+    "actividad": "JARCIERIA"
+  },
+  {
+    "actipolid": 385,
+    "actividad": "ART Y APARATOS MUSICALES"
+  },
+  {
+    "actipolid": 386,
+    "actividad": "DULCERIA Y MATERIAS PRIMAS"
+  },
+  {
+    "actipolid": 387,
+    "actividad": "DEP. Y VENTA DE PA¥ALES"
+  },
+  {
+    "actipolid": 388,
+    "actividad": "BILLARES"
+  },
+  {
+    "actipolid": 389,
+    "actividad": "HUARACHERIA"
+  },
+  {
+    "actipolid": 390,
+    "actividad": "JUGOS Y LICUADOS"
+  },
+  {
+    "actipolid": 391,
+    "actividad": "VENTA DE CASSETES"
+  },
+  {
+    "actipolid": 392,
+    "actividad": "BANCO"
+  },
+  {
+    "actipolid": 393,
+    "actividad": "MINISUPER C/VTA. DE CERV."
+  },
+  {
+    "actipolid": 394,
+    "actividad": "OPTICAS"
+  },
+  {
+    "actipolid": 395,
+    "actividad": "FABRICA DE HILOS"
+  },
+  {
+    "actipolid": 396,
+    "actividad": "BASE DE RADIO TAXIS"
+  },
+  {
+    "actipolid": 397,
+    "actividad": "TABARETE"
+  },
+  {
+    "actipolid": 398,
+    "actividad": "ROTULOS"
+  },
+  {
+    "actipolid": 399,
+    "actividad": "BODEGA"
+  },
+  {
+    "actipolid": 400,
+    "actividad": "ESTANQUILLO"
+  },
+  {
+    "actipolid": 401,
+    "actividad": "GENERACION"
+  },
+  {
+    "actipolid": 402,
+    "actividad": "TRANSMISION"
+  },
+  {
+    "actipolid": 403,
+    "actividad": "VENTA/PINTURAS"
+  },
+  {
+    "actipolid": 404,
+    "actividad": "NEVERIA"
+  },
+  {
+    "actipolid": 405,
+    "actividad": "MADERERIA"
+  },
+  {
+    "actipolid": 406,
+    "actividad": "ROSTICERIA"
+  },
+  {
+    "actipolid": 407,
+    "actividad": "FARMACIA VETERINARIA"
+  },
+  {
+    "actipolid": 408,
+    "actividad": "MATERIAL P/PLOMERIA"
+  },
+  {
+    "actipolid": 409,
+    "actividad": "CAMBIO/ACEITE Y FILTROS"
+  },
+  {
+    "actipolid": 410,
+    "actividad": "VIDRIERIA"
+  },
+  {
+    "actipolid": 411,
+    "actividad": "AUTOLAVADO"
+  },
+  {
+    "actipolid": 412,
+    "actividad": "LAVANDERIAS"
+  },
+  {
+    "actipolid": 413,
+    "actividad": "BAÑOS PUBLICOS"
+  },
+  {
+    "actipolid": 414,
+    "actividad": "CENTROS NOCTURNOS Y DISCOTECAS"
+  },
+  {
+    "actipolid": 415,
+    "actividad": "CURTIDURIAS"
+  },
+  {
+    "actipolid": 416,
+    "actividad": "MAQUILADORAS"
+  },
+  {
+    "actipolid": 417,
+    "actividad": "FABRICAS DE MOSAICOS"
+  },
+  {
+    "actipolid": 418,
+    "actividad": "CONCRETOS PREMESCLADOS Y TABIQ"
+  },
+  {
+    "actipolid": 419,
+    "actividad": "FABRICA DE HELADOS"
+  },
+  {
+    "actipolid": 420,
+    "actividad": "TINTORERIAS"
+  },
+  {
+    "actipolid": 421,
+    "actividad": "CINES Y TEATROS"
+  },
+  {
+    "actipolid": 422,
+    "actividad": "OTROS"
+  },
+  {
+    "actipolid": 423,
+    "actividad": "RESTAURANTES"
+  },
+  {
+    "actipolid": 424,
+    "actividad": "CENTROS COMERCIALES"
+  },
+  {
+    "actipolid": 425,
+    "actividad": "BARES Y CANTINAS"
+  },
+  {
+    "actipolid": 426,
+    "actividad": "VIVEROS"
+  },
+  {
+    "actipolid": 427,
+    "actividad": "I.M.S.S."
+  },
+  {
+    "actipolid": 428,
+    "actividad": "I.S.S.S.T.E."
+  },
+  {
+    "actipolid": 429,
+    "actividad": "S.S.A."
+  },
+  {
+    "actipolid": 430,
+    "actividad": "HOSPITALES Y CLINICAS PRIVADAS"
+  },
+  {
+    "actipolid": 431,
+    "actividad": "HOSPITALES Y CLINICAS PUBLICAS"
+  },
+  {
+    "actipolid": 432,
+    "actividad": "JARDINES PÚBLICOS"
+  },
+  {
+    "actipolid": 433,
+    "actividad": "HOTELES GRAN TURISMO"
+  },
+  {
+    "actipolid": 434,
+    "actividad": "HOTELES 4 Y 5 ESTRELLAS"
+  },
+  {
+    "actipolid": 435,
+    "actividad": "HOTELES 1 A 3 ESTRELLAS"
+  },
+  {
+    "actipolid": 436,
+    "actividad": "INDUSTRIA"
+  },
+  {
+    "actipolid": 437,
+    "actividad": "GASOLINERIAS"
+  },
+  {
+    "actipolid": 438,
+    "actividad": "GOBIERNO FEDERAL"
+  },
+  {
+    "actipolid": 439,
+    "actividad": "GOBIERNO ESTATAL"
+  },
+  {
+    "actipolid": 440,
+    "actividad": "GOBIERNO MUNICIPAL"
+  },
+  {
+    "actipolid": 441,
+    "actividad": "UNIVERSIDADES Y TECNOLOGICOS"
+  },
+  {
+    "actipolid": 442,
+    "actividad": "ESCUELAS FEDERALES"
+  },
+  {
+    "actipolid": 443,
+    "actividad": "ESCUELAS ESTATALES"
+  },
+  {
+    "actipolid": 444,
+    "actividad": "ESCUELAS PARTICULARES"
+  },
+  {
+    "actipolid": 445,
+    "actividad": "ESTANCIA INFANTIL"
+  },
+  {
+    "actipolid": 446,
+    "actividad": "PLANTAS PURIFICADORAS DE AGUA"
+  },
+  {
+    "actipolid": 447,
+    "actividad": "FABRICA DE HIELO"
+  },
+  {
+    "actipolid": 448,
+    "actividad": "CLUBES SOCIALES Y DEPORTIVOS"
+  },
+  {
+    "actipolid": 449,
+    "actividad": "EMBOTELLADORAS"
+  },
+  {
+    "actipolid": 450,
+    "actividad": "IGLESIA"
+  },
+  {
+    "actipolid": 451,
+    "actividad": "CAPILLA"
+  },
+  {
+    "actipolid": 452,
+    "actividad": "CONVENTO"
+  },
+  {
+    "actipolid": 453,
+    "actividad": "CASA HOGAR"
+  },
+  {
+    "actipolid": 461,
+    "actividad": "CABECERA MEDIA"
+  },
+  {
+    "actipolid": 462,
+    "actividad": "INTERES SOCIAL/ECONOMICO"
+  },
+  {
+    "actipolid": 464,
+    "actividad": "HIDRANTE"
+  }
+]

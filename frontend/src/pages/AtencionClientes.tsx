@@ -555,7 +555,7 @@ const AtencionClientes = () => {
                 </dl>
                 <h4 className="section-subtitle">Ubicación</h4>
                 <dl className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
-                  <Row label="Distrito" value={distrito ? `01-${distrito.nombre}` : undefined} />
+                  <Row label="Distrito" value={distrito?.nombre} />
                   <Row label="Sector" value={ruta ? `S.H-006 ${ruta.sector}` : undefined} />
                   <Row label="Georeferencia" value="Latitud: 355763.4127, Longitud: 2279706.6171" />
                 </dl>

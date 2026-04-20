@@ -222,3 +222,27 @@ export const fetchTiposVia = () =>
 
 export const fetchTiposVariable = () =>
   apiRequest<TipoVariable[]>('/catalogos-operativos/tipos-variable');
+
+// ── SAT / CFDI (Anexo 20) ───────────────────────────────────────────────────
+
+export type CatalogoSatTipoApi = 'REGIMEN_FISCAL' | 'USO_CFDI';
+
+export interface CatalogoSatItem {
+  id: string;
+  tipo: CatalogoSatTipoApi;
+  clave: string;
+  descripcion: string;
+  aplicaFisica: boolean;
+  aplicaMoral: boolean;
+  vigenciaInicio?: string | null;
+  vigenciaFin?: string | null;
+  regimenesReceptorPermitidos?: string | null;
+  orden: number;
+  activo: boolean;
+}
+
+/** `tipo` opcional: todo el catálogo o solo régimen fiscal / uso CFDI */
+export const fetchCatalogoSat = (tipo?: CatalogoSatTipoApi) => {
+  const q = tipo ? `?tipo=${encodeURIComponent(tipo)}` : '';
+  return apiRequest<CatalogoSatItem[]>(`/catalogos/sat${q}`);
+};

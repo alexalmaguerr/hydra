@@ -111,4 +111,13 @@ export class CatalogosContratacionController {
   findTiposRelacionPS(@Query('activo') activo?: string) {
     return this.service.findCatalogoTiposRelacionPS({ activo });
   }
+
+  /** CFDI SAT: régimen fiscal y uso del CFDI (Anexo 20). Query `tipo`: REGIMEN_FISCAL | USO_CFDI */
+  @Get('sat')
+  findCatalogoSat(
+    @Query('tipo') tipo?: string,
+    @Query('activo') activo?: string,
+  ) {
+    return this.service.findCatalogoSat({ tipo, activo });
+  }
 }

@@ -364,27 +364,28 @@ const initialTomas: Toma[] = [
   { id: 'T004', construccionId: 'C001', ubicacion: 'Juriquilla Lote 23-A #4', tipo: 'Alcantarillado', estado: 'Disponible' },
 ];
 
-// Seed territorial (Fase 1+2): Administraciones → Zonas → Distritos
+// Seed territorial — distritos alineados a hoja «Distrito» de catálogos de punto de servicio (SIGE legado).
 const initialDistritos: Distrito[] = [
-  { id: 'DIST01', zonaId: 'Z001', nombre: 'Juriquilla Centro' },
-  { id: 'DIST02', zonaId: 'Z001', nombre: 'Juriquilla Norte' },
-  { id: 'DIST03', zonaId: 'Z002', nombre: 'El Marqués Sur' },
-  { id: 'DIST04', zonaId: 'Z002', nombre: 'El Marqués Norte' },
-  { id: 'DIST05', zonaId: 'Z003', nombre: 'Corregidora Centro' },
-  { id: 'DIST06', zonaId: 'Z003', nombre: 'Corregidora Oriente' },
-  { id: 'DIST07', zonaId: 'Z004', nombre: 'Zibatá Residencial' },
-  { id: 'DIST08', zonaId: 'Z005', nombre: 'Centro Histórico' },
+  { id: 'DIST01', zonaId: 'Z001', nombre: '01-DISTRITO NORORIENTE' },
+  { id: 'DIST02', zonaId: 'Z001', nombre: '02-DISTRITO NORPONIENTE' },
+  { id: 'DIST03', zonaId: 'Z001', nombre: '03-ZONA SURORIENTE' },
+  { id: 'DIST04', zonaId: 'Z001', nombre: '04-ZONA SURPONIENTE' },
 ];
 const initialZonas: Zona[] = [
-  { id: 'Z001', administracionId: 'ADM01', nombre: 'Norte', distritoIds: ['DIST01', 'DIST02'] },
-  { id: 'Z002', administracionId: 'ADM01', nombre: 'El Marqués', distritoIds: ['DIST03', 'DIST04'] },
-  { id: 'Z003', administracionId: 'ADM01', nombre: 'Corregidora', distritoIds: ['DIST05', 'DIST06'] },
-  { id: 'Z004', administracionId: 'ADM02', nombre: 'Zibatá', distritoIds: ['DIST07'] },
-  { id: 'Z005', administracionId: 'ADM02', nombre: 'Centro', distritoIds: ['DIST08'] },
+  {
+    id: 'Z001',
+    administracionId: 'EXP-01',
+    nombre: 'Norte',
+    distritoIds: ['DIST01', 'DIST02', 'DIST03', 'DIST04'],
+  },
+  { id: 'Z002', administracionId: 'EXP-01', nombre: 'El Marqués', distritoIds: [] },
+  { id: 'Z003', administracionId: 'EXP-01', nombre: 'Corregidora', distritoIds: [] },
+  { id: 'Z004', administracionId: 'EXP-12', nombre: 'Zibatá', distritoIds: [] },
+  { id: 'Z005', administracionId: 'EXP-12', nombre: 'Centro', distritoIds: [] },
 ];
 const initialAdministraciones: Administracion[] = [
-  { id: 'ADM01', nombre: 'CEA Querétaro', zonaIds: ['Z001', 'Z002', 'Z003'] },
-  { id: 'ADM02', nombre: 'Operadora Zibatá', zonaIds: ['Z004', 'Z005'] },
+  { id: 'EXP-01', nombre: 'QUERÉTARO', zonaIds: ['Z001', 'Z002', 'Z003'] },
+  { id: 'EXP-12', nombre: 'EL MARQUÉS', zonaIds: ['Z004', 'Z005'] },
 ];
 
 const initialContratos: Contrato[] = [

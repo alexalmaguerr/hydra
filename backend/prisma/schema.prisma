@@ -1209,6 +1209,32 @@ model CatalogoCategoria {
   @@map("catalogo_categorias")
 }
 
+// ---- Catálogo SAT (CFDI: c_RegimenFiscal, c_UsoCFDI — Anexo 20) ----
+enum CatalogoSatTipo {
+  REGIMEN_FISCAL
+  USO_CFDI
+}
+
+model CatalogoSat {
+  id                          String          @id @default(cuid())
+  tipo                        CatalogoSatTipo
+  clave                       String
+  descripcion                 String
+  aplicaFisica                Boolean         @default(false) @map("aplica_fisica")
+  aplicaMoral                 Boolean         @default(false) @map("aplica_moral")
+  vigenciaInicio              DateTime?       @map("vigencia_inicio")
+  vigenciaFin                 DateTime?       @map("vigencia_fin")
+  regimenesReceptorPermitidos String?       @map("regimenes_receptor_permitidos") @db.Text
+  orden                       Int             @default(0)
+  activo                      Boolean         @default(true)
+  createdAt                   DateTime        @default(now()) @map("created_at")
+  updatedAt                   DateTime        @updatedAt @map("updated_at")
+
+  @@unique([tipo, clave])
+  @@index([tipo, activo])
+  @@map("catalogo_sat")
+}
+
 // Tipos de relación padre-hijo entre puntos de servicio (P10)
 model CatalogoTipoRelacionPS {
   id              String          @id @default(cuid())

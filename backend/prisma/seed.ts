@@ -1,47 +1,57 @@
-import { Prisma, PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient, CatalogoSatTipo } from '@prisma/client';
+import { REGIMEN_FISCAL_SAT, SAT_VIGENCIA_INICIO, USO_CFDI_SAT } from './catalogo-sat-seed-data';
+import { DISTRITOS_PUNTO_SERVICIO_SEED } from './seed-data/distritos-punto-servicio';
+import * as fs from 'fs';
+import * as path from 'path';
 import * as bcrypt from 'bcrypt';
+import {
+  FALLBACK_ADMINISTRACIONES,
+  importCatalogosTiposContratacion,
+  linkHydraClausulasToAllTipos,
+} from './catalogos-tipos-contratacion-import';
 
 const prisma = new PrismaClient();
 
+type ActividadSigeRow = { actipolid: number; actividad: string };
+
+function loadCatalogoActividadSige(): ActividadSigeRow[] {
+  const file = path.join(__dirname, 'data', 'catalogo-actividad-sige.json');
+  return JSON.parse(fs.readFileSync(file, 'utf8')) as ActividadSigeRow[];
+}
+
 async function main() {
-  // Territorial: administraciones y zonas
-  await prisma.administracion.upsert({
-    where: { id: 'ADM01' },
-    update: {},
-    create: { id: 'ADM01', nombre: 'CEA Querétaro' },
-  });
-  await prisma.administracion.upsert({
-    where: { id: 'ADM02' },
-    update: {},
-    create: { id: 'ADM02', nombre: 'Operadora Zibatá' },
-  });
+  // Territorial: 13 administraciones (SIGE expid 1–13) y zonas de demo
+  for (const a of FALLBACK_ADMINISTRACIONES) {
+    await prisma.administracion.upsert({
+      where: { id: a.id },
+      update: { nombre: a.nombre },
+      create: a,
+    });
+  }
 
   await prisma.zona.upsert({
     where: { id: 'Z001' },
     update: {},
-    create: { id: 'Z001', administracionId: 'ADM01', nombre: 'Norte' },
+    create: { id: 'Z001', administracionId: 'EXP-01', nombre: 'Norte' },
   });
   await prisma.zona.upsert({
     where: { id: 'Z002' },
     update: {},
-    create: { id: 'Z002', administracionId: 'ADM01', nombre: 'El Marqués' },
+    create: { id: 'Z002', administracionId: 'EXP-01', nombre: 'El Marqués' },
   });
   await prisma.zona.upsert({
     where: { id: 'Z003' },
     update: {},
-    create: { id: 'Z003', administracionId: 'ADM01', nombre: 'Corregidora' },
+    create: { id: 'Z003', administracionId: 'EXP-01', nombre: 'Corregidora' },
   });
 
-  await prisma.distrito.upsert({
-    where: { id: 'DIST01' },
-    update: {},
-    create: { id: 'DIST01', zonaId: 'Z001', nombre: 'Juriquilla Centro' },
-  });
-  await prisma.distrito.upsert({
-    where: { id: 'DIST02' },
-    update: {},
-    create: { id: 'DIST02', zonaId: 'Z001', nombre: 'Juriquilla Norte' },
-  });
+  for (const d of DISTRITOS_PUNTO_SERVICIO_SEED) {
+    await prisma.distrito.upsert({
+      where: { id: d.id },
+      update: { nombre: d.nombre, zonaId: d.zonaId },
+      create: { id: d.id, zonaId: d.zonaId, nombre: d.nombre },
+    });
+  }
 
   // Factibilidades
   await prisma.factibilidad.upsert({
@@ -301,7 +311,7 @@ async function seedUser() {
       passwordHash: hash,
       name: 'Usuario Demo',
       role: 'SUPER_ADMIN',
-      administracionIds: ['ADM01'],
+      administracionIds: ['EXP-01'],
       zonaIds: ['Z001', 'Z002'],
       contratoIds: [],
     },
@@ -315,7 +325,7 @@ async function seedUser() {
       passwordHash: hash,
       name: 'Usuario Operador',
       role: 'OPERADOR',
-      administracionIds: ['ADM01'],
+      administracionIds: ['EXP-01'],
       zonaIds: ['Z001'],
       contratoIds: [],
     },
@@ -329,7 +339,7 @@ async function seedUser() {
       passwordHash: hash,
       name: 'Usuario Lecturista',
       role: 'LECTURISTA',
-      administracionIds: ['ADM01'],
+      administracionIds: ['EXP-01'],
       zonaIds: ['Z001'],
       contratoIds: [],
     },
@@ -343,7 +353,7 @@ async function seedUser() {
       passwordHash: hash,
       name: 'Atención Clientes',
       role: 'ATENCION_CLIENTES',
-      administracionIds: ['ADM01'],
+      administracionIds: ['EXP-01'],
       zonaIds: ['Z001', 'Z002'],
       contratoIds: [],
     },
@@ -507,22 +517,7 @@ async function seedCatalogosOperativos() {
 }
 
 async function seedCatalogosContratacion() {
-  // Tipos de contratación (T13)
-  const tiposContratacion = [
-    { codigo: 'DOM_HAB', nombre: 'Doméstico Habitacional', requiereMedidor: true },
-    { codigo: 'COM', nombre: 'Comercial', requiereMedidor: true },
-    { codigo: 'IND', nombre: 'Industrial', requiereMedidor: true },
-    { codigo: 'GOB', nombre: 'Gobierno', requiereMedidor: true },
-    { codigo: 'MIXTO', nombre: 'Uso Mixto', requiereMedidor: true },
-  ];
-  for (const tc of tiposContratacion) {
-    await prisma.tipoContratacion.upsert({
-      where: { codigo: tc.codigo },
-      update: { nombre: tc.nombre, requiereMedidor: tc.requiereMedidor },
-      create: tc,
-    });
-  }
-  console.log('Tipos de contratación sembrados:', tiposContratacion.map(t => t.codigo).join(', '));
+  // Tipos de contratación: se cargan desde Excel SIGE en importCatalogosTiposContratacion (tras clases de contrato).
 
   // Conceptos de cobro (T13)
   const conceptosCobro = [
@@ -567,6 +562,11 @@ async function seedCatalogosActividadRelacionPS() {
     { id: 'GA17', codigo: 'RELIG', descripcion: 'Religioso y social' },
     { id: 'GA18', codigo: 'HAB_PRIVADA', descripcion: 'Habitacional privada' },
     { id: 'GA19', codigo: 'USO_MIX', descripcion: 'Uso mixto' },
+    {
+      id: 'GA_SIGE',
+      codigo: 'SIGE_EST',
+      descripcion: 'Tipo de establecimiento (catálogo operativo — hoja Actividad, SIGE)',
+    },
   ];
   for (const g of grupos) {
     await (prisma as any).catalogoGrupoActividad.upsert({
@@ -577,51 +577,17 @@ async function seedCatalogosActividadRelacionPS() {
   }
   console.log('Grupos de actividad sembrados:', grupos.length);
 
-  // ─── Actividades principales (subset representativo CIG2018) ────────────────
-  const actividades = [
-    // Habitacional
-    { id: 'ACT001', codigo: 'HAB_UNIFAM', descripcion: 'Habitacional unifamiliar', grupoId: 'GA18' },
-    { id: 'ACT002', codigo: 'HAB_MULTIFAM', descripcion: 'Habitacional multifamiliar / condominio', grupoId: 'GA18' },
-    { id: 'ACT003', codigo: 'HAB_RURAL', descripcion: 'Habitacional rural', grupoId: 'GA18' },
-    { id: 'ACT004', codigo: 'HAB_SOCIAL', descripcion: 'Vivienda de interés social', grupoId: 'GA18' },
-    // Comercio
-    { id: 'ACT010', codigo: 'COM_TIENDA', descripcion: 'Tienda de abarrotes / miscelánea', grupoId: 'GA09' },
-    { id: 'ACT011', codigo: 'COM_FARMACIA', descripcion: 'Farmacia', grupoId: 'GA09' },
-    { id: 'ACT012', codigo: 'COM_REST', descripcion: 'Restaurante / fonda / comedor', grupoId: 'GA11' },
-    { id: 'ACT013', codigo: 'COM_HOTEL', descripcion: 'Hotel / motel / hostal', grupoId: 'GA11' },
-    { id: 'ACT014', codigo: 'COM_OFICINA', descripcion: 'Oficinas comerciales / despachos', grupoId: 'GA12' },
-    { id: 'ACT015', codigo: 'COM_PLAZA', descripcion: 'Plaza comercial / centro comercial', grupoId: 'GA08' },
-    { id: 'ACT016', codigo: 'COM_LAVAND', descripcion: 'Lavandería', grupoId: 'GA09' },
-    { id: 'ACT017', codigo: 'COM_SALON', descripcion: 'Salón de eventos / banquetes', grupoId: 'GA16' },
-    { id: 'ACT018', codigo: 'COM_ESTETICA', descripcion: 'Estética / salón de belleza', grupoId: 'GA09' },
-    { id: 'ACT019', codigo: 'COM_LAVADO', descripcion: 'Lavado de autos', grupoId: 'GA09' },
-    { id: 'ACT020', codigo: 'COM_GAS', descripcion: 'Gasolinera / estación de servicio', grupoId: 'GA09' },
-    // Industria
-    { id: 'ACT030', codigo: 'IND_ALIM', descripcion: 'Industria alimentaria', grupoId: 'GA06' },
-    { id: 'ACT031', codigo: 'IND_TEXTIL', descripcion: 'Industria textil', grupoId: 'GA06' },
-    { id: 'ACT032', codigo: 'IND_QUIM', descripcion: 'Industria química / farmacéutica', grupoId: 'GA06' },
-    { id: 'ACT033', codigo: 'IND_METAL', descripcion: 'Industria metalmecánica', grupoId: 'GA06' },
-    { id: 'ACT034', codigo: 'IND_AUTOM', descripcion: 'Automotriz / autopartes', grupoId: 'GA06' },
-    { id: 'ACT035', codigo: 'IND_PLASTICO', descripcion: 'Plásticos y hule', grupoId: 'GA06' },
-    { id: 'ACT036', codigo: 'IND_PAPEL', descripcion: 'Papel y cartón', grupoId: 'GA06' },
-    // Gobierno y servicios públicos
-    { id: 'ACT050', codigo: 'GOB_MPIO', descripcion: 'Presidencia / palacio municipal', grupoId: 'GA13' },
-    { id: 'ACT051', codigo: 'GOB_ESCUELA', descripcion: 'Escuela pública (SEP)', grupoId: 'GA14' },
-    { id: 'ACT052', codigo: 'GOB_HOSP', descripcion: 'Hospital / clínica pública (IMSS/ISSSTE)', grupoId: 'GA15' },
-    { id: 'ACT053', codigo: 'GOB_PARQUE', descripcion: 'Parque / área verde pública', grupoId: 'GA13' },
-    { id: 'ACT054', codigo: 'GOB_MERCADO', descripcion: 'Mercado público', grupoId: 'GA13' },
-    // Privados no lucrativos
-    { id: 'ACT060', codigo: 'PRIV_IGLESIA', descripcion: 'Iglesia / templo / capilla', grupoId: 'GA17' },
-    { id: 'ACT061', codigo: 'PRIV_ASOC', descripcion: 'Asociación civil / ONG', grupoId: 'GA17' },
-    { id: 'ACT062', codigo: 'PRIV_CLUB', descripcion: 'Club deportivo privado', grupoId: 'GA16' },
-    // Construcción
-    { id: 'ACT070', codigo: 'CONST_OBRA', descripcion: 'Obra en construcción / provisional', grupoId: 'GA07' },
-    // Agropecuario
-    { id: 'ACT080', codigo: 'AGRO_RIEGO', descripcion: 'Riego agrícola', grupoId: 'GA01' },
-    { id: 'ACT081', codigo: 'AGRO_GRANJA', descripcion: 'Granja / rancho ganadero', grupoId: 'GA02' },
-    // Mixto
-    { id: 'ACT090', codigo: 'MIX_COMHAB', descripcion: 'Uso mixto (comercio + habitacional)', grupoId: 'GA19' },
-  ];
+  // ─── Actividades: catálogo operativo SIGE (hoja «Actividad», actipolid + texto) ─
+  const sigeRows = loadCatalogoActividadSige();
+  const actividades = sigeRows.map((r) => {
+    const key = `ACTIPOL_${r.actipolid}`;
+    return {
+      id: key,
+      codigo: key,
+      descripcion: r.actividad,
+      grupoId: 'GA_SIGE',
+    };
+  });
   for (const a of actividades) {
     await (prisma as any).catalogoActividad.upsert({
       where: { codigo: a.codigo },
@@ -917,10 +883,10 @@ async function seedFormasPagoOficinas() {
   }
 
   const oficinas = [
-    { id: 'OF01', codigo: 'CEA_CENTRAL', nombre: 'Oficina Central CEA', administracionId: 'ADM01', tipoOficinaId: 'TOF01', direccion: 'Blvd. Bernardo Quintana 100, Querétaro' },
-    { id: 'OF02', codigo: 'CEA_NORTE', nombre: 'Módulo Norte', administracionId: 'ADM01', tipoOficinaId: 'TOF02', direccion: 'Av. Constituyentes 200, Querétaro' },
-    { id: 'OF03', codigo: 'CEA_SUR', nombre: 'Módulo Sur', administracionId: 'ADM01', tipoOficinaId: 'TOF02', direccion: 'Av. 5 de Febrero 1500, Querétaro' },
-    { id: 'OF04', codigo: 'CEA_MARQUES', nombre: 'Sucursal El Marqués', administracionId: 'ADM01', tipoOficinaId: 'TOF03', direccion: 'Centro El Marqués' },
+    { id: 'OF01', codigo: 'CEA_CENTRAL', nombre: 'Oficina Central CEA', administracionId: 'EXP-01', tipoOficinaId: 'TOF01', direccion: 'Blvd. Bernardo Quintana 100, Querétaro' },
+    { id: 'OF02', codigo: 'CEA_NORTE', nombre: 'Módulo Norte', administracionId: 'EXP-01', tipoOficinaId: 'TOF02', direccion: 'Av. Constituyentes 200, Querétaro' },
+    { id: 'OF03', codigo: 'CEA_SUR', nombre: 'Módulo Sur', administracionId: 'EXP-01', tipoOficinaId: 'TOF02', direccion: 'Av. 5 de Febrero 1500, Querétaro' },
+    { id: 'OF04', codigo: 'CEA_MARQUES', nombre: 'Sucursal El Marqués', administracionId: 'EXP-01', tipoOficinaId: 'TOF03', direccion: 'Centro El Marqués' },
   ];
   for (const of_ of oficinas) {
     await prisma.oficina.upsert({
@@ -934,13 +900,13 @@ async function seedFormasPagoOficinas() {
 
 async function seedSectoresClasesVariables() {
   const sectores = [
-    { id: 'SH01', codigo: 'SEC_CENTRO', nombre: 'Centro', administracionId: 'ADM01' },
-    { id: 'SH02', codigo: 'SEC_NORTE', nombre: 'Norte', administracionId: 'ADM01' },
-    { id: 'SH03', codigo: 'SEC_SUR', nombre: 'Sur', administracionId: 'ADM01' },
-    { id: 'SH04', codigo: 'SEC_PONIENTE', nombre: 'Poniente', administracionId: 'ADM01' },
-    { id: 'SH05', codigo: 'SEC_ORIENTE', nombre: 'Oriente', administracionId: 'ADM01' },
-    { id: 'SH06', codigo: 'SEC_MARQUES', nombre: 'El Marqués', administracionId: 'ADM01' },
-    { id: 'SH07', codigo: 'SEC_CORREGIDORA', nombre: 'Corregidora', administracionId: 'ADM01' },
+    { id: 'SH01', codigo: 'SEC_CENTRO', nombre: 'Centro', administracionId: 'EXP-01' },
+    { id: 'SH02', codigo: 'SEC_NORTE', nombre: 'Norte', administracionId: 'EXP-01' },
+    { id: 'SH03', codigo: 'SEC_SUR', nombre: 'Sur', administracionId: 'EXP-01' },
+    { id: 'SH04', codigo: 'SEC_PONIENTE', nombre: 'Poniente', administracionId: 'EXP-01' },
+    { id: 'SH05', codigo: 'SEC_ORIENTE', nombre: 'Oriente', administracionId: 'EXP-01' },
+    { id: 'SH06', codigo: 'SEC_MARQUES', nombre: 'El Marqués', administracionId: 'EXP-01' },
+    { id: 'SH07', codigo: 'SEC_CORREGIDORA', nombre: 'Corregidora', administracionId: 'EXP-01' },
   ];
   for (const s of sectores) {
     await prisma.sectorHidraulico.upsert({
@@ -1278,28 +1244,74 @@ async function seedClausulasHydra() {
     });
   }
   console.log(`Cláusulas Hydra sembradas: ${clausulas.length}`);
+}
 
-  // Vincular todas las cláusulas a todos los tipos de contratación existentes
-  const tipos = await prisma.tipoContratacion.findMany({ select: { id: true, codigo: true } });
-  const clausulasDb = await prisma.clausulaContractual.findMany({
-    where: { codigo: { startsWith: 'HYDRA_' } },
-    select: { id: true, codigo: true },
-  });
-
-  const ordenMap = new Map(clausulas.map((c) => [c.codigo, c.orden]));
-  let linkCount = 0;
-  for (const tipo of tipos) {
-    for (const cl of clausulasDb) {
-      const orden = ordenMap.get(cl.codigo) ?? 0;
-      await prisma.clausulaTipoContratacion.upsert({
-        where: { tipoContratacionId_clausulaId: { tipoContratacionId: tipo.id, clausulaId: cl.id } },
-        update: { orden },
-        create: { tipoContratacionId: tipo.id, clausulaId: cl.id, obligatorio: true, orden },
-      });
-      linkCount++;
-    }
+async function seedCatalogoSat() {
+  for (let i = 0; i < REGIMEN_FISCAL_SAT.length; i++) {
+    const r = REGIMEN_FISCAL_SAT[i];
+    await prisma.catalogoSat.upsert({
+      where: {
+        tipo_clave: {
+          tipo: CatalogoSatTipo.REGIMEN_FISCAL,
+          clave: r.clave,
+        },
+      },
+      update: {
+        descripcion: r.descripcion,
+        aplicaFisica: r.aplicaFisica,
+        aplicaMoral: r.aplicaMoral,
+        vigenciaInicio: SAT_VIGENCIA_INICIO,
+        vigenciaFin: null,
+        orden: i,
+        activo: true,
+      },
+      create: {
+        tipo: CatalogoSatTipo.REGIMEN_FISCAL,
+        clave: r.clave,
+        descripcion: r.descripcion,
+        aplicaFisica: r.aplicaFisica,
+        aplicaMoral: r.aplicaMoral,
+        vigenciaInicio: SAT_VIGENCIA_INICIO,
+        orden: i,
+        activo: true,
+      },
+    });
   }
-  console.log(`Vínculos cláusula→tipo creados: ${linkCount} (${tipos.length} tipos × ${clausulasDb.length} cláusulas)`);
+  for (let i = 0; i < USO_CFDI_SAT.length; i++) {
+    const u = USO_CFDI_SAT[i];
+    await prisma.catalogoSat.upsert({
+      where: {
+        tipo_clave: {
+          tipo: CatalogoSatTipo.USO_CFDI,
+          clave: u.clave,
+        },
+      },
+      update: {
+        descripcion: u.descripcion,
+        aplicaFisica: u.aplicaFisica,
+        aplicaMoral: u.aplicaMoral,
+        vigenciaInicio: SAT_VIGENCIA_INICIO,
+        vigenciaFin: null,
+        regimenesReceptorPermitidos: u.regimenesReceptorPermitidos,
+        orden: i,
+        activo: true,
+      },
+      create: {
+        tipo: CatalogoSatTipo.USO_CFDI,
+        clave: u.clave,
+        descripcion: u.descripcion,
+        aplicaFisica: u.aplicaFisica,
+        aplicaMoral: u.aplicaMoral,
+        vigenciaInicio: SAT_VIGENCIA_INICIO,
+        regimenesReceptorPermitidos: u.regimenesReceptorPermitidos,
+        orden: i,
+        activo: true,
+      },
+    });
+  }
+  console.log(
+    `Catálogo SAT sembrado: ${REGIMEN_FISCAL_SAT.length} régimen(es) fiscal(es), ${USO_CFDI_SAT.length} uso(s) CFDI`,
+  );
 }
 
 async function seedPlantillaHydra() {
@@ -1398,10 +1410,15 @@ main()
   .then(() => seedCatalogosOperativos())
   .then(() => seedCatalogosContratacion())
   .then(() => seedCatalogosActividadRelacionPS())
+  .then(() => seedCatalogoSat())
   .then(() => seedTarifas())
   .then(() => seedCatalogosMedidor())
   .then(() => seedFormasPagoOficinas())
   .then(() => seedSectoresClasesVariables())
+  .then(() =>
+    importCatalogosTiposContratacion(prisma, { removeLegacyStubTipos: true }),
+  )
+  .then(() => linkHydraClausulasToAllTipos(prisma))
   .then(() => seedInegiQueretaro())
   .then(() => seedPlantillaHydra())
   .catch((e) => {

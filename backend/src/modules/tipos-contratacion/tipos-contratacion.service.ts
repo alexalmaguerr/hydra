@@ -4,6 +4,7 @@ import {
   BadRequestException,
   ConflictException,
 } from '@nestjs/common';
+import { CatalogoSatTipo } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 
 interface CreateTipoContratacionDto {
@@ -378,6 +379,21 @@ export class TiposContratacionService {
     return this.prisma.catalogoTipoRelacionPS.findMany({
       where: params.activo !== undefined ? { activo: params.activo === 'true' } : undefined,
       orderBy: { codigo: 'asc' },
+    });
+  }
+
+  /** Catálogo SAT (Anexo 20): c_RegimenFiscal, c_UsoCFDI — ver `GET /catalogos/sat` */
+  async findCatalogoSat(params: { tipo?: string; activo?: string } = {}) {
+    const where: { tipo?: CatalogoSatTipo; activo?: boolean } = {};
+    if (params.tipo === 'REGIMEN_FISCAL' || params.tipo === 'USO_CFDI') {
+      where.tipo = params.tipo as CatalogoSatTipo;
+    }
+    if (params.activo !== undefined) {
+      where.activo = params.activo === 'true';
+    }
+    return this.prisma.catalogoSat.findMany({
+      where: Object.keys(where).length ? where : undefined,
+      orderBy: [{ tipo: 'asc' }, { orden: 'asc' }, { clave: 'asc' }],
     });
   }
 }
