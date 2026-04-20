@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Loader2 } from 'lucide-react';
+import { CheckCircle2, Loader2 } from 'lucide-react';
 
 import { fetchActividades, fetchCalibres, fetchDistritos } from '@/api/catalogos';
 import { Badge } from '@/components/ui/badge';
@@ -162,6 +162,21 @@ export default function PasoResumen({ data, config }: StepProps) {
 
   return (
     <div className="space-y-4">
+      <div className="flex flex-col items-center gap-3 rounded-lg border bg-muted/20 px-4 py-6 text-center sm:flex-row sm:text-left">
+        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
+          <CheckCircle2 className="h-8 w-8" aria-hidden />
+        </div>
+        <div className="min-w-0 space-y-1">
+          <h2 className="text-lg font-semibold tracking-tight">
+            Revise los datos del contrato antes de confirmar
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Use el botón <span className="font-medium text-foreground">Crear Contrato</span> al final del
+            asistente para registrar el contrato con todos los datos capturados.
+          </p>
+        </div>
+      </div>
+
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-lg">Punto de servicio</CardTitle>

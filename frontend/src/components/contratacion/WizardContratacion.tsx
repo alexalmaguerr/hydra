@@ -23,7 +23,6 @@ import PasoDocumentos from './steps/PasoDocumentos';
 import PasoFacturacion from './steps/PasoFacturacion';
 import PasoOrdenes from './steps/PasoOrdenes';
 import PasoResumen from './steps/PasoResumen';
-import PasoConfirmacion from './steps/PasoConfirmacion';
 import { CLASE_CONTRATACION_ALTA_NUEVA_COD } from './wizard-catalogos-ui';
 
 export interface WizardContratacionProps {
@@ -155,7 +154,6 @@ const stepComponents = [
   PasoFacturacion,
   PasoOrdenes,
   PasoResumen,
-  PasoConfirmacion,
 ] as const;
 
 export function WizardContratacion({ onComplete, onCancel, procesoPrecargaId }: WizardContratacionProps) {
