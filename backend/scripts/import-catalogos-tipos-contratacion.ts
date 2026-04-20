@@ -12,7 +12,12 @@ const prisma = new PrismaClient();
 
 const xlsxPath = process.argv[2];
 
-importCatalogosTiposContratacion(prisma, { xlsxPath, removeLegacyStubTipos: true })
+/** Si se pasa ruta al .xlsx, se importa desde ese archivo aunque exista JSON en el repo. */
+importCatalogosTiposContratacion(prisma, {
+  xlsxPath,
+  forzarExcel: Boolean(xlsxPath),
+  removeLegacyStubTipos: true,
+})
   .then(() => linkHydraClausulasToAllTipos(prisma))
   .catch((e) => {
     console.error(e);

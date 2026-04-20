@@ -531,7 +531,7 @@ async function seedCatalogosOperativos() {
 }
 
 async function seedCatalogosContratacion() {
-  // Tipos de contratación: se cargan desde Excel SIGE en importCatalogosTiposContratacion (tras clases de contrato).
+  // Tipos de contratación: prisma/data/catalogos-tipos-contratacion-sige.json (o Excel en dev) en importCatalogosTiposContratacion.
 
   // Conceptos de cobro (T13)
   const conceptosCobro = [

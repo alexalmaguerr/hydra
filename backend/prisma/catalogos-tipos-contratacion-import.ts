@@ -1,6 +1,6 @@
 /**
- * Importa desde el Excel legacy (SIGE) las administraciones y los tipos de contratación
- * (con medidor / sin medidor), respetando tctcod único por fila y tctexpid → administración.
+ * Importa administraciones y tipos de contratación SIGE.
+ * Orden de fuentes: 1) JSON versionado en prisma/data, 2) Excel local (dev), 3) respaldo de administraciones.
  */
 import * as fs from 'fs';
 import * as path from 'path';
@@ -16,7 +16,7 @@ export function expIdToAdministracionId(expId: number): string {
   return `EXP-${String(expId).padStart(2, '0')}`;
 }
 
-/** Respaldo si no existe el xlsx (CI o checkout parcial). Debe coincidir con la hoja «administracion». */
+/** Respaldo si no hay JSON ni xlsx (CI o checkout parcial). Debe coincidir con la hoja «administracion». */
 export const FALLBACK_ADMINISTRACIONES: { id: string; nombre: string }[] = [
   { id: 'EXP-01', nombre: 'QUERÉTARO' },
   { id: 'EXP-02', nombre: 'SANTA ROSA JÁUREGUI' },
@@ -35,7 +35,19 @@ export const FALLBACK_ADMINISTRACIONES: { id: string; nombre: string }[] = [
 
 const STUB_TIPOS_LEGACY = ['DOM_HAB', 'COM', 'IND', 'GOB', 'MIXTO'] as const;
 
-function defaultXlsxPath(): string {
+/** Payload del archivo `prisma/data/catalogos-tipos-contratacion-sige.json`. */
+export type CatalogosTiposContratacionPayload = {
+  administraciones: { expid: number; nombre: string }[];
+  tiposConMedidor: Record<string, unknown>[];
+  tiposSinMedidor: Record<string, unknown>[];
+};
+
+export function defaultCatalogosJsonPath(): string {
+  return path.join(__dirname, 'data', 'catalogos-tipos-contratacion-sige.json');
+}
+
+/** Ruta por defecto al Excel legacy (solo desarrollo / regeneración JSON). */
+export function defaultSigeCatalogosXlsxPath(): string {
   return path.resolve(
     __dirname,
     '..',
@@ -53,7 +65,7 @@ function matrixFindHeaderRow(matrix: unknown[][], key: string): number {
   return idx;
 }
 
-function parseTipoRows(sheet: XLSX.WorkSheet): Record<string, unknown>[] {
+export function parseTipoRows(sheet: XLSX.WorkSheet): Record<string, unknown>[] {
   const matrix = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null }) as unknown[][];
   const hdrIdx = matrixFindHeaderRow(matrix, 'tctcod');
   const headers = matrix[hdrIdx] as string[];
@@ -72,7 +84,7 @@ function parseTipoRows(sheet: XLSX.WorkSheet): Record<string, unknown>[] {
   return out;
 }
 
-function parseAdministracionesSheet(sheet: XLSX.WorkSheet): { expid: number; nombre: string }[] {
+export function parseAdministracionesSheet(sheet: XLSX.WorkSheet): { expid: number; nombre: string }[] {
   const matrix = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null }) as unknown[][];
   const hdrIdx = matrixFindHeaderRow(matrix, 'expid');
   const out: { expid: number; nombre: string }[] = [];
@@ -152,47 +164,33 @@ async function upsertAdministraciones(
   console.log(`Administraciones (catálogo SIGE): ${aplicables.length} registros`);
 }
 
-export type ImportCatalogosOptions = {
-  /** Ruta al xlsx; por defecto el archivo bajo _DocumentacIon_Interna_Sistema_Anterior/... */
-  xlsxPath?: string;
-  /** Elimina los 5 tipos stub del seed anterior (DOM_HAB, COM, …) */
-  removeLegacyStubTipos?: boolean;
-};
+function readPayloadFromJsonFile(jsonPath: string): CatalogosTiposContratacionPayload {
+  const raw = fs.readFileSync(jsonPath, 'utf8');
+  const data = JSON.parse(raw) as unknown;
+  if (!data || typeof data !== 'object') throw new Error('JSON inválido: raíz debe ser un objeto');
+  const o = data as Record<string, unknown>;
+  if (!Array.isArray(o.administraciones)) throw new Error('JSON inválido: falta array "administraciones"');
+  const administraciones = o.administraciones as { expid: number; nombre: string }[];
+  const tiposConMedidor = Array.isArray(o.tiposConMedidor)
+    ? (o.tiposConMedidor as Record<string, unknown>[])
+    : [];
+  const tiposSinMedidor = Array.isArray(o.tiposSinMedidor)
+    ? (o.tiposSinMedidor as Record<string, unknown>[])
+    : [];
+  return { administraciones, tiposConMedidor, tiposSinMedidor };
+}
 
-/**
- * Importa administraciones + tipos de contratación desde el Excel.
- */
-export async function importCatalogosTiposContratacion(
+async function upsertTiposFromRows(
   prisma: PrismaClient,
-  options: ImportCatalogosOptions = {},
+  rowsCon: Record<string, unknown>[],
+  rowsSin: Record<string, unknown>[],
+  removeLegacyStubTipos: boolean | undefined,
 ): Promise<void> {
-  const xlsxPath = options.xlsxPath ?? defaultXlsxPath();
-  if (!fs.existsSync(xlsxPath)) {
-    console.warn(
-      `[catalogos] No se encontró el archivo: ${xlsxPath}. Se usan solo administraciones embebidas y no se importan tipos.`,
-    );
-    for (const a of FALLBACK_ADMINISTRACIONES) {
-      await prisma.administracion.upsert({
-        where: { id: a.id },
-        update: { nombre: a.nombre },
-        create: a,
-      });
-    }
-    return;
-  }
-
-  const wb = XLSX.readFile(xlsxPath);
-
-  const adminSheet = wb.Sheets['administracion'];
-  if (!adminSheet) throw new Error('Hoja «administracion» no encontrada en el libro');
-  const admins = parseAdministracionesSheet(adminSheet);
-  await upsertAdministraciones(prisma, admins);
-
   const clasesMap = new Map<string, string>();
   const clasesRows = await prisma.claseContrato.findMany({ select: { id: true, codigo: true } });
   for (const c of clasesRows) clasesMap.set(c.codigo, c.id);
 
-  if (options.removeLegacyStubTipos !== false) {
+  if (removeLegacyStubTipos !== false) {
     await prisma.tipoContratacion.deleteMany({
       where: { codigo: { in: [...STUB_TIPOS_LEGACY] } },
     });
@@ -241,13 +239,104 @@ export async function importCatalogosTiposContratacion(
     return n;
   }
 
+  await upsertTipoBatch(rowsCon, true, 'con medidor');
+  await upsertTipoBatch(rowsSin, false, 'sin medidor');
+}
+
+async function importFromPayload(
+  prisma: PrismaClient,
+  payload: CatalogosTiposContratacionPayload,
+  options: ImportCatalogosOptions,
+): Promise<void> {
+  if (payload.administraciones.length === 0) {
+    throw new Error('[catalogos] El payload no contiene administraciones');
+  }
+  await upsertAdministraciones(prisma, payload.administraciones);
+  const totalTipos = payload.tiposConMedidor.length + payload.tiposSinMedidor.length;
+  if (totalTipos === 0) {
+    console.warn(
+      '[catalogos] Payload sin filas de tipos (tiposConMedidor / tiposSinMedidor vacíos). ' +
+        'Regenera el JSON con: npm run export:catalogos-tipos-sige-json -- "<ruta-al.xlsx>"',
+    );
+  }
+  await upsertTiposFromRows(
+    prisma,
+    payload.tiposConMedidor,
+    payload.tiposSinMedidor,
+    options.removeLegacyStubTipos,
+  );
+}
+
+export type ImportCatalogosOptions = {
+  /** Ruta al JSON versionado; por defecto prisma/data/catalogos-tipos-contratacion-sige.json */
+  jsonPath?: string;
+  /** Ruta al xlsx (solo si no se usa JSON o forzarExcel). */
+  xlsxPath?: string;
+  /** Si true, ignora JSON y usa solo Excel (regeneración / pruebas). */
+  forzarExcel?: boolean;
+  /** Elimina los 5 tipos stub del seed anterior (DOM_HAB, COM, …) */
+  removeLegacyStubTipos?: boolean;
+};
+
+/**
+ * Importa administraciones + tipos: JSON (repo) → Excel (dev) → respaldo administraciones.
+ */
+export async function importCatalogosTiposContratacion(
+  prisma: PrismaClient,
+  options: ImportCatalogosOptions = {},
+): Promise<void> {
+  const jsonPath = options.jsonPath ?? process.env.SIGE_CATALOGOS_JSON ?? defaultCatalogosJsonPath();
+  const xlsxPath = options.xlsxPath ?? process.env.SIGE_CATALOGOS_XLSX ?? defaultSigeCatalogosXlsxPath();
+
+  if (!options.forzarExcel && fs.existsSync(jsonPath)) {
+    console.log(`[catalogos] Cargando catálogo SIGE desde JSON: ${jsonPath}`);
+    const payload = readPayloadFromJsonFile(jsonPath);
+    await importFromPayload(prisma, payload, options);
+    return;
+  }
+
+  if (fs.existsSync(xlsxPath)) {
+    console.log(`[catalogos] Cargando catálogo SIGE desde Excel: ${xlsxPath}`);
+    const wb = XLSX.readFile(xlsxPath);
+    const adminSheet = wb.Sheets['administracion'];
+    if (!adminSheet) throw new Error('Hoja «administracion» no encontrada en el libro');
+    const admins = parseAdministracionesSheet(adminSheet);
+    const sheetCon = wb.Sheets['tipos de contratacion'];
+    const sheetSin = wb.Sheets['tipos de contratacion sin medid'];
+    if (!sheetCon) throw new Error('Hoja «tipos de contratacion» no encontrada');
+    if (!sheetSin) throw new Error('Hoja «tipos de contratacion sin medid» no encontrada');
+    const rowsCon = parseTipoRows(sheetCon);
+    const rowsSin = parseTipoRows(sheetSin);
+    await importFromPayload(prisma, { administraciones: admins, tiposConMedidor: rowsCon, tiposSinMedidor: rowsSin }, options);
+    return;
+  }
+
+  console.warn(
+    `[catalogos] No hay JSON (${jsonPath}) ni Excel (${xlsxPath}). ` +
+      `Se usan solo administraciones embebidas y no se importan tipos. ` +
+      `Para producción: genera y commitea el JSON (npm run export:catalogos-tipos-sige-json).`,
+  );
+  for (const a of FALLBACK_ADMINISTRACIONES) {
+    await prisma.administracion.upsert({
+      where: { id: a.id },
+      update: { nombre: a.nombre },
+      create: a,
+    });
+  }
+}
+
+/** Lee el Excel SIGE y devuelve el mismo payload que se guarda en JSON (para script de exportación). */
+export function buildCatalogosPayloadFromXlsx(xlsxPath: string): CatalogosTiposContratacionPayload {
+  const wb = XLSX.readFile(xlsxPath);
+  const adminSheet = wb.Sheets['administracion'];
+  if (!adminSheet) throw new Error('Hoja «administracion» no encontrada en el libro');
   const sheetCon = wb.Sheets['tipos de contratacion'];
   const sheetSin = wb.Sheets['tipos de contratacion sin medid'];
   if (!sheetCon) throw new Error('Hoja «tipos de contratacion» no encontrada');
   if (!sheetSin) throw new Error('Hoja «tipos de contratacion sin medid» no encontrada');
-
-  const rowsCon = parseTipoRows(sheetCon);
-  const rowsSin = parseTipoRows(sheetSin);
-  await upsertTipoBatch(rowsCon, true, 'con medidor');
-  await upsertTipoBatch(rowsSin, false, 'sin medidor');
+  return {
+    administraciones: parseAdministracionesSheet(adminSheet),
+    tiposConMedidor: parseTipoRows(sheetCon),
+    tiposSinMedidor: parseTipoRows(sheetSin),
+  };
 }
