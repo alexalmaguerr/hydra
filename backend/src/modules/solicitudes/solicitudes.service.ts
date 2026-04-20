@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
@@ -154,12 +154,43 @@ export class SolicitudesService {
     });
   }
 
+  /**
+   * Column `solicitudes.tipo_contratacion_id` and JSON `formData.tipoContratacionId` can drift
+   * (e.g. reseeded catálogo with new cuid). Only persist an FK that exists on `tipos_contratacion`.
+   */
+  private async resolveTipoContratacionIdForContrato(sol: {
+    tipoContratacionId: string | null;
+    formData: unknown;
+  }): Promise<string | null> {
+    const fd = sol.formData as { tipoContratacionId?: string } | undefined;
+    const candidates = [
+      ...new Set(
+        [sol.tipoContratacionId, fd?.tipoContratacionId]
+          .map((v) => (typeof v === 'string' ? v.trim() : ''))
+          .filter(Boolean),
+      ),
+    ];
+    if (candidates.length === 0) return null;
+    for (const candidateId of candidates) {
+      const row = await this.prisma.tipoContratacion.findUnique({
+        where: { id: candidateId },
+        select: { id: true },
+      });
+      if (row) return row.id;
+    }
+    throw new BadRequestException(
+      'El tipo de contratación de la solicitud no existe en el catálogo (ID obsoleto o catálogo distinto). ' +
+        'Actualice la solicitud eligiendo de nuevo el tipo de contratación o sincronice los catálogos.',
+    );
+  }
+
   // ── Accept — creates a Contrato and links it ──────────────────────────────
   async aceptar(id: string) {
     const sol = await this.findOne(id);
 
     // Create the contrato
     const formData = sol.formData as any;
+    const tipoContratacionId = await this.resolveTipoContratacionIdForContrato(sol);
     const contrato = await this.prisma.contrato.create({
       data: {
         tipoContrato: 'NORMAL',
@@ -170,7 +201,7 @@ export class SolicitudesService {
         contacto: sol.propTelefono || '',
         estado: 'Pendiente de alta',
         fecha: new Date().toISOString().split('T')[0],
-        tipoContratacionId: sol.tipoContratacionId ?? null,
+        tipoContratacionId,
         domiciliado: false,
         superficiePredio: formData?.superficieTotal
           ? parseFloat(formData.superficieTotal)
