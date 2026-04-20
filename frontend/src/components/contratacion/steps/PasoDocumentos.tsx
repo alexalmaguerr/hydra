@@ -1,7 +1,5 @@
-import { useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { useMemo } from 'react';
 
-import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import type { StepProps } from '../hooks/useWizardState';
 
@@ -33,9 +31,6 @@ const CATALOGO_DOCUMENTOS: { id: string; nombre: string }[] = [
 ];
 
 export default function PasoDocumentos({ data, updateData, config }: StepProps) {
-  const [selDisponible, setSelDisponible] = useState<string>('');
-  const [selEntregado, setSelEntregado] = useState<string>('');
-
   const entregados = data.documentosRecibidos;
 
   const catalogo = useMemo(() => {
@@ -53,17 +48,13 @@ export default function PasoDocumentos({ data, updateData, config }: StepProps) 
     [catalogo, entregados],
   );
 
-  const moverADerecha = () => {
-    const doc = catalogo.find((d) => d.id === selDisponible);
-    if (!doc) return;
-    updateData({ documentosRecibidos: [...entregados, doc.nombre] });
-    setSelDisponible('');
+  const agregarRecibido = (nombre: string) => {
+    if (entregados.includes(nombre)) return;
+    updateData({ documentosRecibidos: [...entregados, nombre] });
   };
 
-  const moverAIzquierda = () => {
-    if (!selEntregado) return;
-    updateData({ documentosRecibidos: entregados.filter((n) => n !== selEntregado) });
-    setSelEntregado('');
+  const quitarRecibido = (nombre: string) => {
+    updateData({ documentosRecibidos: entregados.filter((n) => n !== nombre) });
   };
 
   return (
@@ -73,31 +64,24 @@ export default function PasoDocumentos({ data, updateData, config }: StepProps) 
           Documentos
         </h2>
         <p className="text-sm text-muted-foreground">
-          Catálogo disponible (izquierda) y documentación recibida del cliente (derecha). Los nombres se envían al
-          backend como en el flujo actual.
+          Catálogo disponible (izquierda) y documentación recibida del cliente (derecha). Pulsa un documento en una lista
+          para pasarlo a la otra. Los nombres se envían al backend como en el flujo actual.
         </p>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-[1fr_auto_1fr] sm:items-stretch">
+      <div className="grid gap-3 sm:grid-cols-2 sm:items-stretch">
         <div className="flex min-h-[220px] flex-col rounded-lg border bg-muted/10">
           <div className="border-b px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Disponibles
           </div>
-          <div
-            className="flex-1 overflow-y-auto p-1"
-            role="listbox"
-            aria-label="Documentos disponibles en catálogo"
-          >
+          <div className="flex-1 overflow-y-auto p-1" role="group" aria-label="Documentos disponibles en catálogo">
             {disponibles.map((d) => (
               <button
                 key={d.id}
                 type="button"
-                role="option"
-                aria-selected={selDisponible === d.id}
-                onClick={() => setSelDisponible(d.id)}
-                className={`flex w-full rounded px-2 py-1.5 text-left text-sm transition-colors ${
-                  selDisponible === d.id ? 'bg-primary/15 text-foreground' : 'hover:bg-muted/60'
-                }`}
+                onClick={() => agregarRecibido(d.nombre)}
+                aria-label={`Marcar como recibido: ${d.nombre}`}
+                className="flex w-full rounded px-2 py-1.5 text-left text-sm transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 {d.nombre}
               </button>
@@ -108,50 +92,18 @@ export default function PasoDocumentos({ data, updateData, config }: StepProps) 
           </div>
         </div>
 
-        <div className="flex flex-row justify-center gap-2 sm:flex-col sm:justify-center">
-          <Button
-            type="button"
-            size="icon"
-            variant="outline"
-            className="shrink-0"
-            disabled={!selDisponible}
-            onClick={moverADerecha}
-            aria-label="Marcar documento seleccionado como recibido"
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-          <Button
-            type="button"
-            size="icon"
-            variant="outline"
-            className="shrink-0"
-            disabled={!selEntregado}
-            onClick={moverAIzquierda}
-            aria-label="Quitar documento seleccionado de los recibidos"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-        </div>
-
         <div className="flex min-h-[220px] flex-col rounded-lg border bg-muted/10">
           <div className="border-b px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Entregados por el cliente
           </div>
-          <div
-            className="flex-1 overflow-y-auto p-1"
-            role="listbox"
-            aria-label="Documentos recibidos"
-          >
+          <div className="flex-1 overflow-y-auto p-1" role="group" aria-label="Documentos recibidos">
             {entregados.map((nombre) => (
               <button
                 key={nombre}
                 type="button"
-                role="option"
-                aria-selected={selEntregado === nombre}
-                onClick={() => setSelEntregado(nombre)}
-                className={`flex w-full rounded px-2 py-1.5 text-left text-sm transition-colors ${
-                  selEntregado === nombre ? 'bg-primary/15 text-foreground' : 'hover:bg-muted/60'
-                }`}
+                onClick={() => quitarRecibido(nombre)}
+                aria-label={`Quitar de recibidos: ${nombre}`}
+                className="flex w-full rounded px-2 py-1.5 text-left text-sm transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 {nombre}
               </button>
