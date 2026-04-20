@@ -1,6 +1,8 @@
 {"name":"contract-to-cash-flow-api","version":"0.1.0","private":true,"scripts":{"build":"nest build","start":"nest start","start:dev":"nest start --watch","start:prod":"prisma migrate deploy && npx prisma db seed && node dist/src/main","lint":"eslint \"{src,apps,libs,test}/**/*.ts\"","prisma:generate":"prisma generate","prisma:migrate":"prisma migrate dev","prisma:studio":"prisma studio","prisma:seed":"ts-node prisma/seed.ts",
     "import-sige-hydra":"ts-node --compiler-options {\"module\":\"CommonJS\"} scripts/import-sige-hydra.ts",
     "import:inegi-catalog":"ts-node --compiler-options {\"module\":\"CommonJS\"} scripts/import-inegi-catalog.ts",
+    "import:catalogos-tipos":"ts-node scripts/import-catalogos-tipos-contratacion.ts",
+    "import:distritos-punto-servicio":"ts-node --compiler-options {\"module\":\"CommonJS\"} scripts/import-distritos-punto-servicio.ts",
     "migrate:resolve-failed":"prisma migrate resolve --rolled-back \"20260302000000_add_sige_hydra\"",
     "migrate:fix-p3009":"prisma db execute --schema prisma/schema.prisma --file scripts/fix-failed-migration.sql && npm run migrate:resolve-failed && prisma migrate deploy"},"dependencies":{"@nestjs/common":"^10.4.15","@nestjs/core":"^10.4.15","@nestjs/jwt":"^11.0.2","@nestjs/passport":"^11.0.5","@nestjs/platform-express":"^10.4.15","@prisma/client":"^6.8.2","@types/multer":"^2.0.0","bcrypt":"^6.0.0",
     "class-transformer":"^0.5.1",
