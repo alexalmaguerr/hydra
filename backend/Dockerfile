@@ -27,6 +27,8 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/scripts ./scripts
+# Prisma seed (ts-node) imports ../src/common/* from prisma/*.ts; production image otherwise has no src/.
+COPY --from=builder /app/src/common/administraciones-selector-excluidas.ts ./src/common/administraciones-selector-excluidas.ts
 
 EXPOSE 3001
 
