@@ -13,6 +13,10 @@
   - Cada ítem usa `id` y `codigo` **`ACTIPOL_{actipolid}`** para trazabilidad con el sistema anterior.
   - Campo `descripcion` en base de datos = texto de la columna `actividad` (mayúsculas según fuente).
 
+## Interfaz
+
+En la app interna: **Configuración → Catálogos del contrato** (`/app/catalogos-contrato`, pestaña *Actividad*). Otras pestañas de la misma pantalla: categoría tarifaria, estado del contrato (referencia AQUACIS) y tipo de envío de factura.
+
 ## API
 
 Sin cambios de contrato: `GET /catalogos/actividades` y `GET /catalogos/grupos-actividad` siguen igual; el listado incluye las actividades sembradas.

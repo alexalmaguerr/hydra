@@ -4,6 +4,10 @@ Los distritos operativos expuestos en API (`GET /catalogos/distritos`) y cargado
 
 `_DocumentacIon_Interna_Sistema_Anterior/Gestion Servicio/Contratos/catálogos de punto de servicio.xlsx`
 
+## Consulta en la aplicación
+
+En **Configuración → Catálogos CIG2018** (`/app/catalogos`), pestañas **Administraciones**, **Zonas (territorio)** y **Distritos** muestran los datos en solo lectura (API `GET /catalogos-operativos/administraciones`, `GET /catalogos/zonas-territoriales`, `GET /catalogos/distritos`).
+
 ## Modelo en base de datos
 
 Registros en tabla `distritos` (Prisma `Distrito`), con `zona_id` obligatorio. El Excel **no** incluye zona operativa; el seed y el script de import asignan por defecto la zona **`Z001`** (Norte / CEA Querétaro) hasta que exista un mapeo explícito negocio ↔ zona.

@@ -121,6 +121,11 @@ export class CatalogosController {
     return this.service.updateCodigoRecorrido(id, body);
   }
 
+  @Get('zonas-territoriales')
+  findZonasTerritoriales() {
+    return this.service.findZonasTerritoriales();
+  }
+
   @Get('distritos')
   findDistritos() {
     return this.service.findDistritos();

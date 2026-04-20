@@ -583,10 +583,6 @@ const Contratos = () => {
         >
           <DialogHeader>
             <DialogTitle>Registro de contrato</DialogTitle>
-            <DialogDescription>
-              Asistente guiado para registrar un contrato; puede precargarse desde un proceso de contratación existente
-              (<span className="font-mono">?procesoId=</span>).
-            </DialogDescription>
           </DialogHeader>
           <WizardContratacion
             key={searchParams.get('procesoId') ?? 'nuevo'}

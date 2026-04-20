@@ -119,6 +119,15 @@ export interface DistritoCatalogo {
 export const fetchDistritos = () =>
   apiRequest<DistritoCatalogo[]>('/catalogos/distritos');
 
+export interface ZonaTerritorialCatalogo {
+  id: string;
+  nombre: string;
+  administracionId: string;
+}
+
+export const fetchZonasTerritoriales = () =>
+  apiRequest<ZonaTerritorialCatalogo[]>('/catalogos/zonas-territoriales');
+
 export interface AdministracionCatalogo {
   id: string;
   nombre: string;

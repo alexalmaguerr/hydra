@@ -22,7 +22,7 @@ npx prisma migrate deploy
 npm run prisma:seed
 ```
 
-La pantalla **Configuración → Catálogos → SAT · CFDI** muestra ambas tablas en solo lectura.
+En el menú lateral: **Configuración → Catálogos SAT (CFDI)** (`/app/catalogos-sat`) abre directamente las tablas SAT. También están en **Configuración → Catálogos CIG2018**, pestaña **SAT · CFDI**.
 
 ## Comportamiento en solicitudes (paso fiscal)
 

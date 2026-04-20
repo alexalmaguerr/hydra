@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { PageHeader } from '@/components/PageHeader';
 import { KpiCard } from '@/components/KpiCard';
@@ -9,8 +9,16 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Plus, Pencil, Settings2, FileText, CheckCircle2 } from 'lucide-react';
 import { hasApi } from '@/api/contratos';
+import { fetchAdministraciones } from '@/api/catalogos';
 import {
   fetchTiposContratacion,
   createTipoContratacion,
@@ -101,14 +109,43 @@ const TiposContratacion = () => {
   const queryClient = useQueryClient();
   const [dialog, setDialog] = useState<{ mode: 'create' | 'edit'; tipo?: TipoContratacion } | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
+  const [adminFilter, setAdminFilter] = useState<string>('__all__');
+  const [medidorFilter, setMedidorFilter] = useState<'all' | 'with' | 'without'>('all');
+
+  const { data: administracionesCatalog = [] } = useQuery({
+    queryKey: ['catalogos-operativos', 'administraciones'],
+    queryFn: fetchAdministraciones,
+    enabled: useApi,
+    staleTime: 60 * 60 * 1000,
+  });
+
+  const adminNombreById = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const a of administracionesCatalog) m.set(a.id, a.nombre);
+    return m;
+  }, [administracionesCatalog]);
 
   const { data: response, isLoading } = useQuery({
-    queryKey: ['tipos-contratacion'],
-    queryFn: fetchTiposContratacion,
+    queryKey: ['tipos-contratacion', 'list', adminFilter],
+    queryFn: () =>
+      fetchTiposContratacion({
+        page: 1,
+        limit: 500,
+        administracionId: adminFilter === '__all__' ? undefined : adminFilter,
+      }),
     enabled: useApi,
   });
 
-  const tipos: TipoContratacion[] = useApi ? (response?.data ?? []) : FALLBACK;
+  const tiposBase = useMemo<TipoContratacion[]>(
+    () => (useApi ? (response?.data ?? []) : FALLBACK),
+    [useApi, response?.data],
+  );
+
+  const tipos = useMemo(() => {
+    if (medidorFilter === 'with') return tiposBase.filter((t) => t.requiereMedidor);
+    if (medidorFilter === 'without') return tiposBase.filter((t) => !t.requiereMedidor);
+    return tiposBase;
+  }, [tiposBase, medidorFilter]);
 
   const createMut = useMutation({
     mutationFn: (dto: CreateTipoContratacionDto) => createTipoContratacion(dto),
@@ -145,9 +182,9 @@ const TiposContratacion = () => {
     }
   };
 
-  const activos = tipos.filter(t => t.activo).length;
-  const conSolicitudPrevia = tipos.filter(t => t.requiereSolicitudPrevia).length;
-  const totalContratos = tipos.reduce((s, t) => s + (t._count?.contratos ?? 0), 0);
+  const activos = tiposBase.filter((t) => t.activo).length;
+  const conSolicitudPrevia = tiposBase.filter((t) => t.requiereSolicitudPrevia).length;
+  const totalContratos = tiposBase.reduce((s, t) => s + (t._count?.contratos ?? 0), 0);
 
   const set = (k: keyof FormState, v: string | boolean) => setForm(f => ({ ...f, [k]: v }));
 
@@ -157,8 +194,11 @@ const TiposContratacion = () => {
     <div>
       <PageHeader
         title="Tipos de Contratación"
-        subtitle="Configuración del proceso y reglas de negocio por tipo de contrato."
-        breadcrumbs={[{ label: 'Configuración', href: '#' }, { label: 'Tipos de contratación' }]}
+        subtitle="Catálogo SIGE (importación Excel): tipos por administración territorial; filtre por jurisdicción o por uso de medidor."
+        breadcrumbs={[
+          { label: 'Configuración', href: '/app/dashboard' },
+          { label: 'Tipos de contratación' },
+        ]}
         actions={
           <Button onClick={openCreate} className="bg-[#007BFF] hover:bg-blue-600 text-white">
             <Plus className="w-4 h-4 mr-1.5" /> Nuevo tipo
@@ -167,19 +207,75 @@ const TiposContratacion = () => {
       />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <KpiCard label="Tipos registrados" value={tipos.length} icon={Settings2} />
+        <KpiCard label="Tipos registrados" value={tiposBase.length} icon={Settings2} />
         <KpiCard label="Activos" value={activos} accent="success" icon={CheckCircle2} />
         <KpiCard label="Con solicitud previa" value={conSolicitudPrevia} icon={FileText} />
         <KpiCard label="Contratos totales" value={totalContratos} icon={FileText} accent="primary" />
       </div>
+
+      {useApi && (
+        <div className="flex flex-wrap items-end gap-4 mb-4">
+          <div className="space-y-1 min-w-[220px]">
+            <Label className="text-xs text-muted-foreground">Administración</Label>
+            <Select value={adminFilter} onValueChange={setAdminFilter}>
+              <SelectTrigger className="w-[min(100%,280px)]">
+                <SelectValue placeholder="Todas" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">Todas las administraciones</SelectItem>
+                {administracionesCatalog.map((a) => (
+                  <SelectItem key={a.id} value={a.id}>
+                    {a.nombre}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1 min-w-[180px]">
+            <Label className="text-xs text-muted-foreground">Medidor</Label>
+            <Select
+              value={medidorFilter}
+              onValueChange={(v) => setMedidorFilter(v as 'all' | 'with' | 'without')}
+            >
+              <SelectTrigger className="w-[200px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="with">Con medidor</SelectItem>
+                <SelectItem value="without">Sin medidor</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      )}
+
+      {(useApi && (tipos.length !== tiposBase.length || medidorFilter !== 'all')) ||
+      (!useApi && medidorFilter !== 'all') ? (
+        <p className="text-xs text-muted-foreground mb-3">
+          Mostrando {tipos.length} de {tiposBase.length} tipos en esta vista.
+        </p>
+      ) : null}
 
       <div className="bg-white rounded-xl border border-border/50 shadow-sm overflow-hidden">
         {isLoading && <p className="p-6 text-sm text-muted-foreground text-center">Cargando tipos…</p>}
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-muted/40">
-              {['Código', 'Nombre', 'Clase proceso', 'Organismo aprobación', 'Configuración', 'Contratos', 'Estado', ''].map(h => (
-                <th key={h} className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-4 py-3">{h}</th>
+              {[
+                'Código',
+                'Administración',
+                'Nombre',
+                'Clase proceso',
+                'Organismo aprobación',
+                'Configuración',
+                'Contratos',
+                'Estado',
+                '',
+              ].map((h) => (
+                <th key={h} className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-4 py-3">
+                  {h}
+                </th>
               ))}
             </tr>
           </thead>
@@ -187,6 +283,11 @@ const TiposContratacion = () => {
             {tipos.map((t, i) => (
               <tr key={t.id} className={`${i > 0 ? 'border-t border-border/50' : ''} hover:bg-muted/20 transition-colors`}>
                 <td className="px-4 py-3.5 font-mono text-xs text-[#007BFF] font-semibold">{t.codigo}</td>
+                <td className="px-4 py-3.5 text-sm text-muted-foreground max-w-[220px]">
+                  {t.administracionId
+                    ? (adminNombreById.get(t.administracionId) ?? t.administracionId)
+                    : '—'}
+                </td>
                 <td className="px-4 py-3.5">
                   <p className="font-medium leading-tight">{t.nombre}</p>
                   {t.descripcion && <p className="text-xs text-muted-foreground mt-0.5">{t.descripcion}</p>}
@@ -215,7 +316,11 @@ const TiposContratacion = () => {
               </tr>
             ))}
             {tipos.length === 0 && !isLoading && (
-              <tr><td colSpan={8} className="text-center text-muted-foreground py-12">Sin tipos de contratación registrados</td></tr>
+              <tr>
+                <td colSpan={9} className="text-center text-muted-foreground py-12">
+                  Sin tipos de contratación en esta vista
+                </td>
+              </tr>
             )}
           </tbody>
         </table>

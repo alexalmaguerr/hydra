@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { PageHeader } from '@/components/PageHeader';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -29,6 +30,12 @@ import {
   fetchTiposVia,
   fetchTiposVariable,
   fetchCatalogoSat,
+  fetchAdministraciones,
+  fetchDistritos,
+  fetchZonasTerritoriales,
+  type AdministracionCatalogo,
+  type DistritoCatalogo,
+  type ZonaTerritorialCatalogo,
   type CatalogoSatItem,
   type CatalogoActividad,
   type CatalogoGrupoActividad,
@@ -82,6 +89,9 @@ import {
   Signpost,
   Variable,
   Scale,
+  Landmark,
+  LayoutGrid,
+  Map as MapIcon,
 } from 'lucide-react';
 
 // ── Static fallback data ──────────────────────────────────────────────────────
@@ -166,9 +176,13 @@ function actividadGrupoId(a: CatalogoActividad): string | null {
 
 const INEGI_PAGE_SIZE = 50;
 
+const SAT_CFDI_TAB = 'sat-cfdi';
+
 const Catalogos = () => {
+  const location = useLocation();
+  const isSatEntry = location.pathname.endsWith('/catalogos-sat');
   const useApi = hasApi();
-  const [catalogTab, setCatalogTab] = useState('actividades');
+  const [catalogTab, setCatalogTab] = useState(() => (isSatEntry ? SAT_CFDI_TAB : 'actividades'));
 
   const [munPage, setMunPage] = useState(1);
   const [munEstadoId, setMunEstadoId] = useState('');
@@ -373,6 +387,36 @@ const Catalogos = () => {
   const satRegimen = catalogoSat.filter((r) => r.tipo === 'REGIMEN_FISCAL');
   const satUsoCfdi = catalogoSat.filter((r) => r.tipo === 'USO_CFDI');
 
+  const { data: administraciones = [] } = useQuery<AdministracionCatalogo[]>({
+    queryKey: ['catalogos', 'administraciones'],
+    queryFn: fetchAdministraciones,
+    enabled: useApi,
+  });
+
+  const { data: zonasTerritoriales = [] } = useQuery<ZonaTerritorialCatalogo[]>({
+    queryKey: ['catalogos', 'zonas-territoriales'],
+    queryFn: fetchZonasTerritoriales,
+    enabled: useApi,
+  });
+
+  const { data: distritosCatalogo = [] } = useQuery<DistritoCatalogo[]>({
+    queryKey: ['catalogos', 'distritos', 'config'],
+    queryFn: fetchDistritos,
+    enabled: useApi,
+  });
+
+  const adminNombreById = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const a of administraciones) m.set(a.id, a.nombre);
+    return m;
+  }, [administraciones]);
+
+  const zonaNombreById = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const z of zonasTerritoriales) m.set(z.id, z.nombre);
+    return m;
+  }, [zonasTerritoriales]);
+
   const kpiItems = [
     { label: 'Conceptos cobro', value: conceptos.length, icon: Receipt, color: '#0d9488' },
     { label: 'Cláusulas', value: clausulas.length, icon: FileText, color: '#7c3aed' },
@@ -385,8 +429,11 @@ const Catalogos = () => {
     { label: 'Estructuras técnicas', value: estructuras.length, icon: Building2, color: '#475569' },
     { label: 'Zonas facturación', value: zonasFacturacion.length, icon: MapPin, color: '#be123c' },
     { label: 'Códigos recorrido', value: codigosRecorrido.length, icon: Route, color: '#0369a1' },
+    { label: 'Administraciones', value: administraciones.length, icon: Landmark, color: '#0f172a' },
+    { label: 'Zonas territorio', value: zonasTerritoriales.length, icon: LayoutGrid, color: '#155e75' },
+    { label: 'Distritos', value: distritosCatalogo.length, icon: MapPinned, color: '#9a3412' },
     { label: 'INEGI Estados', value: inegiCounts.estados, icon: Globe2, color: '#0f766e' },
-    { label: 'INEGI Municipios', value: inegiCounts.municipios, icon: Landmark, color: '#115e59' },
+    { label: 'INEGI Municipios', value: inegiCounts.municipios, icon: MapIcon, color: '#115e59' },
     { label: 'INEGI Localidades', value: inegiCounts.localidades, icon: MapPinned, color: '#134e4a' },
     { label: 'INEGI Colonias', value: inegiCounts.colonias, icon: Home, color: '#042f2e' },
     { label: 'Marcas medidor', value: marcasMedidor.length, icon: Gauge, color: '#6d28d9' },
@@ -415,6 +462,9 @@ const Catalogos = () => {
     { value: 'estructuras-tecnicas', label: 'Estructuras técnicas' },
     { value: 'zonas-facturacion', label: 'Zonas facturación' },
     { value: 'codigos-recorrido', label: 'Códigos recorrido' },
+    { value: 'administraciones', label: 'Administraciones' },
+    { value: 'zonas-territoriales', label: 'Zonas (territorio)' },
+    { value: 'distritos', label: 'Distritos' },
     { value: 'inegi-estados', label: 'INEGI · Estados' },
     { value: 'inegi-municipios', label: 'INEGI · Municipios' },
     { value: 'inegi-localidades', label: 'INEGI · Localidades' },
@@ -435,24 +485,33 @@ const Catalogos = () => {
   return (
     <div>
       <PageHeader
-        title="Catálogos"
-        subtitle="Contratación, CIG2018, punto de servicio, medidores, pagos, operativos y catálogo territorial INEGI. Solo consulta."
-        breadcrumbs={[{ label: 'Configuración', href: '#' }, { label: 'Catálogos' }]}
+        title={isSatEntry ? 'Catálogos SAT (CFDI)' : 'Catálogos'}
+        subtitle={
+          isSatEntry
+            ? 'Régimen fiscal y uso del CFDI (Anexo 20). Consulta del catálogo sembrado desde el Excel SAT.'
+            : 'Contratación, CIG2018, punto de servicio, administración y territorio (distritos), medidores, pagos, operativos e INEGI. Solo consulta.'
+        }
+        breadcrumbs={[
+          { label: 'Configuración', href: '#' },
+          isSatEntry ? { label: 'Catálogos SAT (CFDI)' } : { label: 'Catálogos' },
+        ]}
       />
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3 mb-6">
-        {kpiItems.map(({ label, value, icon: Icon, color }) => (
-          <div key={label} className="bg-white rounded-xl border border-border/50 shadow-sm p-4 flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${color}18` }}>
-              <Icon className="w-4 h-4" style={{ color }} />
+      {!isSatEntry && (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3 mb-6">
+          {kpiItems.map(({ label, value, icon: Icon, color }) => (
+            <div key={label} className="bg-white rounded-xl border border-border/50 shadow-sm p-4 flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${color}18` }}>
+                <Icon className="w-4 h-4" style={{ color }} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium truncate">{label}</p>
+                <p className="text-xl font-bold font-display" style={{ color }}>{value}</p>
+              </div>
             </div>
-            <div className="min-w-0">
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium truncate">{label}</p>
-              <p className="text-xl font-bold font-display" style={{ color }}>{value}</p>
-            </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       <Tabs value={catalogTab} onValueChange={setCatalogTab}>
         <TabsList className="mb-4 bg-white border rounded-lg p-1 gap-1 h-auto flex flex-wrap justify-start">
@@ -717,6 +776,121 @@ const Catalogos = () => {
                       <td className="px-5 py-3">
                         <StatusBadge status={row.activo ? 'Activo' : 'Inactivo'} />
                       </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="administraciones" className="mt-0">
+          <div className="bg-white rounded-xl border border-border/50 shadow-sm overflow-hidden">
+            <p className="text-xs text-muted-foreground px-4 py-3 border-b border-border/40">
+              Organismos / administración (alta de contratos y ámbito operativo). Origen: catálogo de punto de servicio.
+            </p>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-muted/40">
+                  {['Id', 'Nombre'].map((h) => (
+                    <th key={h} className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-5 py-3">
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {administraciones.length === 0 ? (
+                  <tr>
+                    <td colSpan={2} className="px-5 py-8 text-center text-muted-foreground text-sm">
+                      Sin administraciones. Verifica la API y el seed.
+                    </td>
+                  </tr>
+                ) : (
+                  administraciones.map((a, i) => (
+                    <tr key={a.id} className={`${i > 0 ? 'border-t border-border/50' : ''} hover:bg-muted/20 transition-colors`}>
+                      <td className="px-5 py-3 font-mono text-xs text-[#007BFF] font-medium whitespace-nowrap">{a.id}</td>
+                      <td className="px-5 py-3 font-medium">{a.nombre}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="zonas-territoriales" className="mt-0">
+          <div className="bg-white rounded-xl border border-border/50 shadow-sm overflow-hidden">
+            <p className="text-xs text-muted-foreground px-4 py-3 border-b border-border/40">
+              Zonas bajo cada administración (relación con distritos). No confundir con &quot;Zonas facturación&quot;.
+            </p>
+            <table className="w-full text-sm min-w-[640px]">
+              <thead>
+                <tr className="bg-muted/40">
+                  {['Id', 'Nombre', 'Administración', 'Id administración'].map((h) => (
+                    <th key={h} className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-5 py-3">
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {zonasTerritoriales.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="px-5 py-8 text-center text-muted-foreground text-sm">
+                      Sin zonas territoriales. Verifica el seed.
+                    </td>
+                  </tr>
+                ) : (
+                  zonasTerritoriales.map((z, i) => (
+                    <tr key={z.id} className={`${i > 0 ? 'border-t border-border/50' : ''} hover:bg-muted/20 transition-colors`}>
+                      <td className="px-5 py-3 font-mono text-xs text-[#007BFF] font-medium whitespace-nowrap">{z.id}</td>
+                      <td className="px-5 py-3 font-medium">{z.nombre}</td>
+                      <td className="px-5 py-3 text-muted-foreground">
+                        {adminNombreById.get(z.administracionId) ?? '—'}
+                      </td>
+                      <td className="px-5 py-3 font-mono text-xs text-muted-foreground whitespace-nowrap">
+                        {z.administracionId}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="distritos" className="mt-0">
+          <div className="bg-white rounded-xl border border-border/50 shadow-sm overflow-hidden">
+            <p className="text-xs text-muted-foreground px-4 py-3 border-b border-border/40">
+              Distritos operativos (p. ej. hoja «Distrito» del catálogo de punto de servicio). Solo consulta.
+            </p>
+            <table className="w-full text-sm min-w-[720px]">
+              <thead>
+                <tr className="bg-muted/40">
+                  {['Id', 'Distrito', 'Zona (territorio)', 'Id zona'].map((h) => (
+                    <th key={h} className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-5 py-3">
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {distritosCatalogo.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="px-5 py-8 text-center text-muted-foreground text-sm">
+                      Sin distritos. Ejecuta <code className="text-xs">npm run prisma:seed</code> o el import de distritos en el backend.
+                    </td>
+                  </tr>
+                ) : (
+                  distritosCatalogo.map((d, i) => (
+                    <tr key={d.id} className={`${i > 0 ? 'border-t border-border/50' : ''} hover:bg-muted/20 transition-colors`}>
+                      <td className="px-5 py-3 font-mono text-xs text-[#007BFF] font-medium whitespace-nowrap">{d.id}</td>
+                      <td className="px-5 py-3 font-medium">{d.nombre}</td>
+                      <td className="px-5 py-3 text-muted-foreground">
+                        {zonaNombreById.get(d.zonaId) ?? '—'}
+                      </td>
+                      <td className="px-5 py-3 font-mono text-xs text-muted-foreground whitespace-nowrap">{d.zonaId}</td>
                     </tr>
                   ))
                 )}

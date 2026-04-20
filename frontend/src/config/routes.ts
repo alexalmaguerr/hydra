@@ -23,6 +23,9 @@ import {
   Database,
   Settings2,
   ClipboardPlus,
+  Scale,
+  Landmark,
+  NotebookTabs,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -199,9 +202,30 @@ export const APP_ROUTES: AppRouteConfig[] = [
   },
   // Configuración
   {
+    path: 'administraciones',
+    label: 'Administraciones (SIGE)',
+    icon: Landmark,
+    allowedRoles: ['SUPER_ADMIN', 'ADMIN'],
+    group: 'Configuración',
+  },
+  {
     path: 'catalogos',
     label: 'Catálogos CIG2018',
     icon: Database,
+    allowedRoles: ['SUPER_ADMIN', 'ADMIN'],
+    group: 'Configuración',
+  },
+  {
+    path: 'catalogos-contrato',
+    label: 'Catálogos del contrato',
+    icon: NotebookTabs,
+    allowedRoles: ['SUPER_ADMIN', 'ADMIN'],
+    group: 'Configuración',
+  },
+  {
+    path: 'catalogos-sat',
+    label: 'Catálogos SAT (CFDI)',
+    icon: Scale,
     allowedRoles: ['SUPER_ADMIN', 'ADMIN'],
     group: 'Configuración',
   },

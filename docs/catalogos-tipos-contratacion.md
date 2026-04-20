@@ -39,6 +39,13 @@ npm run import:catalogos-tipos -- "C:/ruta/Catálogos de tipos contratacion.xlsx
 
 Si el archivo no existe en la ruta por defecto, el import solo aplica las **13 administraciones** embebidas en código (`FALLBACK_ADMINISTRACIONES`) y **no** importa tipos.
 
+## Consulta en la aplicación (Configuración)
+
+En el panel interno, grupo **Configuración**:
+
+- **Administraciones (SIGE)** — lista de jurisdicciones (`/app/administraciones`).
+- **Tipos de contratación** — tabla con columna **Administración** y filtros por administración y con/sin medidor cuando la API está disponible (`/app/tipos-contratacion`).
+
 ## Cambio respecto a IDs anteriores
 
 Las administraciones de demo **ADM01/ADM02** quedaron reemplazadas por **`EXP-01`** (QUERÉTARO) y **`EXP-12`** (EL MARQUÉS) donde correspondía el demo local (zonas Z004/Z005).

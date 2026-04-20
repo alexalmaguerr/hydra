@@ -363,6 +363,14 @@ export class PuntosServicioService {
     return this.prisma.catalogoCodigoRecorrido.update({ where: { id }, data: dto });
   }
 
+  /** Zonas territoriales (administración → zona → distrito). Solo lectura catálogo. */
+  async findZonasTerritoriales() {
+    return this.prisma.zona.findMany({
+      orderBy: [{ administracionId: 'asc' }, { nombre: 'asc' }],
+      select: { id: true, nombre: true, administracionId: true },
+    });
+  }
+
   /** Distritos operativos (GIS / rutas), con zona para filtrado en UI. */
   async findDistritos() {
     return this.prisma.distrito.findMany({

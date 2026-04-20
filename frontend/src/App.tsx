@@ -39,6 +39,8 @@ const Contabilidad = lazy(() => import('@/pages/Contabilidad'));
 const AtencionClientes = lazy(() => import('@/pages/AtencionClientes'));
 const Monitoreo = lazy(() => import('@/pages/Monitoreo'));
 const Catalogos = lazy(() => import('@/pages/Catalogos'));
+const CatalogosContrato = lazy(() => import('@/pages/CatalogosContrato'));
+const Administraciones = lazy(() => import('@/pages/Administraciones'));
 const TiposContratacion = lazy(() => import('@/pages/TiposContratacion'));
 const SolicitudServicio = lazy(() => import('@/pages/SolicitudServicio'));
 const Solicitudes = lazy(() => import('@/pages/Solicitudes'));
@@ -113,7 +115,10 @@ const App = () => (
                     <Route path="/app/contabilidad" element={<Contabilidad />} />
                     <Route path="/app/atencion-clientes" element={<AtencionClientes />} />
                     <Route path="/app/monitoreo" element={<Monitoreo />} />
+                    <Route path="/app/administraciones" element={<Administraciones />} />
                     <Route path="/app/catalogos" element={<Catalogos />} />
+                    <Route path="/app/catalogos-contrato" element={<CatalogosContrato />} />
+                    <Route path="/app/catalogos-sat" element={<Catalogos />} />
                     <Route path="/app/tipos-contratacion" element={<TiposContratacion />} />
                   </Route>
                 </Route>
