@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createSolicitud, fetchSolicitud, updateSolicitud } from '@/api/solicitudes';
@@ -40,26 +40,101 @@ import { deriveName, derivePredioResumen, useSolicitudesStore } from '@/hooks/us
 
 // ── Catalogues ───────────────────────────────────────────────────────────────
 
+/** Catálogo mínimo offline; el API + seed replica el Excel SAT completo. */
 const REGIMENES_FISCALES = [
-  { id: '601', nombre: 'General de Ley Personas Morales' },
-  { id: '603', nombre: 'Personas Morales con Fines no Lucrativos' },
-  { id: '605', nombre: 'Sueldos y Salarios e Ingresos Asimilados' },
-  { id: '606', nombre: 'Arrendamiento' },
-  { id: '612', nombre: 'Personas Físicas con Actividades Empresariales' },
-  { id: '616', nombre: 'Sin obligaciones fiscales' },
-  { id: '621', nombre: 'Incorporación Fiscal' },
-  { id: '622', nombre: 'Actividades Agrícolas, Ganaderas, Silvícolas y Pesqueras' },
-  { id: '626', nombre: 'Régimen Simplificado de Confianza' },
+  { id: '601', nombre: 'General de Ley Personas Morales', aplicaFisica: false, aplicaMoral: true },
+  { id: '603', nombre: 'Personas Morales con Fines no Lucrativos', aplicaFisica: false, aplicaMoral: true },
+  {
+    id: '605',
+    nombre: 'Sueldos y Salarios e Ingresos Asimilados',
+    aplicaFisica: true,
+    aplicaMoral: false,
+  },
+  { id: '606', nombre: 'Arrendamiento', aplicaFisica: true, aplicaMoral: false },
+  {
+    id: '612',
+    nombre: 'Personas Físicas con Actividades Empresariales',
+    aplicaFisica: true,
+    aplicaMoral: false,
+  },
+  { id: '616', nombre: 'Sin obligaciones fiscales', aplicaFisica: true, aplicaMoral: false },
+  { id: '621', nombre: 'Incorporación Fiscal', aplicaFisica: true, aplicaMoral: false },
+  {
+    id: '622',
+    nombre: 'Actividades Agrícolas, Ganaderas, Silvícolas y Pesqueras',
+    aplicaFisica: false,
+    aplicaMoral: true,
+  },
+  { id: '626', nombre: 'Régimen Simplificado de Confianza', aplicaFisica: true, aplicaMoral: true },
 ];
 
+/** Mismos `regimenesReceptorPermitidos` que `catalogo-sat-seed-data.ts` para estos códigos. */
 const USOS_CFDI = [
-  { id: 'G01', nombre: 'Adquisición de mercancias' },
-  { id: 'G03', nombre: 'Gastos en general' },
-  { id: 'I01', nombre: 'Construcciones' },
-  { id: 'S01', nombre: 'Sin efectos fiscales' },
-  { id: 'CP01', nombre: 'Pagos' },
-  { id: 'CN01', nombre: 'Nómina' },
+  {
+    id: 'G01',
+    nombre: 'Adquisición de mercancias',
+    aplicaFisica: true,
+    aplicaMoral: true,
+    regimenesReceptorPermitidos: '601, 603, 606, 612, 620, 621, 622, 623, 624, 625,626',
+  },
+  {
+    id: 'G03',
+    nombre: 'Gastos en general',
+    aplicaFisica: true,
+    aplicaMoral: true,
+    regimenesReceptorPermitidos: '601, 603, 606, 612, 620, 621, 622, 623, 624, 625, 626',
+  },
+  {
+    id: 'I01',
+    nombre: 'Construcciones',
+    aplicaFisica: true,
+    aplicaMoral: true,
+    regimenesReceptorPermitidos: '601, 603, 606, 612, 620, 621, 622, 623, 624, 625, 626',
+  },
+  {
+    id: 'S01',
+    nombre: 'Sin efectos fiscales',
+    aplicaFisica: true,
+    aplicaMoral: true,
+    regimenesReceptorPermitidos:
+      '601, 603, 605, 606, 608, 610, 611, 612, 614, 616, 620, 621, 622, 623, 624, 607, 615, 625, 626',
+  },
+  {
+    id: 'CP01',
+    nombre: 'Pagos',
+    aplicaFisica: true,
+    aplicaMoral: true,
+    regimenesReceptorPermitidos:
+      '601, 603, 605, 606, 608, 610, 611, 612, 614, 616, 620, 621, 622, 623, 624, 607, 615, 625, 626',
+  },
+  {
+    id: 'CN01',
+    nombre: 'Nómina',
+    aplicaFisica: true,
+    aplicaMoral: false,
+    regimenesReceptorPermitidos: '605',
+  },
 ];
+
+/** Parsea la columna SAT «Régimen Fiscal Receptor» (lista separada por comas). */
+function parseRegimenesReceptorPermitidos(raw: string | null | undefined): Set<string> {
+  if (raw == null || String(raw).trim() === '') return new Set();
+  return new Set(
+    String(raw)
+      .split(',')
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0),
+  );
+}
+
+function usoCfdiMatchesRegimenSeleccionado(
+  regimenesRaw: string | null | undefined,
+  regimenSeleccionado: string,
+): boolean {
+  const permitidos = parseRegimenesReceptorPermitidos(regimenesRaw);
+  if (permitidos.size === 0) return false;
+  return permitidos.has(regimenSeleccionado.trim());
+}
 
 // ── Mock data for demos ───────────────────────────────────────────────────────
 
@@ -1067,18 +1142,44 @@ function StepFiscal({
   });
 
   const esFisica = form.fiscalTipoPersona === 'fisica';
-  const regimenOpciones =
-    regimenSat.length > 0
-      ? regimenSat
-          .filter((r) => (esFisica ? r.aplicaFisica : r.aplicaMoral))
-          .map((r) => ({ clave: r.clave, texto: r.descripcion }))
-      : REGIMENES_FISCALES.map((r) => ({ clave: r.id, texto: r.nombre }));
-  const usoOpciones =
-    usoSat.length > 0
-      ? usoSat
-          .filter((u) => (esFisica ? u.aplicaFisica : u.aplicaMoral))
-          .map((u) => ({ clave: u.clave, texto: u.descripcion }))
-      : USOS_CFDI.map((u) => ({ clave: u.id, texto: u.nombre }));
+  const regimenSel = (form.fiscalRegimenFiscal ?? '').trim();
+
+  const regimenOpciones = useMemo(() => {
+    if (regimenSat.length > 0) {
+      return regimenSat
+        .filter((r) => (esFisica ? r.aplicaFisica : r.aplicaMoral))
+        .map((r) => ({ clave: r.clave, texto: r.descripcion }));
+    }
+    return REGIMENES_FISCALES.filter((r) => (esFisica ? r.aplicaFisica : r.aplicaMoral)).map((r) => ({
+      clave: r.id,
+      texto: r.nombre,
+    }));
+  }, [regimenSat, esFisica]);
+
+  const usoOpciones = useMemo(() => {
+    const sinRegimen = regimenSel === '';
+    if (sinRegimen) {
+      return [];
+    }
+    if (usoSat.length > 0) {
+      const rows = usoSat.filter((u) => {
+        if (esFisica ? !u.aplicaFisica : !u.aplicaMoral) return false;
+        return usoCfdiMatchesRegimenSeleccionado(u.regimenesReceptorPermitidos, regimenSel);
+      });
+      return rows.map((u) => ({ clave: u.clave, texto: u.descripcion }));
+    }
+    const rows = USOS_CFDI.filter((u) => {
+      if (esFisica ? !u.aplicaFisica : !u.aplicaMoral) return false;
+      return usoCfdiMatchesRegimenSeleccionado(u.regimenesReceptorPermitidos, regimenSel);
+    });
+    return rows.map((u) => ({ clave: u.id, texto: u.nombre }));
+  }, [usoSat, esFisica, regimenSel]);
+
+  useEffect(() => {
+    if (!form.fiscalUsoCfdi) return;
+    const ok = usoOpciones.some((u) => u.clave === form.fiscalUsoCfdi);
+    if (!ok) set({ fiscalUsoCfdi: '' });
+  }, [usoOpciones, form.fiscalUsoCfdi, set]);
 
   function handleMismosDatos(v: 'si' | 'no') {
     if (v === 'si') {
@@ -1123,7 +1224,16 @@ function StepFiscal({
                   idPrefix="fiscal-tipo"
                   options={[{ value: 'fisica', label: 'Física' }, { value: 'moral', label: 'Moral' }]}
                   value={form.fiscalTipoPersona}
-                  onChange={locked ? () => {} : (v) => set({ fiscalTipoPersona: v as 'fisica' | 'moral' })}
+                  onChange={
+                    locked
+                      ? () => {}
+                      : (v) =>
+                          set({
+                            fiscalTipoPersona: v as 'fisica' | 'moral',
+                            fiscalRegimenFiscal: '',
+                            fiscalUsoCfdi: '',
+                          })
+                  }
                   disabled={locked}
                 />
               </div>
@@ -1152,7 +1262,10 @@ function StepFiscal({
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field label="Régimen fiscal" required>
-                  <Select value={form.fiscalRegimenFiscal} onValueChange={(v) => set({ fiscalRegimenFiscal: v })}>
+                  <Select
+                    value={form.fiscalRegimenFiscal}
+                    onValueChange={(v) => set({ fiscalRegimenFiscal: v, fiscalUsoCfdi: '' })}
+                  >
                     <SelectTrigger className="h-9"><SelectValue placeholder="Seleccione régimen…" /></SelectTrigger>
                     <SelectContent>
                       {regimenOpciones.map((r) => (
@@ -1165,8 +1278,18 @@ function StepFiscal({
                   </Select>
                 </Field>
                 <Field label="Uso del CFDI" required>
-                  <Select value={form.fiscalUsoCfdi} onValueChange={(v) => set({ fiscalUsoCfdi: v })}>
-                    <SelectTrigger className="h-9"><SelectValue placeholder="Seleccione uso…" /></SelectTrigger>
+                  <Select
+                    value={form.fiscalUsoCfdi}
+                    onValueChange={(v) => set({ fiscalUsoCfdi: v })}
+                    disabled={!regimenSel}
+                  >
+                    <SelectTrigger className="h-9">
+                      <SelectValue
+                        placeholder={
+                          regimenSel ? 'Seleccione uso…' : 'Primero elija régimen fiscal…'
+                        }
+                      />
+                    </SelectTrigger>
                     <SelectContent>
                       {usoOpciones.map((u) => (
                         <SelectItem key={u.clave} value={u.clave}>
