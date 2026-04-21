@@ -69,6 +69,11 @@ export interface SolicitudState {
   actividadId: string;
   contratoPadre: string;
   variablesCapturadas: Record<string, string>;
+  /**
+   * Opcional: líneas de cuantificación (cantidades por concepto de cobro).
+   * Si se persisten, el paso Facturación del alta aplica estas cantidades con tarifas vigentes al día.
+   */
+  conceptosCuantificacionOverride?: { conceptoCobroId: string; cantidad: number }[];
   variablesTexto: string;
   documentosRecibidos: string[];
   documentosTexto: string;

@@ -28,6 +28,10 @@ import PasoResumen from './steps/PasoResumen';
 import { CLASE_CONTRATACION_ALTA_NUEVA_COD } from './wizard-catalogos-ui';
 import { regimenClaveFromStored } from '@/lib/sat-catalog-fallback';
 import { solicitudFormToWizardPersonas, wizardPersonasToSolicitudUpdate } from './solicitud-personas-wizard';
+import {
+  extractConceptosCuantificacionOverride,
+  solicitudVarsToWizardVars,
+} from './solicitud-variables-precarga';
 import type { SolicitudState } from '@/types/solicitudes';
 import { fetchTipoContratacion, type TipoContratacion } from '@/api/tipos-contratacion';
 
@@ -295,6 +299,20 @@ export function WizardContratacion({ onComplete, onCancel, procesoPrecargaId }: 
     const solDto = solBundle?.solicitud ?? null;
     const tipoSolicitud = solBundle?.tipoSolicitud ?? null;
     const solForm = solDto?.formData as SolicitudState | undefined;
+
+    if (solForm?.variablesCapturadas && typeof solForm.variablesCapturadas === 'object') {
+      const solW = solicitudVarsToWizardVars(solForm.variablesCapturadas);
+      patch.variablesCapturadas = {
+        ...solW,
+        ...(patch.variablesCapturadas ?? {}),
+      };
+      const qtyOverride = extractConceptosCuantificacionOverride(solForm);
+      if (qtyOverride?.length) patch.conceptosOverride = qtyOverride;
+      const vid = patch.variablesCapturadas?.conceptosLecturaPeriodicaIds;
+      if (typeof vid === 'string' && vid.trim()) {
+        patch.conceptosLecturaPeriodica = vid.split(',').map((s) => s.trim()).filter(Boolean);
+      }
+    }
 
     for (const rp of c?.personas ?? []) {
       const person = rp.persona;
