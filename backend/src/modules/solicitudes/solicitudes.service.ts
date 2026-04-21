@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
@@ -22,10 +23,13 @@ export class SolicitudesService {
   }
 
   // ── CRUD ──────────────────────────────────────────────────────────────────
-  async findAll(params: { estado?: string; page?: number; limit?: number }) {
+  async findAll(params: { estado?: string; page?: number; limit?: number; contratoId?: string }) {
     const page = params.page ?? 1;
     const limit = params.limit ?? 50;
-    const where = params.estado ? { estado: params.estado } : {};
+    const where = {
+      ...(params.estado ? { estado: params.estado } : {}),
+      ...(params.contratoId?.trim() ? { contratoId: params.contratoId.trim() } : {}),
+    };
 
     const [data, total] = await Promise.all([
       this.prisma.solicitud.findMany({
@@ -96,6 +100,7 @@ export class SolicitudesService {
 
   async updateFormData(id: string, dto: {
     propNombreCompleto?: string;
+    propTipoPersona?: string;
     propRfc?: string;
     propCorreo?: string;
     propTelefono?: string;
@@ -105,11 +110,22 @@ export class SolicitudesService {
     tipoContratacionId?: string;
     formData?: object;
   }) {
-    await this.findOne(id);
+    const existing = await this.findOne(id);
+    const prevForm =
+      existing.formData && typeof existing.formData === 'object' && !Array.isArray(existing.formData)
+        ? (existing.formData as Record<string, unknown>)
+        : {};
+    const mergedForm =
+      dto.formData && typeof dto.formData === 'object' && !Array.isArray(dto.formData)
+        ? { ...prevForm, ...(dto.formData as Record<string, unknown>) }
+        : undefined;
+
     return this.prisma.solicitud.update({
       where: { id },
       data: {
         ...(dto.propNombreCompleto && { propNombreCompleto: dto.propNombreCompleto }),
+        ...(dto.propTipoPersona !== undefined &&
+          dto.propTipoPersona.trim() !== '' && { propTipoPersona: dto.propTipoPersona.trim() }),
         ...(dto.propRfc !== undefined && { propRfc: dto.propRfc }),
         ...(dto.propCorreo !== undefined && { propCorreo: dto.propCorreo }),
         ...(dto.propTelefono !== undefined && { propTelefono: dto.propTelefono }),
@@ -117,7 +133,7 @@ export class SolicitudesService {
         ...(dto.claveCatastral !== undefined && { claveCatastral: dto.claveCatastral }),
         ...(dto.adminId !== undefined && { adminId: dto.adminId }),
         ...(dto.tipoContratacionId !== undefined && { tipoContratacionId: dto.tipoContratacionId }),
-        ...(dto.formData && { formData: dto.formData }),
+        ...(mergedForm !== undefined && { formData: mergedForm as Prisma.InputJsonValue }),
       },
       include: { inspeccion: true },
     });

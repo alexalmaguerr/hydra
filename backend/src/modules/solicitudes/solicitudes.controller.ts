@@ -22,10 +22,11 @@ export class SolicitudesController {
   @Get()
   findAll(
     @Query('estado') estado?: string,
+    @Query('contratoId') contratoId?: string,
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page = 1,
     @Query('limit', new DefaultValuePipe(50), ParseIntPipe) limit = 50,
   ) {
-    return this.service.findAll({ estado, page, limit });
+    return this.service.findAll({ estado, contratoId, page, limit });
   }
 
   @Get(':id')

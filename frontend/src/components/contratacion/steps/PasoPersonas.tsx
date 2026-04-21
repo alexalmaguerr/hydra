@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { PersonaWizard, StepProps } from '../hooks/useWizardState';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -22,6 +22,10 @@ import {
   usoCfdiClaveFromStored,
   usoCfdiMatchesRegimenSeleccionado,
 } from '@/lib/sat-catalog-fallback';
+import { updateSolicitud } from '@/api/solicitudes';
+import { toast } from '@/components/ui/sonner';
+import { wizardPersonasToSolicitudUpdate } from '../solicitud-personas-wizard';
+import type { SolicitudState } from '@/types/solicitudes';
 
 // ── Demo data ─────────────────────────────────────────────────────────────────
 
@@ -477,9 +481,19 @@ function ContactoBlock({
 // ── PasoPersonas ──────────────────────────────────────────────────────────────
 
 export default function PasoPersonas({ data, updateData }: StepProps) {
-  const [fiscalIgualTitular, setFiscalIgualTitular] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
+  /** Con solicitud vinculada: titular/fiscal en solo lectura hasta pulsar Editar. */
+  const [personasSoloLectura, setPersonasSoloLectura] = useState(true);
+  const queryClient = useQueryClient();
   const useApi = hasApi();
+
+  const solicitudId = data.solicitudId?.trim() ?? '';
+  const tieneSolicitud = Boolean(solicitudId && data.solicitudFormSnapshot);
+
+  useEffect(() => {
+    if (!solicitudId) setPersonasSoloLectura(false);
+    else setPersonasSoloLectura(true);
+  }, [solicitudId]);
 
   const { data: regimenSat = [], isPending: regPending } = useQuery({
     queryKey: ['catalogos', 'sat', 'REGIMEN_FISCAL'],
@@ -493,6 +507,45 @@ export default function PasoPersonas({ data, updateData }: StepProps) {
   });
   const satPending = useApi && (regPending || usoPending);
 
+  const fiscalIgualTitular = data.fiscalIgualTitular ?? false;
+
+  const guardarPersonasEnSolicitud = useCallback(async () => {
+    if (!solicitudId || !data.solicitudFormSnapshot) return;
+    const merged = wizardPersonasToSolicitudUpdate(
+      data.solicitudFormSnapshot,
+      data.propietario,
+      data.personaFiscal,
+      fiscalIgualTitular,
+    );
+    const dto = await updateSolicitud(solicitudId, {
+      formData: merged.formData,
+      propNombreCompleto: merged.propNombreCompleto,
+      propTipoPersona: merged.propTipoPersona,
+      propRfc: merged.propRfc ?? undefined,
+      propCorreo: merged.propCorreo ?? undefined,
+      propTelefono: merged.propTelefono ?? undefined,
+    });
+    updateData({ solicitudFormSnapshot: dto.formData as SolicitudState });
+    await queryClient.invalidateQueries({ queryKey: ['solicitudes'] });
+    await queryClient.invalidateQueries({ queryKey: ['solicitud', 'por-contrato'] });
+  }, [
+    solicitudId,
+    data.solicitudFormSnapshot,
+    data.propietario,
+    data.personaFiscal,
+    fiscalIgualTitular,
+    updateData,
+    queryClient,
+  ]);
+
+  const syncMutation = useMutation({
+    mutationFn: guardarPersonasEnSolicitud,
+    onError: (err: unknown) => {
+      const message = err instanceof Error ? err.message : 'No se pudo actualizar la solicitud.';
+      toast.error('Error al guardar en solicitud', { description: message });
+    },
+  });
+
   const handlePropietarioChange = (next: PersonaWizard) => {
     if (fiscalIgualTitular) {
       updateData({ propietario: next, personaFiscal: { ...next } });
@@ -502,25 +555,43 @@ export default function PasoPersonas({ data, updateData }: StepProps) {
   };
 
   const handleFiscalIgualTitular = (checked: boolean) => {
-    setFiscalIgualTitular(checked);
     if (checked) {
-      updateData({ personaFiscal: { ...(data.propietario ?? {}) } });
+      updateData({ fiscalIgualTitular: true, personaFiscal: { ...(data.propietario ?? {}) } });
+    } else {
+      updateData({ fiscalIgualTitular: false });
+    }
+  };
+
+  const handleToggleEditarPersonas = async () => {
+    if (!tieneSolicitud) return;
+    if (!personasSoloLectura) {
+      try {
+        await syncMutation.mutateAsync();
+        toast.success('Cambios guardados en la solicitud de servicio.');
+      } catch {
+        return;
+      }
+      setPersonasSoloLectura(true);
+    } else {
+      setPersonasSoloLectura(false);
     }
   };
 
   const fillDemo = () => {
-    setFiscalIgualTitular(false);
     setShowErrors(false);
     updateData({
+      fiscalIgualTitular: false,
       propietario: { ...DEMO_TITULAR },
       personaFiscal: { ...DEMO_FISCAL },
       personaContacto: { ...DEMO_CONTACTO },
     });
   };
 
+  const bloquearTitularFiscal = tieneSolicitud && personasSoloLectura;
+
   return (
     <section aria-labelledby="paso-personas" className="space-y-4">
-      <div className="flex items-start justify-between gap-2">
+      <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <h2 id="paso-personas" className="text-base font-semibold">
             Personas
@@ -529,17 +600,38 @@ export default function PasoPersonas({ data, updateData }: StepProps) {
             Titular y persona fiscal son obligatorios (<span className="text-destructive">*</span>).
             Contacto es opcional. Tras elegir tipo de persona, régimen fiscal y uso del CFDI se filtran
             desde el catálogo SAT del backend.
+            {tieneSolicitud ? (
+              <>
+                {' '}
+                Los datos de titular y persona fiscal provienen de la solicitud de servicio; el contacto
+                puede capturarse aquí de forma opcional.
+              </>
+            ) : null}
           </p>
         </div>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={fillDemo}
-          className="shrink-0 text-xs"
-        >
-          Prellenar demo
-        </Button>
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          {tieneSolicitud ? (
+            <Button
+              type="button"
+              variant={personasSoloLectura ? 'default' : 'outline'}
+              size="sm"
+              className="text-xs"
+              disabled={syncMutation.isPending}
+              onClick={handleToggleEditarPersonas}
+            >
+              {syncMutation.isPending
+                ? 'Guardando…'
+                : personasSoloLectura
+                  ? 'Editar'
+                  : 'Bloquear y guardar'}
+            </Button>
+          ) : null}
+          {!solicitudId ? (
+            <Button type="button" variant="outline" size="sm" onClick={fillDemo} className="text-xs">
+              Prellenar demo
+            </Button>
+          ) : null}
+        </div>
       </div>
 
       <PersonaBlock
@@ -548,16 +640,20 @@ export default function PasoPersonas({ data, updateData }: StepProps) {
         value={data.propietario}
         onChange={handlePropietarioChange}
         required
+        disabled={bloquearTitularFiscal}
         showErrors={showErrors}
         regimenSat={regimenSat}
         usoSat={usoSat}
         satPending={satPending}
       />
 
-      <label className="flex cursor-pointer items-center gap-2 px-1">
+      <label
+        className={`flex items-center gap-2 px-1 ${bloquearTitularFiscal ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
+      >
         <Checkbox
           checked={fiscalIgualTitular}
           onCheckedChange={(v) => handleFiscalIgualTitular(!!v)}
+          disabled={bloquearTitularFiscal}
         />
         <span className="text-sm">La persona fiscal es la misma que el titular</span>
       </label>
@@ -568,7 +664,7 @@ export default function PasoPersonas({ data, updateData }: StepProps) {
         value={data.personaFiscal}
         onChange={(next) => updateData({ personaFiscal: next })}
         required
-        disabled={fiscalIgualTitular}
+        disabled={bloquearTitularFiscal || fiscalIgualTitular}
         showErrors={showErrors}
         regimenSat={regimenSat}
         usoSat={usoSat}

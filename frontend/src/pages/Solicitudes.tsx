@@ -906,7 +906,9 @@ export default function Solicitudes() {
     queryClient.invalidateQueries({ queryKey: ['contratos'] });
     setCotizandoRecord(null);
     toast.success('Cotización aceptada — proceso de contratación iniciado');
-    navigate(contratoId ? `/app/contratos?detail=${contratoId}` : '/app/contratos');
+    navigate(
+      contratoId ? `/app/contratos?iniciarAlta=1&contratoId=${encodeURIComponent(contratoId)}` : '/app/contratos',
+    );
   }
 
   // Cancel solicitud (client doesn't continue, but can come back)

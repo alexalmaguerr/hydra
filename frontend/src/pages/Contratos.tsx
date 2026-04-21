@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { mapEstadoContratoToFlujoRegistro } from '@/lib/contrato-registro-estado';
 import { useData } from '@/context/DataContext';
@@ -322,12 +322,12 @@ const Contratos = () => {
   }, [searchParams]);
 
   const resumeContratacionWizard = useCallback(
-    async (contrato: { id: string; tipoContratacionId?: string | null }) => {
+    async (contrato: { id: string; tipoContratacionId?: string | null }): Promise<boolean> => {
       if (!useApi) {
         toast.error('Sin conexión a API', {
           description: 'No se puede reanudar el registro sin servicios activos.',
         });
-        return;
+        return false;
       }
       setResumingContratoId(contrato.id);
       try {
@@ -342,20 +342,61 @@ const Contratos = () => {
           procesoId = nuevo.id;
         }
         const next = new URLSearchParams(searchParams);
+        next.delete('iniciarAlta');
+        next.delete('contratoId');
         next.set('new', '1');
         next.set('procesoId', procesoId);
         setSearchParams(next, { replace: true });
         setShowWizard(true);
         setDetail(null);
+        return true;
       } catch (err) {
         const message = err instanceof Error ? err.message : 'No se pudo abrir el asistente.';
         toast.error('No se pudo reanudar el registro', { description: message });
+        return false;
       } finally {
         setResumingContratoId(null);
       }
     },
     [useApi, searchParams, setSearchParams],
   );
+
+  /** Tras aceptar cotización (Solicitudes) llegamos con ?iniciarAlta=1&contratoId= — abrir wizard cuando el contrato ya está en lista. */
+  const wizardBootstrapLockRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!useApi) return;
+    if (searchParams.get('iniciarAlta') !== '1') {
+      wizardBootstrapLockRef.current = null;
+      return;
+    }
+    const cid = searchParams.get('contratoId')?.trim() ?? '';
+    if (!cid) {
+      wizardBootstrapLockRef.current = null;
+      return;
+    }
+    const c = contratosVisibles.find((x: { id: string }) => x.id === cid);
+    if (!c) return;
+    if (wizardBootstrapLockRef.current === cid) return;
+    wizardBootstrapLockRef.current = cid;
+    void (async () => {
+      try {
+        const ok = await resumeContratacionWizard(c);
+        if (!ok) {
+          setSearchParams(
+            (prev) => {
+              const next = new URLSearchParams(prev);
+              next.delete('iniciarAlta');
+              next.delete('contratoId');
+              return next;
+            },
+            { replace: true },
+          );
+        }
+      } finally {
+        wizardBootstrapLockRef.current = null;
+      }
+    })();
+  }, [useApi, searchParams, contratosVisibles, resumeContratacionWizard, setSearchParams]);
 
   const selected = contratosVisibles.find(c => c.id === detail);
 

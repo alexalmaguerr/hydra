@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import type { TipoContratacionConfiguracion } from '@/api/tipos-contratacion';
+import type { SolicitudState } from '@/types/solicitudes';
 import { CLASE_CONTRATACION_ALTA_NUEVA_COD } from '../wizard-catalogos-ui';
 
 export type WizardStep =
@@ -79,6 +80,12 @@ export interface WizardData {
    */
   generarFacturaContratacion?: boolean;
   conceptosOverride?: { conceptoCobroId: string; cantidad: number }[];
+  /** Solicitud de servicio vinculada al contrato del proceso (precarga paso Personas + sync). */
+  solicitudId?: string;
+  /** Copia del `formData` de la solicitud para fusionar al guardar cambios desde el wizard. */
+  solicitudFormSnapshot?: SolicitudState;
+  /** Alineado con `mismosDatosProp` en la solicitud (persona fiscal = titular). */
+  fiscalIgualTitular?: boolean;
 }
 
 export interface StepProps {
@@ -118,7 +125,11 @@ function stepIndex(step: WizardStep | number): number {
 }
 
 function hasPersonaBasico(p?: PersonaWizard): boolean {
-  const tieneNombre = !!(p?.nombre?.trim() || p?.paterno?.trim());
+  const tieneNombre = !!(
+    p?.nombre?.trim() ||
+    p?.paterno?.trim() ||
+    (p?.tipoPersona === 'moral' && p?.razonSocial?.trim())
+  );
   return !!(p?.personaId || (tieneNombre && p?.rfc?.trim()));
 }
 
