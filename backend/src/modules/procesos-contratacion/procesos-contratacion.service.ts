@@ -61,6 +61,7 @@ export class ProcesosContratacionService {
             tipoServicio: true,
             tipoContrato: true,
             puntoServicioId: true,
+            puntoServicio: { select: { id: true, codigo: true } },
             actividadId: true,
             referenciaContratoAnterior: true,
             tipoEnvioFactura: true,

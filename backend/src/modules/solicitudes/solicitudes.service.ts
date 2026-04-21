@@ -1,12 +1,65 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { DomiciliosService, type CreateDomicilioDto } from '../domicilios/domicilios.service';
+import { PuntosServicioService } from '../puntos-servicio/puntos-servicio.service';
+
+function optionalInegiFk(v: unknown): string | undefined {
+  if (typeof v !== 'string') return undefined;
+  const t = v.trim();
+  return t.length > 0 ? t : undefined;
+}
+
+function parseOptionalFloatForm(v: unknown): number | null {
+  if (v === undefined || v === null) return null;
+  if (typeof v === 'number' && Number.isFinite(v)) return v;
+  if (typeof v === 'string' && v.trim() !== '') {
+    const n = parseFloat(v);
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
+}
+
+function parseOptionalIntForm(v: unknown): number | null {
+  if (v === undefined || v === null) return null;
+  if (typeof v === 'number' && Number.isFinite(v)) return Math.trunc(v);
+  if (typeof v === 'string' && v.trim() !== '') {
+    const n = parseInt(v, 10);
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
+}
 
 @Injectable()
 export class SolicitudesService {
   private readonly logger = new Logger(SolicitudesService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly domiciliosService: DomiciliosService,
+    private readonly puntosServicioService: PuntosServicioService,
+  ) {}
+
+  /**
+   * `formData.predioDir` (CEA-FUS01) → DTO de domicilio para crear el punto de servicio del predio.
+   */
+  private predioDirToCreateDomicilioDto(predioDir: unknown): CreateDomicilioDto | null {
+    if (!predioDir || typeof predioDir !== 'object' || Array.isArray(predioDir)) return null;
+    const o = predioDir as Record<string, unknown>;
+    const calle = typeof o.calle === 'string' ? o.calle.trim() : '';
+    if (!calle) return null;
+    return {
+      calle,
+      numExterior: optionalInegiFk(o.numExterior),
+      numInterior: optionalInegiFk(o.numInterior),
+      coloniaINEGIId: optionalInegiFk(o.coloniaINEGIId),
+      codigoPostal: optionalInegiFk(o.codigoPostal),
+      localidadINEGIId: optionalInegiFk(o.localidadINEGIId),
+      municipioINEGIId: optionalInegiFk(o.municipioINEGIId),
+      estadoINEGIId: optionalInegiFk(o.estadoINEGIId),
+      referencia: optionalInegiFk(o.referencia),
+    };
+  }
 
   // ── Folio generation ──────────────────────────────────────────────────────
   private async generarFolio(): Promise<string> {
@@ -274,31 +327,63 @@ export class SolicitudesService {
     const sol = await this.findOne(id);
 
     // Create the contrato
-    const formData = sol.formData as any;
+    const formData = sol.formData as Record<string, unknown> | null;
     const tipoContratacionId = await this.resolveTipoContratacionIdForContrato(sol);
+
+    const domicilioDto = this.predioDirToCreateDomicilioDto(formData?.predioDir);
+    let domicilioId: string | null = null;
+    if (domicilioDto) {
+      try {
+        const dom = await this.domiciliosService.create(domicilioDto);
+        domicilioId = dom.id;
+      } catch (e) {
+        this.logger.warn(
+          `aceptar: no se pudo crear domicilio del predio para solicitud ${id}: ${e instanceof Error ? e.message : String(e)}`,
+        );
+      }
+    } else {
+      this.logger.warn(
+        `aceptar: predioDir sin calle — no se crea punto de servicio automático (solicitud ${id})`,
+      );
+    }
+
     const contrato = await this.prisma.contrato.create({
       data: {
         tipoContrato: 'NORMAL',
         tipoServicio: 'AGUA_POTABLE',
         nombre: sol.propNombreCompleto,
         rfc: sol.propRfc || 'XAXX010101000',
-        direccion: sol.predioResumen,       // ← ubicación del predio como valor por defecto
+        direccion: sol.predioResumen,
         contacto: sol.propTelefono || '',
         estado: 'Pendiente de alta',
         fecha: new Date().toISOString().split('T')[0],
         tipoContratacionId,
         domiciliado: false,
-        superficiePredio: formData?.superficieTotal
-          ? parseFloat(formData.superficieTotal)
-          : null,
-        superficieConstruida: formData?.superficieConstruida
-          ? parseFloat(formData.superficieConstruida)
-          : null,
-        personasHabitanVivienda: formData?.personasVivienda
-          ? parseInt(formData.personasVivienda, 10)
-          : null,
+        domicilioId: domicilioId ?? undefined,
+        superficiePredio: parseOptionalFloatForm(formData?.superficieTotal),
+        superficieConstruida: parseOptionalFloatForm(formData?.superficieConstruida),
+        personasHabitanVivienda: parseOptionalIntForm(formData?.personasVivienda),
       },
     });
+
+    let puntoServicioId: string | null = null;
+    if (domicilioId) {
+      try {
+        const ps = await this.puntosServicioService.create({
+          codigo: `PS-${contrato.numeroContrato}`,
+          domicilioId,
+        });
+        puntoServicioId = ps.id;
+        await this.prisma.contrato.update({
+          where: { id: contrato.id },
+          data: { puntoServicioId },
+        });
+      } catch (e) {
+        this.logger.error(
+          `aceptar: no se pudo crear punto de servicio para contrato ${contrato.id}: ${e instanceof Error ? e.message : String(e)}`,
+        );
+      }
+    }
 
     // Link contrato to solicitud and update estado
     await this.prisma.solicitud.update({
@@ -306,7 +391,7 @@ export class SolicitudesService {
       data: { estado: 'aceptada', contratoId: contrato.id },
     });
 
-    return { solicitudId: id, contratoId: contrato.id, folio: contrato.id };
+    return { solicitudId: id, contratoId: contrato.id, folio: contrato.id, puntoServicioId };
   }
 
   // ── Reject ────────────────────────────────────────────────────────────────

@@ -143,9 +143,10 @@ export const upsertInspeccion = (solicitudId: string, inspeccion: OrdenInspeccio
   });
 
 export const aceptarSolicitud = (id: string) =>
-  apiRequest<{ solicitudId: string; contratoId: string }>(`/solicitudes/${id}/aceptar`, {
-    method: 'POST',
-  });
+  apiRequest<{ solicitudId: string; contratoId: string; folio: string; puntoServicioId?: string | null }>(
+    `/solicitudes/${id}/aceptar`,
+    { method: 'POST' },
+  );
 
 export const rechazarSolicitud = (id: string) =>
   apiRequest<SolicitudDto>(`/solicitudes/${id}/rechazar`, { method: 'POST' });

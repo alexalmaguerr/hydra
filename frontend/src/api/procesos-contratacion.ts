@@ -40,6 +40,7 @@ export interface ProcesoContratacionDetalle {
     tipoServicio: string | null;
     tipoContrato: string;
     puntoServicioId: string | null;
+    puntoServicio?: { id: string; codigo: string } | null;
     actividadId: string | null;
     referenciaContratoAnterior: string | null;
     tipoEnvioFactura: string | null;

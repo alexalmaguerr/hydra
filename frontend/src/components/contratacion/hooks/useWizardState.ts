@@ -4,7 +4,6 @@ import type { SolicitudState } from '@/types/solicitudes';
 import { CLASE_CONTRATACION_ALTA_NUEVA_COD } from '../wizard-catalogos-ui';
 
 export type WizardStep =
-  | 'puntoServicio'
   | 'personas'
   | 'configContrato'
   | 'variables'
@@ -14,7 +13,6 @@ export type WizardStep =
   | 'resumen';
 
 export const WIZARD_STEPS: { key: WizardStep; label: string }[] = [
-  { key: 'puntoServicio', label: 'Punto de Servicio' },
   { key: 'personas', label: 'Personas' },
   { key: 'configContrato', label: 'Configuración' },
   { key: 'variables', label: 'Variables' },
@@ -44,6 +42,8 @@ export interface WizardData {
   puntoServicioCodigo?: string;
   /** Dirección formateada del domicilio del punto de servicio seleccionado. */
   puntoServicioDireccion?: string;
+  /** Texto para resumen: domicilio del predio (solicitud / CEA-FUS01). */
+  predioDomicilioResumen?: string;
   administracion?: string;
   propietario?: PersonaWizard;
   personaFiscal?: PersonaWizard;
@@ -197,10 +197,8 @@ export function variablesStepSatisfied(
 function computeCanGoNext(step: number, data: WizardData): boolean {
   switch (step) {
     case 0:
-      return !!data.puntoServicioId?.trim();
-    case 1:
       return hasPropietarioBasico(data.propietario) && hasPersonaFiscalBasico(data.personaFiscal);
-    case 2: {
+    case 1: {
       const indiv =
         typeof data.tipoEsIndividualizacion === 'boolean'
           ? data.tipoEsIndividualizacion
@@ -216,11 +214,11 @@ function computeCanGoNext(step: number, data: WizardData): boolean {
         distritoOk
       );
     }
+    case 2:
     case 3:
     case 4:
     case 5:
     case 6:
-    case 7:
       return true;
     default:
       return false;

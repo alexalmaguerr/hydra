@@ -17,7 +17,6 @@ import {
   type WizardData,
 } from './hooks/useWizardState';
 import { useTipoContratacionConfig } from './hooks/useTipoContratacionConfig';
-import PasoServicioPoint from './steps/PasoServicioPoint';
 import PasoPersonas from './steps/PasoPersonas';
 import PasoConfigContrato from './steps/PasoConfigContrato';
 import PasoVariables from './steps/PasoVariables';
@@ -34,6 +33,7 @@ import {
 } from './solicitud-variables-precarga';
 import type { SolicitudState } from '@/types/solicitudes';
 import { fetchTipoContratacion, type TipoContratacion } from '@/api/tipos-contratacion';
+import { formatPredioDomicilioFromForm } from './predio-domicilio-display';
 
 export interface WizardContratacionProps {
   onComplete: () => void;
@@ -173,7 +173,6 @@ function canCreateContract(data: WizardData): boolean {
 }
 
 const stepComponents = [
-  PasoServicioPoint,
   PasoPersonas,
   PasoConfigContrato,
   PasoVariables,
@@ -254,6 +253,8 @@ export function WizardContratacion({ onComplete, onCancel, procesoPrecargaId }: 
     if (psFromExtra || psFromContrato) {
       patch.puntoServicioId = psFromExtra ?? psFromContrato ?? undefined;
     }
+    const codPs = p.contrato?.puntoServicio?.codigo?.trim();
+    if (codPs) patch.puntoServicioCodigo = codPs;
 
     const c = p.contrato;
     if (c?.tipoContratacion?.id) {
@@ -377,6 +378,14 @@ export function WizardContratacion({ onComplete, onCancel, procesoPrecargaId }: 
       patch.fiscalIgualTitular = mapped.fiscalIgualTitular;
       patch.solicitudId = solDto.id;
       patch.solicitudFormSnapshot = solForm;
+
+      const domLine =
+        solDto.predioResumen?.trim() ||
+        formatPredioDomicilioFromForm(solForm.predioDir);
+      if (domLine) {
+        patch.predioDomicilioResumen = domLine;
+        patch.puntoServicioDireccion = domLine;
+      }
     }
 
     resetTo({
@@ -404,7 +413,7 @@ export function WizardContratacion({ onComplete, onCancel, procesoPrecargaId }: 
   );
 
   const variablesStepReady = useMemo(() => {
-    if (currentStep !== 3) return true;
+    if (currentStep !== 2) return true;
     if (!data.tipoContratacionId?.trim()) return false;
     if (tipoConfigError) return false;
     if (tipoConfigPending || tipoConfigFetching) return false;
@@ -412,7 +421,7 @@ export function WizardContratacion({ onComplete, onCancel, procesoPrecargaId }: 
   }, [currentStep, data, config, tipoConfigPending, tipoConfigFetching, tipoConfigError]);
 
   const effectiveCanGoNext = useMemo(
-    () => (currentStep === 3 ? variablesStepReady : canGoNext),
+    () => (currentStep === 2 ? variablesStepReady : canGoNext),
     [currentStep, variablesStepReady, canGoNext],
   );
 
@@ -472,7 +481,7 @@ export function WizardContratacion({ onComplete, onCancel, procesoPrecargaId }: 
       return;
     }
     const sid = data.solicitudId?.trim();
-    if (currentStep === 1 && sid && data.solicitudFormSnapshot) {
+    if (currentStep === 0 && sid && data.solicitudFormSnapshot) {
       setSolicitudFlushPending(true);
       try {
         const merged = wizardPersonasToSolicitudUpdate(

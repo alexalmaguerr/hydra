@@ -185,6 +185,14 @@ export default function PasoResumen({ data, config }: StepProps) {
               <dt className="text-muted-foreground">Código</dt>
               <dd className="font-medium">{data.puntoServicioCodigo?.trim() || '—'}</dd>
             </div>
+            <div className="sm:col-span-2">
+              <dt className="text-muted-foreground">Domicilio del predio</dt>
+              <dd className="font-medium break-words">
+                {data.predioDomicilioResumen?.trim() ||
+                  data.puntoServicioDireccion?.trim() ||
+                  '—'}
+              </dd>
+            </div>
           </dl>
         </CardContent>
       </Card>

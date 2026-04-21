@@ -634,7 +634,7 @@ const Contratos = () => {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Wizard de contratación (9 pasos) */}
+      {/* Wizard de contratación (7 pasos) */}
       <Dialog
         open={showWizard}
         onOpenChange={(v) => { if (!v) setConfirmCloseWizard(true); }}
