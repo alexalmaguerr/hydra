@@ -54,6 +54,11 @@ export interface WizardData {
   tipoContratacionId?: string;
   /** Descripción del tipo seleccionado (para reglas UI, p. ej. individualización). */
   tipoContratacionDescripcion?: string;
+  /**
+   * Cuando se conoce desde API (`esIndividualizacion`), evita desalineación con heurística por texto.
+   * Si es `undefined`, se usa {@link descripcionEsIndividualizacion} sobre `tipoContratacionDescripcion`.
+   */
+  tipoEsIndividualizacion?: boolean;
   claseContratacion?: string;
   tipoPuntoServicio?: string;
   referenciaContratoAnterior?: string;
@@ -196,14 +201,19 @@ function computeCanGoNext(step: number, data: WizardData): boolean {
     case 1:
       return hasPropietarioBasico(data.propietario) && hasPersonaFiscalBasico(data.personaFiscal);
     case 2: {
-      const indiv = descripcionEsIndividualizacion(data.tipoContratacionDescripcion);
+      const indiv =
+        typeof data.tipoEsIndividualizacion === 'boolean'
+          ? data.tipoEsIndividualizacion
+          : descripcionEsIndividualizacion(data.tipoContratacionDescripcion);
       const refPadreOk =
         !indiv || !!(data.referenciaContratoAnterior && data.referenciaContratoAnterior.trim());
+      const distritoOk = !indiv || !!data.distritoId?.trim();
       return (
         !!data.administracion?.trim() &&
         !!data.tipoContratacionId?.trim() &&
         !!data.actividadId?.trim() &&
-        refPadreOk
+        refPadreOk &&
+        distritoOk
       );
     }
     case 3:

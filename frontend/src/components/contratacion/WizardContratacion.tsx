@@ -3,12 +3,13 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check, Save } from 'lucide-react';
 import { createContrato, type CreateContratoDto, type CreateContratoResponseDto } from '@/api/contratos';
 import { fetchProceso } from '@/api/procesos-contratacion';
-import { fetchSolicitudes, updateSolicitud } from '@/api/solicitudes';
+import { fetchSolicitudes, updateSolicitud, type SolicitudDto } from '@/api/solicitudes';
 import { toast } from '@/components/ui/sonner';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import {
   WIZARD_STEPS,
+  descripcionEsIndividualizacion,
   initialWizardData,
   mergeVariablesCapturadasRecord,
   useWizardState,
@@ -28,6 +29,7 @@ import { CLASE_CONTRATACION_ALTA_NUEVA_COD } from './wizard-catalogos-ui';
 import { regimenClaveFromStored } from '@/lib/sat-catalog-fallback';
 import { solicitudFormToWizardPersonas, wizardPersonasToSolicitudUpdate } from './solicitud-personas-wizard';
 import type { SolicitudState } from '@/types/solicitudes';
+import { fetchTipoContratacion, type TipoContratacion } from '@/api/tipos-contratacion';
 
 export interface WizardContratacionProps {
   onComplete: () => void;
@@ -203,9 +205,21 @@ export function WizardContratacion({ onComplete, onCancel, procesoPrecargaId }: 
 
   const solicitudPorContratoQ = useQuery({
     queryKey: ['solicitud', 'por-contrato', contratoIdPrecarga],
-    queryFn: async () => {
+    queryFn: async (): Promise<{
+      solicitud: SolicitudDto | null;
+      tipoSolicitud: TipoContratacion | null;
+    }> => {
       const res = await fetchSolicitudes({ contratoId: contratoIdPrecarga, limit: 1, page: 1 });
-      return res.data[0] ?? null;
+      const solicitud = res.data[0] ?? null;
+      const form = solicitud?.formData as SolicitudState | undefined;
+      const tid = form?.tipoContratacionId?.trim() || solicitud?.tipoContratacionId?.trim() || '';
+      if (!tid) return { solicitud, tipoSolicitud: null };
+      try {
+        const tipoSolicitud = await fetchTipoContratacion(tid);
+        return { solicitud, tipoSolicitud };
+      } catch {
+        return { solicitud, tipoSolicitud: null };
+      }
     },
     enabled: Boolean(procesoPrecargaId?.trim() && contratoIdPrecarga),
   });
@@ -277,7 +291,9 @@ export function WizardContratacion({ onComplete, onCancel, procesoPrecargaId }: 
       }
     }
 
-    const solDto = solicitudPorContratoQ.data;
+    const solBundle = solicitudPorContratoQ.data;
+    const solDto = solBundle?.solicitud ?? null;
+    const tipoSolicitud = solBundle?.tipoSolicitud ?? null;
     const solForm = solDto?.formData as SolicitudState | undefined;
 
     for (const rp of c?.personas ?? []) {
@@ -295,6 +311,48 @@ export function WizardContratacion({ onComplete, onCancel, procesoPrecargaId }: 
     }
 
     if (solDto?.id && solForm) {
+      const adminSol = solForm.adminId?.trim() || solDto.adminId?.trim();
+      if (adminSol) patch.administracion = adminSol;
+
+      const solTipoId = solForm.tipoContratacionId?.trim() || solDto.tipoContratacionId?.trim();
+      if (solTipoId) {
+        patch.tipoContratacionId = solTipoId;
+        if (tipoSolicitud?.id === solTipoId) {
+          patch.tipoContratacionDescripcion =
+            tipoSolicitud.descripcion?.trim() || tipoSolicitud.nombre?.trim() || '';
+          patch.tipoEsIndividualizacion = tipoSolicitud.esIndividualizacion;
+        } else if (c?.tipoContratacion?.id === solTipoId && c.tipoContratacion.nombre) {
+          patch.tipoContratacionDescripcion = c.tipoContratacion.nombre;
+          patch.tipoEsIndividualizacion = undefined;
+        } else {
+          const cod = solForm.tipoContratacionCodigo?.trim();
+          patch.tipoContratacionDescripcion = cod || patch.tipoContratacionDescripcion || '';
+          patch.tipoEsIndividualizacion = undefined;
+        }
+      }
+
+      if (solForm.actividadId?.trim()) {
+        patch.actividadId = solForm.actividadId.trim();
+      }
+
+      const indivSol =
+        typeof patch.tipoEsIndividualizacion === 'boolean'
+          ? patch.tipoEsIndividualizacion
+          : descripcionEsIndividualizacion(patch.tipoContratacionDescripcion);
+      if (indivSol && solForm.distritoId?.trim()) {
+        patch.distritoId = solForm.distritoId.trim();
+      } else {
+        patch.distritoId = undefined;
+        if (patch.variablesCapturadas && 'distritoId' in patch.variablesCapturadas) {
+          const { distritoId: _omit, ...vcRest } = patch.variablesCapturadas;
+          patch.variablesCapturadas = Object.keys(vcRest).length ? vcRest : undefined;
+        }
+      }
+
+      if (solForm.contratoPadre?.trim()) {
+        patch.referenciaContratoAnterior = solForm.contratoPadre.trim();
+      }
+
       const mapped = solicitudFormToWizardPersonas(solForm);
       patch.propietario = mapped.propietario;
       patch.personaFiscal = mapped.personaFiscal;

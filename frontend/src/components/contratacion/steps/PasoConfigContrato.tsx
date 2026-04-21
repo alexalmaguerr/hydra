@@ -76,9 +76,15 @@ export default function PasoConfigContrato({ data, updateData }: StepProps) {
   const onTipoChange = (tipoId: string) => {
     const row = tiposList.find((t) => t.id === tipoId);
     const desc = (row?.descripcion?.trim() || row?.nombre?.trim() || '') ?? '';
+    const esIndiv =
+      row != null
+        ? (row.esIndividualizacion ?? descripcionEsIndividualizacion(row.descripcion ?? ''))
+        : descripcionEsIndividualizacion(desc);
     updateData({
       tipoContratacionId: tipoId,
       tipoContratacionDescripcion: desc,
+      tipoEsIndividualizacion: esIndiv,
+      distritoId: esIndiv ? data.distritoId : undefined,
       documentosRecibidos: [],
       variablesCapturadas: {},
       conceptosOverride: undefined,
@@ -86,11 +92,13 @@ export default function PasoConfigContrato({ data, updateData }: StepProps) {
     setTipoOpen(false);
   };
 
-  // Use the API flag when available; fall back to text-matching for legacy records
-  const requiereContratoPadre =
+  // Individualización: distrito y referencia al contrato padre (API o heurística por texto)
+  const esIndividualizacion =
     selectedTipo != null
-      ? (selectedTipo as any).esIndividualizacion ?? descripcionEsIndividualizacion(selectedTipo.descripcion ?? '')
-      : descripcionEsIndividualizacion(data.tipoContratacionDescripcion);
+      ? (selectedTipo.esIndividualizacion ?? descripcionEsIndividualizacion(selectedTipo.descripcion ?? ''))
+      : typeof data.tipoEsIndividualizacion === 'boolean'
+        ? data.tipoEsIndividualizacion
+        : descripcionEsIndividualizacion(data.tipoContratacionDescripcion);
 
   return (
     <section aria-labelledby="paso-config" className="space-y-4">
@@ -115,6 +123,8 @@ export default function PasoConfigContrato({ data, updateData }: StepProps) {
               administracion: v,
               tipoContratacionId: undefined,
               tipoContratacionDescripcion: '',
+              tipoEsIndividualizacion: undefined,
+              distritoId: undefined,
               actividadNombre: undefined,
               documentosRecibidos: [],
               variablesCapturadas: {},
@@ -279,37 +289,41 @@ export default function PasoConfigContrato({ data, updateData }: StepProps) {
         </Select>
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="wizard-distrito">Distrito (catálogo)</Label>
-        {distritosQ.isLoading ? (
-          <div className="flex h-10 items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-            Cargando distritos…
-          </div>
-        ) : distritosQ.isError ? (
-          <p className="text-sm text-destructive">No se pudieron cargar los distritos.</p>
-        ) : (
-          <Select
-            value={data.distritoId ?? ''}
-            onValueChange={(v) => updateData({ distritoId: v || undefined })}
-          >
-            <SelectTrigger id="wizard-distrito" aria-label="Distrito">
-              <SelectValue placeholder="Seleccione distrito (opcional)…" />
-            </SelectTrigger>
-            <SelectContent>
-              {(distritosQ.data ?? []).map((d) => (
-                <SelectItem key={d.id} value={d.id}>
-                  {d.nombre}
-                  <span className="ml-1.5 font-mono text-[10px] text-muted-foreground">{d.zonaId}</span>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-        <p className="text-xs text-muted-foreground">
-          El identificador de distrito se envía en <span className="font-mono">variablesCapturadas</span> al crear el contrato.
-        </p>
-      </div>
+      {esIndividualizacion ? (
+        <div className="space-y-2">
+          <Label htmlFor="wizard-distrito">
+            Distrito (catálogo) <span className="text-destructive">*</span>
+          </Label>
+          {distritosQ.isLoading ? (
+            <div className="flex h-10 items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+              Cargando distritos…
+            </div>
+          ) : distritosQ.isError ? (
+            <p className="text-sm text-destructive">No se pudieron cargar los distritos.</p>
+          ) : (
+            <Select
+              value={data.distritoId ?? ''}
+              onValueChange={(v) => updateData({ distritoId: v || undefined })}
+            >
+              <SelectTrigger id="wizard-distrito" aria-label="Distrito">
+                <SelectValue placeholder="Seleccione distrito…" />
+              </SelectTrigger>
+              <SelectContent>
+                {(distritosQ.data ?? []).map((d) => (
+                  <SelectItem key={d.id} value={d.id}>
+                    {d.nombre}
+                    <span className="ml-1.5 font-mono text-[10px] text-muted-foreground">{d.zonaId}</span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          <p className="text-xs text-muted-foreground">
+            El identificador de distrito se envía en <span className="font-mono">variablesCapturadas</span> al crear el contrato.
+          </p>
+        </div>
+      ) : null}
 
       <div className="space-y-4 rounded-lg border border-dashed p-4">
         <div>
@@ -412,7 +426,7 @@ export default function PasoConfigContrato({ data, updateData }: StepProps) {
 
       <div className="space-y-2">
         <Label htmlFor="wizard-ref">
-          {requiereContratoPadre ? (
+          {esIndividualizacion ? (
             <>
               Contrato padre / referencia <span className="text-destructive">*</span>
             </>
@@ -425,9 +439,9 @@ export default function PasoConfigContrato({ data, updateData }: StepProps) {
           value={data.referenciaContratoAnterior ?? ''}
           onChange={(e) => updateData({ referenciaContratoAnterior: e.target.value })}
           placeholder="Número o folio del contrato padre"
-          aria-required={requiereContratoPadre}
+          aria-required={esIndividualizacion}
         />
-        {requiereContratoPadre && (
+        {esIndividualizacion && (
           <p className="text-xs text-amber-700 dark:text-amber-500">
             Tipo catalogado como individualización: la referencia al contrato padre es obligatoria.
           </p>
