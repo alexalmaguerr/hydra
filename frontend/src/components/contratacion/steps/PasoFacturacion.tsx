@@ -4,13 +4,7 @@ import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 
 import type { StepProps } from '@/components/contratacion/hooks/useWizardState';
 import { formatMxn, useBillingPreview } from '@/components/contratacion/hooks/useBillingPreview';
@@ -53,30 +47,33 @@ export default function PasoFacturacion({ data, updateData }: StepProps) {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-base font-semibold">Facturación</h2>
-        <p className="text-sm text-muted-foreground">
-          Vista previa con tarifas vigentes del tipo de contratación y conceptos de lectura periódica opcionales.
-        </p>
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <h2 className="text-base font-semibold">Facturación</h2>
+          <p className="text-sm text-muted-foreground">
+            Vista previa con tarifas vigentes del tipo de contratación y conceptos de lectura periódica opcionales.
+          </p>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="shrink-0 text-xs"
+          onClick={() => updateData({ tipoEnvioFactura: 'PAPEL' })}
+        >
+          Prellenar demo
+        </Button>
       </div>
 
       <div className="space-y-2 max-w-md">
-        <Label htmlFor="tipo-envio-factura">Tipo de entrega de factura</Label>
-        <Select
+        <Label>Tipo de entrega de factura</Label>
+        <SearchableSelect
           value={data.tipoEnvioFactura ?? ''}
           onValueChange={(v) => updateData({ tipoEnvioFactura: v || undefined })}
-        >
-          <SelectTrigger id="tipo-envio-factura">
-            <SelectValue placeholder="Seleccione…" />
-          </SelectTrigger>
-          <SelectContent>
-            {TIPO_ENVIO_OPTIONS.map((o) => (
-              <SelectItem key={o.value} value={o.value}>
-                {o.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          placeholder="Seleccione…"
+          searchPlaceholder="Buscar tipo…"
+          options={TIPO_ENVIO_OPTIONS}
+        />
         <p className="text-xs text-muted-foreground">
           Valores almacenados: <span className="font-mono">PAPEL</span>, <span className="font-mono">PDF</span>,{' '}
           <span className="font-mono">PAPEL_PDF</span>.

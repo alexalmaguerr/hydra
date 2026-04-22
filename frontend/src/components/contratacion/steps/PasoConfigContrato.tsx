@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Check, ChevronsUpDown, Loader2 } from 'lucide-react';
 
@@ -31,6 +31,7 @@ import { descripcionEsIndividualizacion, type StepProps } from '../hooks/useWiza
 
 export default function PasoConfigContrato({ data, updateData }: StepProps) {
   const [tipoOpen, setTipoOpen] = useState(false);
+  const autoSelectTipoRef = useRef(false);
 
   useEffect(() => {
     if (data.claseContratacion !== CLASE_CONTRATACION_ALTA_NUEVA_COD) {
@@ -90,6 +91,36 @@ export default function PasoConfigContrato({ data, updateData }: StepProps) {
     setTipoOpen(false);
   };
 
+  // Auto-select first tipo once catalog loads after demo fill
+  useEffect(() => {
+    if (!autoSelectTipoRef.current) return;
+    if (tiposList.length === 0) return;
+    autoSelectTipoRef.current = false;
+    onTipoChange(tiposList[0].id);
+  }, [tiposList]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const fillDemo = () => {
+    const firstAdmin = administraciones[0];
+    const firstActividad = actividades[0];
+    const firstDistrito = distritosQ.data?.[0];
+    if (!firstAdmin) return;
+    autoSelectTipoRef.current = true;
+    updateData({
+      administracion: firstAdmin.id,
+      tipoContratacionId: undefined,
+      tipoContratacionDescripcion: '',
+      actividadId: firstActividad?.id,
+      actividadNombre: firstActividad ? (firstActividad.descripcion?.trim() || firstActividad.codigo?.trim()) : undefined,
+      distritoId: firstDistrito?.id,
+      documentosRecibidos: [],
+      variablesCapturadas: {},
+      conceptosOverride: undefined,
+      superficiePredio: 80,
+      superficieConstruida: 60,
+      personasHabitanVivienda: 4,
+    });
+  };
+
   // Use the API flag when available; fall back to text-matching for legacy records
   const requiereContratoPadre =
     selectedTipo != null
@@ -98,13 +129,25 @@ export default function PasoConfigContrato({ data, updateData }: StepProps) {
 
   return (
     <section aria-labelledby="paso-config" className="space-y-4">
-      <div>
-        <h2 id="paso-config" className="text-base font-semibold">
-          Configuración del contrato
-        </h2>
-        <p className="text-sm text-muted-foreground">
-          Tipo de contratación, actividad económica y referencias.
-        </p>
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <h2 id="paso-config" className="text-base font-semibold">
+            Configuración del contrato
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Tipo de contratación, actividad económica y referencias.
+          </p>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={fillDemo}
+          disabled={administracionesQ.isLoading}
+          className="shrink-0 text-xs"
+        >
+          Prellenar demo
+        </Button>
       </div>
 
       {/* ── Selector de administración (siempre visible) ──────────────── */}

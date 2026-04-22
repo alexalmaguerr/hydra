@@ -12,6 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Paperclip, X } from 'lucide-react';
 import { fetchCatalogoSat, type CatalogoSatItem } from '@/api/catalogos';
 import { hasApi } from '@/api/client';
@@ -264,62 +265,40 @@ function PersonaBlock({
         {/* Régimen fiscal y Uso del CFDI (GET /catalogos/sat o fallback offline) */}
         <div className="space-y-1.5">
           <Label>Régimen fiscal</Label>
-          <Select
-            value={regimenSel || undefined}
+          <SearchableSelect
+            value={regimenSel ?? ''}
             onValueChange={(nv) => patch({ regimenFiscal: nv, usoCfdi: '' })}
             disabled={regimenDisabled}
-          >
-            <SelectTrigger id={`${idPrefix}-reg`}>
-              <SelectValue
-                placeholder={
-                  !tipoOk
-                    ? 'Primero elija tipo de persona…'
-                    : useApi && satPending
-                      ? 'Cargando catálogo SAT…'
-                      : 'Seleccione régimen…'
-                }
-              />
-            </SelectTrigger>
-            <SelectContent>
-              {regimenOpciones.map((r) => (
-                <SelectItem key={r.clave} value={r.clave}>
-                  <span className="font-mono text-xs text-muted-foreground">{r.clave}</span>
-                  <span className="ml-2">{r.texto}</span>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            placeholder={
+              !tipoOk
+                ? 'Primero elija tipo de persona…'
+                : useApi && satPending
+                  ? 'Cargando catálogo SAT…'
+                  : 'Seleccione régimen…'
+            }
+            searchPlaceholder="Buscar régimen fiscal…"
+            options={regimenOpciones.map((r) => ({ value: r.clave, label: `${r.clave} — ${r.texto}` }))}
+          />
         </div>
 
         <div className="space-y-1.5">
           <Label>Uso del CFDI</Label>
-          <Select
-            value={usoSel || undefined}
+          <SearchableSelect
+            value={usoSel ?? ''}
             onValueChange={(nv) => patch({ usoCfdi: nv })}
             disabled={usoDisabled}
-          >
-            <SelectTrigger id={`${idPrefix}-cfdi`}>
-              <SelectValue
-                placeholder={
-                  !tipoOk
-                    ? 'Primero elija tipo de persona…'
-                    : !regimenSel
-                      ? 'Primero elija régimen fiscal…'
-                      : useApi && satPending
-                        ? 'Cargando catálogo SAT…'
-                        : 'Seleccione uso…'
-                }
-              />
-            </SelectTrigger>
-            <SelectContent>
-              {usoOpciones.map((u) => (
-                <SelectItem key={u.clave} value={u.clave}>
-                  <span className="font-mono text-xs text-muted-foreground">{u.clave}</span>
-                  <span className="ml-2">{u.texto}</span>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            placeholder={
+              !tipoOk
+                ? 'Primero elija tipo de persona…'
+                : !regimenSel
+                  ? 'Primero elija régimen fiscal…'
+                  : useApi && satPending
+                    ? 'Cargando catálogo SAT…'
+                    : 'Seleccione uso…'
+            }
+            searchPlaceholder="Buscar uso del CFDI…"
+            options={usoOpciones.map((u) => ({ value: u.clave, label: `${u.clave} — ${u.texto}` }))}
+          />
         </div>
 
         {/* Paterno */}
