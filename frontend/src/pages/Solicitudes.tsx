@@ -1007,37 +1007,35 @@ export default function Solicitudes() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        {tab === 'activas' && (
-          <div className="flex items-center gap-1.5">
-            <Filter className="h-4 w-4 text-muted-foreground" />
-            <div className="flex rounded-md border overflow-hidden">
-              {ESTADO_FILTER_OPTIONS.map((opt) => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => setEstadoFiltro(opt.value)}
-                  className={cn(
-                    'px-3 py-1.5 text-xs font-medium transition-colors border-r last:border-r-0',
-                    estadoFiltro === opt.value
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-background text-muted-foreground hover:bg-muted hover:text-foreground',
-                  )}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
+        <div className="flex items-center gap-1.5">
+          <Filter className="h-4 w-4 text-muted-foreground" />
+          <div className="flex rounded-md border overflow-hidden">
+            {tab === 'activas' && ESTADO_FILTER_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setEstadoFiltro(opt.value)}
+                className={cn(
+                  'px-3 py-1.5 text-xs font-medium transition-colors border-r',
+                  estadoFiltro === opt.value
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-background text-muted-foreground hover:bg-muted hover:text-foreground',
+                )}
+              >
+                {opt.label}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => setSortOrder((o) => (o === 'desc' ? 'asc' : 'desc'))}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              title={sortOrder === 'desc' ? 'Más recientes primero' : 'Más antiguos primero'}
+            >
+              {sortOrder === 'desc' ? <ArrowDown className="h-3.5 w-3.5" /> : <ArrowUp className="h-3.5 w-3.5" />}
+              Fecha
+            </button>
           </div>
-        )}
-        <button
-          type="button"
-          onClick={() => setSortOrder((o) => (o === 'desc' ? 'asc' : 'desc'))}
-          className="flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          title={sortOrder === 'desc' ? 'Más recientes primero' : 'Más antiguos primero'}
-        >
-          {sortOrder === 'desc' ? <ArrowDown className="h-3.5 w-3.5" /> : <ArrowUp className="h-3.5 w-3.5" />}
-          Fecha
-        </button>
+        </div>
       </div>
 
       {/* ── Table ────────────────────────────────────────────────────── */}

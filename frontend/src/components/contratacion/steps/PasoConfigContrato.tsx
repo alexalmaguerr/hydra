@@ -20,13 +20,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { cn } from '@/lib/utils';
 import {
   CLASE_CONTRATACION_ALTA_NUEVA_COD,
@@ -115,10 +109,10 @@ export default function PasoConfigContrato({ data, updateData }: StepProps) {
 
       {/* ── Selector de administración (siempre visible) ──────────────── */}
       <div className="space-y-2">
-        <Label htmlFor="wizard-admin">
+        <Label>
           Administración <span className="text-destructive">*</span>
         </Label>
-        <Select
+        <SearchableSelect
           value={adminId ?? ''}
           onValueChange={(v) => {
             updateData({
@@ -131,24 +125,11 @@ export default function PasoConfigContrato({ data, updateData }: StepProps) {
               conceptosOverride: undefined,
             });
           }}
-        >
-          <SelectTrigger id="wizard-admin">
-            <SelectValue placeholder="Seleccione administración…" />
-          </SelectTrigger>
-          <SelectContent>
-            {administracionesQ.isLoading ? (
-              <div className="px-2 py-1.5 text-sm text-muted-foreground">Cargando…</div>
-            ) : administracionesQ.isError ? (
-              <div className="px-2 py-1.5 text-sm text-destructive">Error al cargar administraciones.</div>
-            ) : (
-              administraciones.map((a) => (
-                <SelectItem key={a.id} value={a.id}>
-                  {a.nombre}
-                </SelectItem>
-              ))
-            )}
-          </SelectContent>
-        </Select>
+          placeholder={administracionesQ.isLoading ? 'Cargando…' : 'Seleccione administración…'}
+          searchPlaceholder="Buscar administración…"
+          disabled={administracionesQ.isLoading}
+          options={administraciones.map((a) => ({ value: a.id, label: a.nombre }))}
+        />
         {adminNombre && (
           <p className="text-xs text-muted-foreground">
             {adminId && `Derivada del punto de servicio: `}
@@ -244,27 +225,17 @@ export default function PasoConfigContrato({ data, updateData }: StepProps) {
           ) : actividadesQ.isError ? (
             <p className="text-sm text-destructive">No se pudieron cargar las actividades.</p>
           ) : (
-            <Select
+            <SearchableSelect
               value={data.actividadId ?? ''}
               onValueChange={(v) => {
                 const row = actividades.find((a) => a.id === v);
-                const nombre = row
-                  ? (row.descripcion?.trim() || row.codigo?.trim() || v)
-                  : v;
+                const nombre = row ? (row.descripcion?.trim() || row.codigo?.trim() || v) : v;
                 updateData({ actividadId: v, actividadNombre: nombre });
               }}
-            >
-              <SelectTrigger id="wizard-actividad" aria-label="Actividad económica">
-                <SelectValue placeholder="Seleccione actividad" />
-              </SelectTrigger>
-              <SelectContent>
-                {actividades.map((a) => (
-                  <SelectItem key={a.id} value={a.id}>
-                    {a.descripcion || a.codigo}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              placeholder="Seleccione actividad"
+              searchPlaceholder="Buscar actividad…"
+              options={actividades.map((a) => ({ value: a.id, label: a.descripcion || a.codigo }))}
+            />
           )}
         </div>
       </div>
@@ -288,23 +259,14 @@ export default function PasoConfigContrato({ data, updateData }: StepProps) {
 
         {/* ── Tipo de punto de servicio ────────────────────────────────── */}
         <div className="space-y-2">
-          <Label htmlFor="wizard-tps">Tipo de punto de servicio</Label>
-          <Select
+          <Label>Tipo de punto de servicio</Label>
+          <SearchableSelect
             value={data.tipoPuntoServicio ?? ''}
             onValueChange={(v) => updateData({ tipoPuntoServicio: v })}
-          >
-            <SelectTrigger id="wizard-tps">
-              <SelectValue placeholder="Seleccione tipo…" />
-            </SelectTrigger>
-            <SelectContent>
-              {TIPOS_PUNTO_SERVICIO.map((t) => (
-                <SelectItem key={t.id} value={t.id}>
-                  <span className="font-mono text-xs text-muted-foreground">{t.id}</span>
-                  <span className="ml-2">{t.descripcion}</span>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            placeholder="Seleccione tipo…"
+            searchPlaceholder="Buscar tipo…"
+            options={TIPOS_PUNTO_SERVICIO.map((t) => ({ value: t.id, label: `${t.id} — ${t.descripcion}` }))}
+          />
         </div>
       </div>
 
@@ -318,22 +280,16 @@ export default function PasoConfigContrato({ data, updateData }: StepProps) {
         ) : distritosQ.isError ? (
           <p className="text-sm text-destructive">No se pudieron cargar los distritos.</p>
         ) : (
-          <Select
+          <SearchableSelect
             value={data.distritoId ?? ''}
             onValueChange={(v) => updateData({ distritoId: v || undefined })}
-          >
-            <SelectTrigger id="wizard-distrito" aria-label="Distrito">
-              <SelectValue placeholder="Seleccione distrito (opcional)…" />
-            </SelectTrigger>
-            <SelectContent>
-              {(distritosQ.data ?? []).map((d) => (
-                <SelectItem key={d.id} value={d.id}>
-                  {d.nombre}
-                  <span className="ml-1.5 font-mono text-[10px] text-muted-foreground">{d.zonaId}</span>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            placeholder="Seleccione distrito (opcional)…"
+            searchPlaceholder="Buscar distrito…"
+            options={(distritosQ.data ?? []).map((d) => ({
+              value: d.id,
+              label: d.zonaId ? `${d.nombre} — ${d.zonaId}` : d.nombre,
+            }))}
+          />
         )}
         <p className="text-xs text-muted-foreground">
           El identificador de distrito se envía en <span className="font-mono">variablesCapturadas</span> al crear el contrato.
