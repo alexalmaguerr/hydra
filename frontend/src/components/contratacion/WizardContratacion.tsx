@@ -26,6 +26,7 @@ import PasoOrdenes from './steps/PasoOrdenes';
 import PasoResumen from './steps/PasoResumen';
 import { CLASE_CONTRATACION_ALTA_NUEVA_COD } from './wizard-catalogos-ui';
 import { regimenClaveFromStored } from '@/lib/sat-catalog-fallback';
+import { calcularCotizacion, inspeccionDtoToOrdenData } from '@/lib/cotizacion';
 import { solicitudFormToWizardPersonas, wizardPersonasToSolicitudUpdate } from './solicitud-personas-wizard';
 import {
   extractConceptosCuantificacionOverride,
@@ -405,6 +406,13 @@ export function WizardContratacion({ onComplete, onCancel, procesoPrecargaId, so
       patch.fiscalIgualTitular = mapped.fiscalIgualTitular;
       patch.solicitudId = solDto.id;
       patch.solicitudFormSnapshot = solForm;
+
+      // Cotización aprobada: computed from inspeccion data for display in Facturación
+      if (solDto.inspeccion) {
+        const ordenData = inspeccionDtoToOrdenData(solDto.inspeccion as Record<string, unknown>);
+        const items = calcularCotizacion(ordenData);
+        if (items.length > 0) patch.cotizacionPrevia = items;
+      }
 
       const domLine =
         solDto.predioResumen?.trim() ||

@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Loader2, Receipt } from 'lucide-react';
+
+const MXN = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' });
 
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -96,6 +98,47 @@ export default function PasoFacturacion({ data, updateData }: StepProps) {
               Si está activo el módulo fiscal en servidor, se registrarán conceptos y timbrado pendiente en la misma operación de alta.
             </p>
           </div>
+        </div>
+      ) : null}
+
+      {/* ── Cotización aprobada por el cliente ─────────────────────────── */}
+      {data.cotizacionPrevia && data.cotizacionPrevia.length > 0 ? (
+        <div className="rounded-lg border bg-muted/10 overflow-hidden">
+          <div className="flex items-center gap-2 border-b px-4 py-2.5 bg-muted/20">
+            <Receipt className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm font-medium">Cotización aprobada por el cliente</span>
+          </div>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b text-xs bg-muted/10">
+                <th className="px-4 py-2 text-left font-medium text-muted-foreground">Concepto</th>
+                <th className="px-4 py-2 text-right font-medium text-muted-foreground">Cant.</th>
+                <th className="px-4 py-2 text-right font-medium text-muted-foreground">P.U.</th>
+                <th className="px-4 py-2 text-right font-medium text-muted-foreground">Subtotal</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.cotizacionPrevia.map((c) => (
+                <tr key={c.descripcion} className="border-t">
+                  <td className="px-4 py-2">{c.descripcion}</td>
+                  <td className="px-4 py-2 text-right tabular-nums text-muted-foreground">{c.cantidad} {c.unidad}</td>
+                  <td className="px-4 py-2 text-right tabular-nums text-muted-foreground">{MXN.format(c.precioUnitario)}</td>
+                  <td className="px-4 py-2 text-right tabular-nums font-medium">{MXN.format(c.subtotal)}</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot className="border-t bg-muted/20">
+              <tr>
+                <td colSpan={3} className="px-4 py-2.5 text-right font-semibold">Total estimado</td>
+                <td className="px-4 py-2.5 text-right tabular-nums font-bold">
+                  {MXN.format(data.cotizacionPrevia.reduce((s, c) => s + c.subtotal, 0))}
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+          <p className="px-4 py-2 text-xs text-muted-foreground border-t">
+            * Los precios son estimados y pueden ajustarse según las condiciones del terreno.
+          </p>
         </div>
       ) : null}
 

@@ -85,6 +85,8 @@ export interface WizardData {
    */
   generarFacturaContratacion?: boolean;
   conceptosOverride?: { conceptoCobroId: string; cantidad: number }[];
+  /** Cotización aprobada por el cliente (ítems de calcularCotizacion desde la inspección). */
+  cotizacionPrevia?: { descripcion: string; cantidad: number; unidad: string; precioUnitario: number; subtotal: number }[];
   /** Solicitud de servicio vinculada al contrato del proceso (precarga paso Personas + sync). */
   solicitudId?: string;
   /** Copia del `formData` de la solicitud para fusionar al guardar cambios desde el wizard. */

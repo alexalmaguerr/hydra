@@ -54,6 +54,7 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { toast } from '@/components/ui/sonner';
 import { cn } from '@/lib/utils';
+import { calcularCotizacion, MATERIAL_LABEL as MAT_LABEL } from '@/lib/cotizacion';
 import type { SolicitudRecord, OrdenInspeccionData, SolicitudEstado } from '@/types/solicitudes';
 
 // ── DTO → local record mappers ────────────────────────────────────────────────
@@ -589,6 +590,149 @@ function OrdenInspeccionSheet({
   );
 }
 
+// ── Ver Solicitud Dialog ──────────────────────────────────────────────────────
+
+function VerSolicitudDialog({
+  record,
+  open,
+  onClose,
+}: {
+  record: SolicitudRecord | null;
+  open: boolean;
+  onClose: () => void;
+}) {
+  if (!record) return null;
+
+  const fd = record.formData;
+  const ordenData = record.ordenInspeccion;
+  const conceptos = ordenData ? calcularCotizacion(ordenData) : [];
+  const total = conceptos.reduce((s, c) => s + c.subtotal, 0);
+  const mxn = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' });
+
+  const esPersonaMoral = fd.propTipoPersona === 'moral';
+  const nombrePropietario = esPersonaMoral
+    ? fd.propRazonSocial
+    : [fd.propPaterno, fd.propMaterno, fd.propNombre].filter(Boolean).join(' ');
+
+  const domPredio = [
+    fd.predioDir?.calle,
+    fd.predioDir?.numExterior ? `#${fd.predioDir.numExterior}` : undefined,
+    fd.predioDir?.codigoPostal ? `CP ${fd.predioDir.codigoPostal}` : undefined,
+  ].filter(Boolean).join(' ') || record.predioResumen;
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <FileText className="h-5 w-5 text-blue-600" />
+            Solicitud — {record.folio}
+          </DialogTitle>
+          <DialogDescription className="mt-1">
+            {new Date(record.fechaSolicitud).toLocaleDateString('es-MX', { dateStyle: 'long' })}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          {/* Propietario */}
+          <div className="rounded-lg border p-4 space-y-2">
+            <p className="text-xs font-semibold uppercase text-muted-foreground">Propietario / Titular</p>
+            <p className="text-sm font-medium">{nombrePropietario || '—'}</p>
+            {fd.propRfc ? <p className="text-sm text-muted-foreground">RFC: {fd.propRfc}</p> : null}
+            {record.propTelefono ? <p className="text-sm text-muted-foreground">Tel: {record.propTelefono}</p> : null}
+            {fd.propCorreo ? <p className="text-sm text-muted-foreground">Correo: {fd.propCorreo}</p> : null}
+          </div>
+
+          {/* Predio */}
+          <div className="rounded-lg border p-4 space-y-2">
+            <p className="text-xs font-semibold uppercase text-muted-foreground">Predio / Domicilio del servicio</p>
+            <p className="text-sm">{domPredio || '—'}</p>
+            {fd.claveCatastral ? <p className="text-sm text-muted-foreground">Clave catastral: {fd.claveCatastral}</p> : null}
+            {fd.superficieTotal ? <p className="text-sm text-muted-foreground">Superficie total: {fd.superficieTotal} m²</p> : null}
+          </div>
+
+          {/* Estado */}
+          <div className="flex items-center gap-2">
+            <p className="text-xs font-semibold uppercase text-muted-foreground">Estado:</p>
+            <EstadoBadge estado={record.estado} />
+          </div>
+
+          {/* Cotización / Cuantificación */}
+          {ordenData ? (
+            <div className="rounded-lg border overflow-hidden">
+              <div className="flex items-center gap-2 border-b px-4 py-2.5 bg-muted/20">
+                <Receipt className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-medium">Cuantificación y cotización</span>
+              </div>
+              {/* Datos de inspección relevantes */}
+              <div className="px-4 py-3 grid grid-cols-2 gap-x-6 gap-y-1 text-sm border-b bg-muted/10">
+                {ordenData.materialCalle ? (
+                  <div>
+                    <span className="text-muted-foreground">Material calle:</span>{' '}
+                    <span className="font-medium">{MAT_LABEL[ordenData.materialCalle] ?? ordenData.materialCalle}</span>
+                  </div>
+                ) : null}
+                {ordenData.materialBanqueta ? (
+                  <div>
+                    <span className="text-muted-foreground">Material banqueta:</span>{' '}
+                    <span className="font-medium">{MAT_LABEL[ordenData.materialBanqueta] ?? ordenData.materialBanqueta}</span>
+                  </div>
+                ) : null}
+                {ordenData.diametroToma ? (
+                  <div>
+                    <span className="text-muted-foreground">Diámetro toma:</span>{' '}
+                    <span className="font-medium">{ordenData.diametroToma}</span>
+                  </div>
+                ) : null}
+              </div>
+              {conceptos.length > 0 ? (
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b text-xs bg-muted/5">
+                      <th className="px-4 py-2 text-left font-medium text-muted-foreground">Concepto</th>
+                      <th className="px-4 py-2 text-right font-medium text-muted-foreground">Cant.</th>
+                      <th className="px-4 py-2 text-right font-medium text-muted-foreground">P.U.</th>
+                      <th className="px-4 py-2 text-right font-medium text-muted-foreground">Subtotal</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {conceptos.map((c) => (
+                      <tr key={c.descripcion} className="border-t">
+                        <td className="px-4 py-2">{c.descripcion}</td>
+                        <td className="px-4 py-2 text-right tabular-nums text-muted-foreground">{c.cantidad} {c.unidad}</td>
+                        <td className="px-4 py-2 text-right tabular-nums text-muted-foreground">{mxn.format(c.precioUnitario)}</td>
+                        <td className="px-4 py-2 text-right tabular-nums font-medium">{mxn.format(c.subtotal)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot className="border-t bg-muted/20">
+                    <tr>
+                      <td colSpan={3} className="px-4 py-2.5 text-right font-semibold">Total estimado</td>
+                      <td className="px-4 py-2.5 text-right tabular-nums font-bold">{mxn.format(total)}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              ) : (
+                <p className="px-4 py-3 text-sm text-muted-foreground">Sin conceptos de cotización calculados.</p>
+              )}
+              {ordenData.observaciones ? (
+                <div className="px-4 py-3 border-t">
+                  <p className="text-xs font-medium text-muted-foreground mb-1">Observaciones de inspección</p>
+                  <p className="text-sm">{ordenData.observaciones}</p>
+                </div>
+              ) : null}
+            </div>
+          ) : (
+            <div className="rounded-lg border border-dashed px-4 py-3 text-sm text-muted-foreground">
+              Sin datos de inspección / cuantificación registrados.
+            </div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ── Cotización pricing engine ─────────────────────────────────────────────────
 
 const PRECIO_CALLE: Record<string, number> = {
@@ -793,6 +937,7 @@ export default function Solicitudes() {
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
   const [inspRecord, setInspRecord] = useState<SolicitudRecord | null>(null);
   const [cotizandoRecord, setCotizandoRecord] = useState<SolicitudRecord | null>(null);
+  const [verRecord, setVerRecord] = useState<SolicitudRecord | null>(null);
 
   // ── Data fetching ─────────────────────────────────────────────────────
   const { data: solicitudesData } = useQuery({
@@ -1123,6 +1268,16 @@ export default function Solicitudes() {
                             variant="outline"
                             size="sm"
                             className="h-8 gap-1.5"
+                            onClick={() => setVerRecord(r)}
+                          >
+                            <FileText className="h-3.5 w-3.5" />
+                            Ver
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-8 gap-1.5"
                             onClick={() => navigate(`/app/solicitudes/${r.id}/editar`)}
                           >
                             <Pencil className="h-3.5 w-3.5" />
@@ -1184,6 +1339,13 @@ export default function Solicitudes() {
           </table>
         </div>
       )}
+
+      {/* ── Ver Solicitud Dialog ─────────────────────────────────────── */}
+      <VerSolicitudDialog
+        record={verRecord}
+        open={!!verRecord}
+        onClose={() => setVerRecord(null)}
+      />
 
       {/* ── Inspection Sheet ──────────────────────────────────────────── */}
       <OrdenInspeccionSheet
