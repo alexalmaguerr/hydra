@@ -140,8 +140,10 @@ export default function PasoResumen({ data, config }: StepProps) {
   const configOk = !!(data.actividadId && data.tipoContratacionId);
   const varsOk = variablesStepSatisfied(data, config);
   const docsOk = data.documentosRecibidos.length > 0;
+  const cotizacionTotal = (data.cotizacionPrevia ?? []).reduce((s, c) => s + c.subtotal, 0);
+  const effectiveTotal = preview && preview.total > 0 ? preview.total : cotizacionTotal;
   const billingOk =
-    !!data.tipoContratacionId && !billingLoading && preview != null && preview.total >= 0;
+    !!data.tipoContratacionId && !billingLoading && (preview != null || cotizacionTotal > 0);
 
   const ordenesDesc: string[] = [];
   if (data.generarOrdenInstalacionToma) ordenesDesc.push('Instalación de toma');
@@ -368,8 +370,13 @@ export default function PasoResumen({ data, config }: StepProps) {
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
               Calculando total…
             </div>
-          ) : preview ? (
-            <p className="text-lg font-semibold tabular-nums">{formatMxn(preview.total)}</p>
+          ) : effectiveTotal > 0 ? (
+            <div className="space-y-0.5">
+              <p className="text-lg font-semibold tabular-nums">{formatMxn(effectiveTotal)}</p>
+              {cotizacionTotal > 0 && (!preview || preview.total === 0) ? (
+                <p className="text-xs text-muted-foreground">Total de la cotización aprobada</p>
+              ) : null}
+            </div>
           ) : (
             <p className="text-sm text-muted-foreground">No fue posible obtener el total.</p>
           )}
