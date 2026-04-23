@@ -342,8 +342,10 @@ const Contratos = () => {
           procesoId = nuevo.id;
         }
         const next = new URLSearchParams(searchParams);
+        const solicitudIdParam = searchParams.get('solicitudId');
         next.delete('iniciarAlta');
         next.delete('contratoId');
+        if (solicitudIdParam) next.set('solicitudId', solicitudIdParam);
         next.set('new', '1');
         next.set('procesoId', procesoId);
         setSearchParams(next, { replace: true });
@@ -649,6 +651,7 @@ const Contratos = () => {
           <WizardContratacion
             key={searchParams.get('procesoId') ?? 'nuevo'}
             procesoPrecargaId={searchParams.get('procesoId')}
+            solicitudIdPrecarga={searchParams.get('solicitudId') ?? undefined}
             onComplete={() => {
               setShowWizard(false);
               const next = new URLSearchParams(searchParams);

@@ -907,7 +907,9 @@ export default function Solicitudes() {
     setCotizandoRecord(null);
     toast.success('Cotización aceptada — proceso de contratación iniciado');
     navigate(
-      contratoId ? `/app/contratos?iniciarAlta=1&contratoId=${encodeURIComponent(contratoId)}` : '/app/contratos',
+      contratoId
+        ? `/app/contratos?iniciarAlta=1&contratoId=${encodeURIComponent(contratoId)}&solicitudId=${encodeURIComponent(_id)}`
+        : '/app/contratos',
     );
   }
 
