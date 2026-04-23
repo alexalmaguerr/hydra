@@ -745,25 +745,22 @@ function VerSolicitudDialog({
             </div>
           )}
 
-          {/* Botón PDF */}
-          <div className="flex justify-end gap-2 pt-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="gap-1.5"
-              onClick={() => openCotizacionPdf(record.id).catch(() => toast.error('PDF no encontrado — usa "Regenerar PDF"'))}
-            >
-              <Download className="h-3.5 w-3.5" />
-              Descargar PDF
-            </Button>
-            {ordenData && conceptos.length > 0 && (
+          {/* Botón PDF — intenta servidor, genera client-side si no existe */}
+          {conceptos.length > 0 && ordenData ? (
+            <div className="flex justify-end pt-2">
               <Button
                 type="button"
-                variant="outline"
                 size="sm"
                 className="gap-1.5"
                 onClick={async () => {
+                  // 1. Intenta desde el servidor (PDF guardado al aceptar)
+                  try {
+                    await openCotizacionPdf(record.id);
+                    return;
+                  } catch {
+                    // 404 u otro error → generar ahora mismo
+                  }
+                  // 2. Genera client-side
                   try {
                     const doc = (
                       <CotizacionPdfDocument
@@ -774,21 +771,18 @@ function VerSolicitudDialog({
                     );
                     const blob = await pdf(doc).toBlob();
                     const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `cotizacion-${record.folio}.pdf`;
-                    a.click();
-                    URL.revokeObjectURL(url);
+                    window.open(url, '_blank');
+                    setTimeout(() => URL.revokeObjectURL(url), 10_000);
                   } catch {
                     toast.error('No se pudo generar el PDF');
                   }
                 }}
               >
                 <Download className="h-3.5 w-3.5" />
-                Regenerar PDF
+                Descargar PDF cotización
               </Button>
-            )}
-          </div>
+            </div>
+          ) : null}
         </div>
       </DialogContent>
     </Dialog>
@@ -905,7 +899,7 @@ function CotizacionModal({
         }).catch(() => { /* silent - wizard will fallback to inspeccion data */ });
       }
 
-      // Generate and upload PDF in background (non-blocking)
+      // Generate PDF: open in new tab immediately + upload to server in background
       if (ordenData && conceptos.length > 0) {
         const doc = (
           <CotizacionPdfDocument
@@ -914,9 +908,14 @@ function CotizacionModal({
             conceptos={conceptos}
           />
         );
-        pdf(doc).toBlob().then((blob) =>
-          uploadCotizacionPdf(record!.id, blob).catch(() => { /* silent - PDF is optional */ })
-        ).catch(() => { /* silent */ });
+        pdf(doc).toBlob().then((blob) => {
+          // Open in new tab right away
+          const blobUrl = URL.createObjectURL(blob);
+          window.open(blobUrl, '_blank');
+          setTimeout(() => URL.revokeObjectURL(blobUrl), 10_000);
+          // Upload to server for later retrieval (silent)
+          uploadCotizacionPdf(record!.id, blob).catch(() => {});
+        }).catch(() => {});
       }
 
       onAceptar(record!.id, res.contratoId);
