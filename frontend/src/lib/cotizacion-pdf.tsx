@@ -290,7 +290,7 @@ function GridRow({ cells }: { cells: [string, string][] }) {
 
 export interface CotizacionPdfProps {
   record: SolicitudRecord;
-  ordenData: OrdenInspeccionData;
+  ordenData?: OrdenInspeccionData;
   conceptos: ConceptoCotizacion[];
   tipoContratacionNombre?: string;
   fecha?: string;
@@ -311,6 +311,7 @@ export function CotizacionPdfDocument({
 }: CotizacionPdfProps) {
   const fd = record.formData;
   const vars = fd.variablesCapturadas ?? {};
+  const od = ordenData; // alias; puede ser undefined → campos muestran '—'
 
   const fechaDoc = fecha ?? new Date().toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' });
   const vigenciaDate = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000);
@@ -326,15 +327,15 @@ export function CotizacionPdfDocument({
 
   // Datos de requerimientos (de ordenData + variablesCapturadas)
   const tipoServicio = tipoContratacionNombre
-    || (ordenData.tipoUso ? (TIPO_USO_LABEL[ordenData.tipoUso] ?? ordenData.tipoUso) : '—');
-  const diametroToma = dash(ordenData.diametroToma);
+    || (od?.tipoUso ? (TIPO_USO_LABEL[od.tipoUso] ?? od.tipoUso) : '—');
+  const diametroToma = dash(od?.diametroToma ?? vars.diametroToma);
   const longitudToma = dash(vars.longitudToma ?? vars.longitud_toma);
   const unidadesServicio = dash(vars.unidadesServicio ?? vars.unidades_servicio ?? vars.viviendas);
   const diametroDrenaje = dash(vars.diametroDrenaje ?? vars.diametro_drenaje ?? vars.diametroDscarga);
   const longitudDrenaje = dash(vars.longitudDrenaje ?? vars.longitud_drenaje ?? vars.longitudDescarga);
   const habitantes = dash(fd.personasVivienda || vars.habitantes || vars.personasVivienda);
-  const matCalle = ordenData.materialCalle ? (MATERIAL_LABEL[ordenData.materialCalle] ?? ordenData.materialCalle) : '—';
-  const matBanqueta = ordenData.materialBanqueta ? (MATERIAL_LABEL[ordenData.materialBanqueta] ?? ordenData.materialBanqueta) : '—';
+  const matCalle = od?.materialCalle ? (MATERIAL_LABEL[od.materialCalle] ?? od.materialCalle) : '—';
+  const matBanqueta = od?.materialBanqueta ? (MATERIAL_LABEL[od.materialBanqueta] ?? od.materialBanqueta) : '—';
 
   // Datos de cuantificación / periodos
   const periodoTarifas = dash(vars.periodoTarifas ?? vars.periodo_tarifas);

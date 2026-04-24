@@ -608,7 +608,11 @@ function VerSolicitudDialog({
   onClose: () => void;
 }) {
   const ordenData = record?.ordenInspeccion ?? undefined;
-  const conceptos = ordenData ? calcularCotizacion(ordenData) : [];
+  // Conceptos: primero desde inspección (si existe), luego desde cotizacionItems guardados al aceptar
+  const conceptosFromInsp = ordenData ? calcularCotizacion(ordenData) : [];
+  const cotizacionGuardada = record?.formData?.cotizacionItems ?? [];
+  const conceptos = conceptosFromInsp.length > 0 ? conceptosFromInsp : cotizacionGuardada;
+
   const [generandoCotizPdf, setGenerandoCotizPdf] = useState(false);
   const [generandoCobroPdf, setGenerandoCobroPdf] = useState(false);
 
@@ -617,9 +621,9 @@ function VerSolicitudDialog({
     if (!record || !open) return;
     if (record.estado !== 'aceptada' && record.estado !== 'contratado') return;
     const alreadySaved = Array.isArray(record.formData?.cotizacionItems) && record.formData.cotizacionItems!.length > 0;
-    if (alreadySaved || conceptos.length === 0) return;
+    if (alreadySaved || conceptosFromInsp.length === 0) return;
     apiUpdateSolicitud(record.id, {
-      formData: { ...record.formData, cotizacionItems: conceptos },
+      formData: { ...record.formData, cotizacionItems: conceptosFromInsp },
     }).catch(() => {});
   }, [record?.id, open]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -678,64 +682,62 @@ function VerSolicitudDialog({
           </div>
 
           {/* Cotización / Cuantificación */}
-          {ordenData ? (
+          {conceptos.length > 0 ? (
             <div className="rounded-lg border overflow-hidden">
               <div className="flex items-center gap-2 border-b px-4 py-2.5 bg-muted/20">
                 <Receipt className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm font-medium">Cuantificación y cotización</span>
               </div>
-              {/* Datos de inspección relevantes */}
-              <div className="px-4 py-3 grid grid-cols-2 gap-x-6 gap-y-1 text-sm border-b bg-muted/10">
-                {ordenData.materialCalle ? (
-                  <div>
-                    <span className="text-muted-foreground">Material calle:</span>{' '}
-                    <span className="font-medium">{MAT_LABEL[ordenData.materialCalle] ?? ordenData.materialCalle}</span>
-                  </div>
-                ) : null}
-                {ordenData.materialBanqueta ? (
-                  <div>
-                    <span className="text-muted-foreground">Material banqueta:</span>{' '}
-                    <span className="font-medium">{MAT_LABEL[ordenData.materialBanqueta] ?? ordenData.materialBanqueta}</span>
-                  </div>
-                ) : null}
-                {ordenData.diametroToma ? (
-                  <div>
-                    <span className="text-muted-foreground">Diámetro toma:</span>{' '}
-                    <span className="font-medium">{ordenData.diametroToma}</span>
-                  </div>
-                ) : null}
-              </div>
-              {conceptos.length > 0 ? (
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-xs bg-muted/5">
-                      <th className="px-4 py-2 text-left font-medium text-muted-foreground">Concepto</th>
-                      <th className="px-4 py-2 text-right font-medium text-muted-foreground">Cant.</th>
-                      <th className="px-4 py-2 text-right font-medium text-muted-foreground">P.U.</th>
-                      <th className="px-4 py-2 text-right font-medium text-muted-foreground">Subtotal</th>
+              {/* Datos de inspección relevantes (solo si existe inspección real) */}
+              {ordenData && (ordenData.materialCalle || ordenData.materialBanqueta || ordenData.diametroToma) ? (
+                <div className="px-4 py-3 grid grid-cols-2 gap-x-6 gap-y-1 text-sm border-b bg-muted/10">
+                  {ordenData.materialCalle ? (
+                    <div>
+                      <span className="text-muted-foreground">Material calle:</span>{' '}
+                      <span className="font-medium">{MAT_LABEL[ordenData.materialCalle] ?? ordenData.materialCalle}</span>
+                    </div>
+                  ) : null}
+                  {ordenData.materialBanqueta ? (
+                    <div>
+                      <span className="text-muted-foreground">Material banqueta:</span>{' '}
+                      <span className="font-medium">{MAT_LABEL[ordenData.materialBanqueta] ?? ordenData.materialBanqueta}</span>
+                    </div>
+                  ) : null}
+                  {ordenData.diametroToma ? (
+                    <div>
+                      <span className="text-muted-foreground">Diámetro toma:</span>{' '}
+                      <span className="font-medium">{ordenData.diametroToma}</span>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b text-xs bg-muted/5">
+                    <th className="px-4 py-2 text-left font-medium text-muted-foreground">Concepto</th>
+                    <th className="px-4 py-2 text-right font-medium text-muted-foreground">Cant.</th>
+                    <th className="px-4 py-2 text-right font-medium text-muted-foreground">P.U.</th>
+                    <th className="px-4 py-2 text-right font-medium text-muted-foreground">Subtotal</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {conceptos.map((c) => (
+                    <tr key={c.descripcion} className="border-t">
+                      <td className="px-4 py-2">{c.descripcion}</td>
+                      <td className="px-4 py-2 text-right tabular-nums text-muted-foreground">{c.cantidad} {c.unidad}</td>
+                      <td className="px-4 py-2 text-right tabular-nums text-muted-foreground">{mxn.format(c.precioUnitario)}</td>
+                      <td className="px-4 py-2 text-right tabular-nums font-medium">{mxn.format(c.subtotal)}</td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {conceptos.map((c) => (
-                      <tr key={c.descripcion} className="border-t">
-                        <td className="px-4 py-2">{c.descripcion}</td>
-                        <td className="px-4 py-2 text-right tabular-nums text-muted-foreground">{c.cantidad} {c.unidad}</td>
-                        <td className="px-4 py-2 text-right tabular-nums text-muted-foreground">{mxn.format(c.precioUnitario)}</td>
-                        <td className="px-4 py-2 text-right tabular-nums font-medium">{mxn.format(c.subtotal)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                  <tfoot className="border-t bg-muted/20">
-                    <tr>
-                      <td colSpan={3} className="px-4 py-2.5 text-right font-semibold">Total estimado</td>
-                      <td className="px-4 py-2.5 text-right tabular-nums font-bold">{mxn.format(total)}</td>
-                    </tr>
-                  </tfoot>
-                </table>
-              ) : (
-                <p className="px-4 py-3 text-sm text-muted-foreground">Sin conceptos de cotización calculados.</p>
-              )}
-              {ordenData.observaciones ? (
+                  ))}
+                </tbody>
+                <tfoot className="border-t bg-muted/20">
+                  <tr>
+                    <td colSpan={3} className="px-4 py-2.5 text-right font-semibold">Total estimado</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums font-bold">{mxn.format(total)}</td>
+                  </tr>
+                </tfoot>
+              </table>
+              {ordenData?.observaciones ? (
                 <div className="px-4 py-3 border-t">
                   <p className="text-xs font-medium text-muted-foreground mb-1">Observaciones de inspección</p>
                   <p className="text-sm">{ordenData.observaciones}</p>
@@ -744,12 +746,12 @@ function VerSolicitudDialog({
             </div>
           ) : (
             <div className="rounded-lg border border-dashed px-4 py-3 text-sm text-muted-foreground">
-              Sin datos de inspección / cuantificación registrados.
+              Sin datos de cuantificación registrados.
             </div>
           )}
 
           {/* Botones PDF */}
-          {conceptos.length > 0 && ordenData ? (
+          {conceptos.length > 0 ? (
             <div className="flex flex-wrap justify-end gap-2 pt-2">
               <Button
                 type="button"
@@ -759,12 +761,14 @@ function VerSolicitudDialog({
                 disabled={generandoCotizPdf}
                 onClick={async () => {
                   setGenerandoCotizPdf(true);
+                  // ordenData fallback: vacío pero tipado
+                  const od = ordenData ?? { estado: 'completada' as const };
                   try {
                     await openCotizacionPdf(record.id);
                   } catch {
                     try {
                       const blob = await pdf(
-                        <CotizacionPdfDocument record={record} ordenData={ordenData} conceptos={conceptos} />
+                        <CotizacionPdfDocument record={record} ordenData={od} conceptos={conceptos} />
                       ).toBlob();
                       const url = URL.createObjectURL(blob);
                       window.open(url, '_blank');
