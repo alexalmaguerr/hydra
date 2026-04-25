@@ -35,7 +35,7 @@ export const ALCANTARILLADO_RATE = 0.10;
 export const SANEAMIENTO_RATE = 0.12;
 
 /** Recargo mensual sobre saldo vencido acumulado */
-export const RECARGO_MENSUAL = 0.015;
+export const RECARGO_MENSUAL = 0.01470;
 
 // ── Catálogos ─────────────────────────────────────────────────────────────────
 

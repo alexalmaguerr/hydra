@@ -39,14 +39,24 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  DialogFooter,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   Sheet,
   SheetContent,
@@ -61,7 +71,9 @@ import { uploadCotizacionPdf, openCotizacionPdf } from '@/api/solicitudes';
 import { pdf } from '@react-pdf/renderer';
 import { CotizacionPdfDocument } from '@/lib/cotizacion-pdf';
 import { CobroAguaPdfDocument } from '@/lib/cobro-agua-pdf';
+import { ADMINISTRACIONES, getTiposTarifa, resolveAdministracion, resolveTipoTarifa } from '@/lib/tarifas';
 import type { SolicitudRecord, OrdenInspeccionData, SolicitudEstado } from '@/types/solicitudes';
+import { CuantificacionModal, type CuantificacionData } from '@/components/solicitudes/CuantificacionModal';
 
 // ── DTO → local record mappers ────────────────────────────────────────────────
 
@@ -596,6 +608,220 @@ function OrdenInspeccionSheet({
   );
 }
 
+// ── Cobro Agua Config Dialog ──────────────────────────────────────────────────
+
+interface CobroAguaConfig {
+  administracion: string;
+  tipoTarifa: string;
+  consumoM3: number;
+  unidades: number;
+  periodoInicio: Date;
+  periodoFin: Date;
+  aplicaAgua: boolean;
+  aplicaAlcantarillado: boolean;
+  aplicaSaneamiento: boolean;
+}
+
+function CobroAguaConfigDialog({
+  record,
+  open,
+  onClose,
+  tipoContratacionNombre,
+  onGenerar,
+}: {
+  record: SolicitudRecord | null;
+  open: boolean;
+  onClose: () => void;
+  tipoContratacionNombre?: string;
+  onGenerar: (config: CobroAguaConfig) => void;
+}) {
+  const vars = record?.formData?.variablesCapturadas ?? {};
+
+  // Valores iniciales derivados del registro
+  const adminInicial = resolveAdministracion(
+    record?.formData?.adminId ?? undefined,
+  ) ?? ADMINISTRACIONES[0] ?? 'QUERÉTARO';
+
+  const tipoTarifaInicial = resolveTipoTarifa(tipoContratacionNombre, adminInicial) ?? getTiposTarifa(adminInicial)[0] ?? '';
+
+  const hoy = new Date();
+  const hace6Meses = new Date(hoy.getFullYear(), hoy.getMonth() - 5, 1);
+
+  const [admin, setAdmin]           = useState(adminInicial);
+  const [tipoTarifa, setTipoTarifa] = useState(tipoTarifaInicial);
+  const [m3, setM3]                 = useState(
+    String(parseFloat(vars.consumoM3 ?? vars.consumo_m3 ?? vars.m3 ?? '15') || 15),
+  );
+  const [unidades, setUnidades]     = useState(
+    String(parseInt(vars.unidadesServicio ?? vars.unidades ?? '1', 10) || 1),
+  );
+  const [pInicio, setPInicio]       = useState(
+    hace6Meses.toISOString().slice(0, 7), // YYYY-MM
+  );
+  const [pFin, setPFin]             = useState(
+    hoy.toISOString().slice(0, 7),
+  );
+  const [aplicaAgua, setAplicaAgua]                   = useState(true);
+  const [aplicaAlcantarillado, setAplicaAlcantarillado] = useState(true);
+  const [aplicaSaneamiento, setAplicaSaneamiento]       = useState(true);
+
+  const tiposTarifa = getTiposTarifa(admin);
+
+  // Cuando cambia admin, ajustar tipo tarifa si el actual no existe
+  const handleAdminChange = (val: string) => {
+    setAdmin(val);
+    const tipos = getTiposTarifa(val);
+    if (!tipos.includes(tipoTarifa)) setTipoTarifa(tipos[0] ?? '');
+  };
+
+  if (!record) return null;
+
+  function handleSubmit() {
+    const [iniAnio, iniMes] = pInicio.split('-').map(Number);
+    const [finAnio, finMes] = pFin.split('-').map(Number);
+    onGenerar({
+      administracion: admin,
+      tipoTarifa,
+      consumoM3: parseFloat(m3) || 15,
+      unidades: parseInt(unidades, 10) || 1,
+      periodoInicio: new Date(iniAnio, iniMes - 1, 1),
+      periodoFin:    new Date(finAnio, finMes - 1, 1),
+      aplicaAgua,
+      aplicaAlcantarillado,
+      aplicaSaneamiento,
+    });
+    onClose();
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Configurar detalle del cobro del agua</DialogTitle>
+          <DialogDescription>
+            Folio: {record.folio}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="grid gap-4 py-2">
+          {/* Administración */}
+          <div className="grid grid-cols-3 items-center gap-2">
+            <Label className="text-right text-sm">Administración</Label>
+            <div className="col-span-2">
+              <Select value={admin} onValueChange={handleAdminChange}>
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {ADMINISTRACIONES.map((a) => (
+                    <SelectItem key={a} value={a}>{a}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Tipo de tarifa */}
+          <div className="grid grid-cols-3 items-center gap-2">
+            <Label className="text-right text-sm">Tarifa</Label>
+            <div className="col-span-2">
+              <Select value={tipoTarifa} onValueChange={setTipoTarifa}>
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {tiposTarifa.map((t) => (
+                    <SelectItem key={t} value={t}>{t}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* M3 y Unidades */}
+          <div className="grid grid-cols-3 items-center gap-2">
+            <Label className="text-right text-sm">Consumo M3</Label>
+            <Input
+              type="number"
+              min={0}
+              className="col-span-2"
+              value={m3}
+              onChange={(e) => setM3(e.target.value)}
+            />
+          </div>
+          <div className="grid grid-cols-3 items-center gap-2">
+            <Label className="text-right text-sm">Unidades servidas</Label>
+            <Input
+              type="number"
+              min={1}
+              className="col-span-2"
+              value={unidades}
+              onChange={(e) => setUnidades(e.target.value)}
+            />
+          </div>
+
+          {/* Periodo */}
+          <div className="grid grid-cols-3 items-center gap-2">
+            <Label className="text-right text-sm">Periodo inicio</Label>
+            <Input
+              type="month"
+              className="col-span-2"
+              value={pInicio}
+              onChange={(e) => setPInicio(e.target.value)}
+            />
+          </div>
+          <div className="grid grid-cols-3 items-center gap-2">
+            <Label className="text-right text-sm">Periodo fin</Label>
+            <Input
+              type="month"
+              className="col-span-2"
+              value={pFin}
+              max={pFin}
+              onChange={(e) => setPFin(e.target.value)}
+            />
+          </div>
+
+          {/* Conceptos que aplican */}
+          <div className="grid grid-cols-3 items-start gap-2">
+            <Label className="text-right text-sm pt-1">Aplica</Label>
+            <div className="col-span-2 flex flex-col gap-2">
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <Checkbox
+                  checked={aplicaAgua}
+                  onCheckedChange={(v) => setAplicaAgua(Boolean(v))}
+                />
+                Agua
+              </label>
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <Checkbox
+                  checked={aplicaAlcantarillado}
+                  onCheckedChange={(v) => setAplicaAlcantarillado(Boolean(v))}
+                />
+                Alcantarillado (10%)
+              </label>
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <Checkbox
+                  checked={aplicaSaneamiento}
+                  onCheckedChange={(v) => setAplicaSaneamiento(Boolean(v))}
+                />
+                Saneamiento (12%)
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancelar</Button>
+          <Button onClick={handleSubmit} disabled={!tipoTarifa}>
+            <Download className="h-4 w-4 mr-1.5" />
+            Generar PDF
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ── Ver Solicitud Dialog ──────────────────────────────────────────────────────
 
 function VerSolicitudDialog({
@@ -617,6 +843,7 @@ function VerSolicitudDialog({
 
   const [generandoCotizPdf, setGenerandoCotizPdf] = useState(false);
   const [generandoCobroPdf, setGenerandoCobroPdf] = useState(false);
+  const [cobroConfigOpen, setCobroConfigOpen]     = useState(false);
 
   // Auto-backfill cotizacionItems for solicitudes accepted before the persistent-save fix
   useEffect(() => {
@@ -791,33 +1018,48 @@ function VerSolicitudDialog({
                 variant="outline"
                 size="sm"
                 className="gap-1.5"
-                disabled={generandoCobroPdf}
-                onClick={async () => {
-                  setGenerandoCobroPdf(true);
-                  try {
-                    const vars = record.formData.variablesCapturadas ?? {};
-                    const consumoM3 = parseFloat(vars.consumoM3 ?? vars.consumo_m3 ?? vars.m3 ?? '15') || 15;
-                    const meses = parseInt(vars.meses ?? vars.numeroPeriodos ?? '6', 10) || 6;
-                    const blob = await pdf(
-                      <CobroAguaPdfDocument record={record} tipoContratacionNombre={tipoContratacionNombre} consumoM3={consumoM3} meses={meses} periodoInicio={new Date()} />
-                    ).toBlob();
-                    const url = URL.createObjectURL(blob);
-                    window.open(url, '_blank');
-                    setTimeout(() => URL.revokeObjectURL(url), 10_000);
-                  } catch {
-                    toast.error('No se pudo generar el PDF de cobro');
-                  } finally {
-                    setGenerandoCobroPdf(false);
-                  }
-                }}
+                onClick={() => setCobroConfigOpen(true)}
               >
                 <Download className="h-3.5 w-3.5" />
-                {generandoCobroPdf ? 'Generando…' : 'Detalle del cobro del agua'}
+                Detalle del cobro del agua
               </Button>
             </div>
           ) : null}
         </div>
       </DialogContent>
+
+      <CobroAguaConfigDialog
+        record={record}
+        open={cobroConfigOpen}
+        onClose={() => setCobroConfigOpen(false)}
+        tipoContratacionNombre={tipoContratacionNombre}
+        onGenerar={async (cfg) => {
+          setGenerandoCobroPdf(true);
+          try {
+            const blob = await pdf(
+              <CobroAguaPdfDocument
+                record={record}
+                administracionCatalogo={cfg.administracion}
+                tipoTarifa={cfg.tipoTarifa}
+                consumoM3={cfg.consumoM3}
+                unidadesServidas={cfg.unidades}
+                periodoInicio={cfg.periodoInicio}
+                periodoFin={cfg.periodoFin}
+                aplicaAgua={cfg.aplicaAgua}
+                aplicaAlcantarillado={cfg.aplicaAlcantarillado}
+                aplicaSaneamiento={cfg.aplicaSaneamiento}
+              />
+            ).toBlob();
+            const url = URL.createObjectURL(blob);
+            window.open(url, '_blank');
+            setTimeout(() => URL.revokeObjectURL(url), 10_000);
+          } catch {
+            toast.error('No se pudo generar el PDF de cobro');
+          } finally {
+            setGenerandoCobroPdf(false);
+          }
+        }}
+      />
     </Dialog>
   );
 }
@@ -914,6 +1156,7 @@ function CotizacionModal({
   const [aceptando, setAceptando] = useState(false);
   const [generandoPdf, setGenerandoPdf] = useState(false);
   const [generandoCobroPdf, setGenerandoCobroPdf] = useState(false);
+  const [cobroConfigOpen, setCobroConfigOpen]     = useState(false);
 
   if (!record) return null;
 
@@ -1051,35 +1294,10 @@ function CotizacionModal({
               variant="outline"
               size="sm"
               className="gap-1.5"
-              disabled={generandoCobroPdf}
-              onClick={async () => {
-                setGenerandoCobroPdf(true);
-                try {
-                  const vars = record.formData.variablesCapturadas ?? {};
-                  const consumoM3 = parseFloat(vars.consumoM3 ?? vars.consumo_m3 ?? vars.m3 ?? '15') || 15;
-                  const meses = parseInt(vars.meses ?? vars.numeroPeriodos ?? '6', 10) || 6;
-                  const doc = (
-                    <CobroAguaPdfDocument
-                      record={record}
-                      tipoContratacionNombre={tipoContratacionNombre}
-                      consumoM3={consumoM3}
-                      meses={meses}
-                      periodoInicio={new Date()}
-                    />
-                  );
-                  const blob = await pdf(doc).toBlob();
-                  const url = URL.createObjectURL(blob);
-                  window.open(url, '_blank');
-                  setTimeout(() => URL.revokeObjectURL(url), 10_000);
-                } catch {
-                  toast.error('No se pudo generar el PDF de cobro');
-                } finally {
-                  setGenerandoCobroPdf(false);
-                }
-              }}
+              onClick={() => setCobroConfigOpen(true)}
             >
               <Download className="h-3.5 w-3.5" />
-              {generandoCobroPdf ? 'Generando…' : 'Detalle del cobro del agua'}
+              Detalle del cobro del agua
             </Button>
             <Button
               type="button"
@@ -1103,6 +1321,39 @@ function CotizacionModal({
           </Button>
         </div>
       </DialogContent>
+
+      <CobroAguaConfigDialog
+        record={record}
+        open={cobroConfigOpen}
+        onClose={() => setCobroConfigOpen(false)}
+        tipoContratacionNombre={tipoContratacionNombre}
+        onGenerar={async (cfg) => {
+          setGenerandoCobroPdf(true);
+          try {
+            const blob = await pdf(
+              <CobroAguaPdfDocument
+                record={record}
+                administracionCatalogo={cfg.administracion}
+                tipoTarifa={cfg.tipoTarifa}
+                consumoM3={cfg.consumoM3}
+                unidadesServidas={cfg.unidades}
+                periodoInicio={cfg.periodoInicio}
+                periodoFin={cfg.periodoFin}
+                aplicaAgua={cfg.aplicaAgua}
+                aplicaAlcantarillado={cfg.aplicaAlcantarillado}
+                aplicaSaneamiento={cfg.aplicaSaneamiento}
+              />
+            ).toBlob();
+            const url = URL.createObjectURL(blob);
+            window.open(url, '_blank');
+            setTimeout(() => URL.revokeObjectURL(url), 10_000);
+          } catch {
+            toast.error('No se pudo generar el PDF de cobro');
+          } finally {
+            setGenerandoCobroPdf(false);
+          }
+        }}
+      />
     </Dialog>
   );
 }
@@ -1125,6 +1376,7 @@ export default function Solicitudes() {
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
   const [inspRecord, setInspRecord] = useState<SolicitudRecord | null>(null);
   const [cotizandoRecord, setCotizandoRecord] = useState<SolicitudRecord | null>(null);
+  const [cuantificandoRecord, setCuantificandoRecord] = useState<SolicitudRecord | null>(null);
   const [verRecord, setVerRecord] = useState<SolicitudRecord | null>(null);
 
   // ── Data fetching ─────────────────────────────────────────────────────
@@ -1222,7 +1474,7 @@ export default function Solicitudes() {
   // Opens the cotización modal instead of navigating immediately
   function handleContinuarCuantificacion(id: string) {
     const r = records.find((r) => r.id === id) ?? inspRecord;
-    setCotizandoRecord(r ?? null);
+    setCuantificandoRecord(r ?? null);
     setInspRecord(null);
   }
 
@@ -1507,7 +1759,7 @@ export default function Solicitudes() {
                               type="button"
                               size="sm"
                               className="h-8 gap-1.5 bg-blue-600 text-white hover:bg-blue-700"
-                              onClick={() => setCotizandoRecord(r)}
+                              onClick={() => setCuantificandoRecord(r)}
                             >
                               <FileText className="h-3.5 w-3.5" />
                               Cuantificación
@@ -1550,6 +1802,31 @@ export default function Solicitudes() {
         onClose={() => setInspRecord(null)}
         onAceptar={handleContinuarCuantificacion}
         onRechazar={handleRechazar}
+      />
+
+      {/* ── Cuantificación Modal ──────────────────────────────────────── */}
+      <CuantificacionModal
+        record={cuantificandoRecord}
+        open={!!cuantificandoRecord}
+        onClose={() => setCuantificandoRecord(null)}
+        tipoContratacionNombre={cuantificandoRecord ? tipoNombreMap.get(cuantificandoRecord.tipoContratacionId) : undefined}
+        onGuardar={async (data: CuantificacionData) => {
+          if (!cuantificandoRecord) return;
+          await apiUpdateSolicitud(cuantificandoRecord.id, {
+            formData: { ...cuantificandoRecord.formData, cuantificacionData: data as any },
+          });
+          queryClient.invalidateQueries({ queryKey: ['solicitudes'] });
+          toast.success('Cuantificación guardada');
+        }}
+        onAceptar={(data: CuantificacionData) => {
+          if (!cuantificandoRecord) return;
+          // Guardar silenciosamente y abrir cotización
+          apiUpdateSolicitud(cuantificandoRecord.id, {
+            formData: { ...cuantificandoRecord.formData, cuantificacionData: data as any },
+          }).catch(() => {});
+          setCuantificandoRecord(null);
+          setCotizandoRecord(cuantificandoRecord);
+        }}
       />
 
       <CotizacionModal
