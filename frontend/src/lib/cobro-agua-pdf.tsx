@@ -231,16 +231,13 @@ export function CobroAguaPdfDocument({
 
   // Resolver parámetros desde props o variablesCapturadas
   const consumoM3 = consumoM3Prop
-    ?? parseFloat(vars.consumoM3 ?? vars.consumo_m3 ?? vars.m3 ?? '15')
-    || 15;
+    ?? (parseFloat(vars.consumoM3 ?? vars.consumo_m3 ?? vars.m3 ?? '15') || 15);
 
   const unidades = unidadesServidasProp
-    ?? parseInt(vars.unidadesServicio ?? vars.unidades ?? '1', 10)
-    || 1;
+    ?? (parseInt(vars.unidadesServicio ?? vars.unidades ?? '1', 10) || 1);
 
   const rawMeses = mesesProp
-    ?? parseInt(vars.meses ?? vars.numeroPeriodos ?? '6', 10)
-    || 6;
+    ?? (parseInt(vars.meses ?? vars.numeroPeriodos ?? '6', 10) || 6);
 
   const periodoInicio = periodoInicioProp ?? new Date();
 
