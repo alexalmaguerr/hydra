@@ -1132,6 +1132,49 @@ function calcularCotizacion(orden: OrdenInspeccionData): ConceptoCotizacion[] {
   return conceptos;
 }
 
+/**
+ * Calcula los conceptos de cotización usando los datos capturados en CuantificacionModal.
+ * El diámetro de toma viene del formulario; materiales y metros vienen de la inspección (si existe).
+ */
+function calcularCotizacionDesdeCuantificacion(
+  cuant: CuantificacionData,
+  insp?: OrdenInspeccionData,
+): ConceptoCotizacion[] {
+  const conceptos: ConceptoCotizacion[] = [];
+
+  // Derechos de conexión (fijo)
+  conceptos.push({ descripcion: 'Derechos de conexión', cantidad: 1, unidad: 'servicio', precioUnitario: 1200, subtotal: 1200 });
+
+  // Instalación de toma (diámetro del formulario de cuantificación)
+  if (cuant.diametroToma) {
+    const pu = PRECIO_TOMA[cuant.diametroToma] ?? 5800;
+    conceptos.push({ descripcion: `Instalación de toma ${cuant.diametroToma}`, cantidad: 1, unidad: 'pieza', precioUnitario: pu, subtotal: pu });
+  }
+
+  // Materiales y metros desde inspección (si existe)
+  if (insp) {
+    const mlCalle = (parseFloat(insp.metrosRupturaAguaCalle ?? insp.metrosRupturaCalle ?? '0') || 0)
+                  + (parseFloat(insp.metrosRupturaDrenajeCalle ?? '0') || 0);
+    if (mlCalle > 0) {
+      const pu = PRECIO_CALLE[insp.materialCalle ?? ''] ?? 400;
+      conceptos.push({ descripcion: `Reposición de calle (${MATERIAL_LABEL[insp.materialCalle ?? ''] ?? 'N/A'})`, cantidad: mlCalle, unidad: 'ml', precioUnitario: pu, subtotal: mlCalle * pu });
+    }
+
+    const mlBanqueta = (parseFloat(insp.metrosRupturaAguaBanqueta ?? insp.metrosRupturaBanqueta ?? '0') || 0)
+                     + (parseFloat(insp.metrosRupturaDrenajeBanqueta ?? '0') || 0);
+    if (mlBanqueta > 0) {
+      const pu = PRECIO_BANQUETA[insp.materialBanqueta ?? ''] ?? 350;
+      conceptos.push({ descripcion: `Reposición de banqueta (${MATERIAL_LABEL[insp.materialBanqueta ?? ''] ?? 'N/A'})`, cantidad: mlBanqueta, unidad: 'ml', precioUnitario: pu, subtotal: mlBanqueta * pu });
+    }
+
+    if (insp.medidorExistente === 'no') {
+      conceptos.push({ descripcion: 'Suministro e instalación de medidor', cantidad: 1, unidad: 'pieza', precioUnitario: 2800, subtotal: 2800 });
+    }
+  }
+
+  return conceptos;
+}
+
 const MXN = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' });
 
 // ── Cotización Modal ──────────────────────────────────────────────────────────
@@ -1143,7 +1186,9 @@ function CotizacionModal({
   onAceptar,
   onRechazar,
   onVerInspeccion,
+  onEditarCuantificacion,
   tipoContratacionNombre,
+  cuantificacionData,
 }: {
   record: SolicitudRecord | null;
   open: boolean;
@@ -1151,7 +1196,9 @@ function CotizacionModal({
   onAceptar: (id: string, contratoId?: string) => void;
   onRechazar: (id: string) => void;
   onVerInspeccion: (record: SolicitudRecord) => void;
+  onEditarCuantificacion?: () => void;
   tipoContratacionNombre?: string;
+  cuantificacionData?: CuantificacionData;
 }) {
   const [aceptando, setAceptando] = useState(false);
   const [generandoPdf, setGenerandoPdf] = useState(false);
@@ -1160,11 +1207,23 @@ function CotizacionModal({
 
   if (!record) return null;
 
-  // Use real inspection data if available, otherwise use first mock preset for cotización
-  const ordenData = record.ordenInspeccion ?? MOCK_INSPECCIONES[0];
-  const conceptos = calcularCotizacion(ordenData);
+  // Datos de cuantificación: del prop (recién capturado) o del formData persistido
+  const cuantData: CuantificacionData | undefined =
+    cuantificacionData ?? (record.formData as any)?.cuantificacionData;
+
+  // Inspección real (sin fallback a mock)
+  const ordenData = record.ordenInspeccion;
+
+  // Calcular conceptos: si hay datos de cuantificación, usarlos; si no, usar inspección real o mock
+  const conceptos = cuantData
+    ? calcularCotizacionDesdeCuantificacion(cuantData, ordenData)
+    : calcularCotizacion(ordenData ?? MOCK_INSPECCIONES[0]);
+
   const total = conceptos.reduce((s, c) => s + c.subtotal, 0);
-  const vigencia = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' });
+  const vigenciaDate = cuantData?.fechaVigencia
+    ? new Date(cuantData.fechaVigencia)
+    : new Date(Date.now() + 5 * 24 * 60 * 60 * 1000);
+  const vigencia = vigenciaDate.toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' });
 
   async function handleAceptar() {
     setAceptando(true);
@@ -1259,6 +1318,17 @@ function CotizacionModal({
         {/* Actions */}
         <div className="flex items-center justify-between gap-3 pt-1">
           <div className="flex items-center gap-2">
+            {onEditarCuantificacion && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="gap-1.5 text-muted-foreground"
+                onClick={() => { onClose(); onEditarCuantificacion(); }}
+              >
+                ← Editar cuantificación
+              </Button>
+            )}
             <Button
               type="button"
               variant="outline"
@@ -1836,7 +1906,9 @@ export default function Solicitudes() {
         onAceptar={(id, contratoId) => handleConfirmarCotizacion(id, contratoId)}
         onRechazar={handleRechazar}
         onVerInspeccion={(r) => { setCotizandoRecord(null); setInspRecord(r); }}
+        onEditarCuantificacion={() => { setCuantificandoRecord(cotizandoRecord); setCotizandoRecord(null); }}
         tipoContratacionNombre={cotizandoRecord ? tipoNombreMap.get(cotizandoRecord.tipoContratacionId) : undefined}
+        cuantificacionData={(cotizandoRecord?.formData as any)?.cuantificacionData}
       />
     </div>
   );
