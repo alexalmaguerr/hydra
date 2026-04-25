@@ -16,7 +16,12 @@ import tarifasAgua from '@/data/tarifas-agua.json';
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
-export type TarifaEntry = { precios: number[]; tasa: number };
+export type TarifaEntry = {
+  precios: number[];          // precios[m] = cargo acumulado para m m³ por unidad (0..200)
+  precioBase200: number;      // cargo fijo cuando consumo > 200 m³
+  precioM3Adicional: number;  // cargo por cada m³ adicional sobre 200
+  tasa: number;
+};
 export type TarifasAguaData = Record<string, Record<string, TarifaEntry>>;
 
 const DATA = tarifasAgua as TarifasAguaData;
@@ -42,27 +47,50 @@ export function getTiposTarifa(administracion: string): string[] {
   return Object.keys(DATA[administracion] ?? {});
 }
 
+// ── Redondeo según regla CEA ──────────────────────────────────────────────────
+
+/**
+ * Redondea el consumo según la regla:
+ *   fracción > 0.50  → sube al siguiente entero
+ *   fracción ≤ 0.50  → baja al entero inferior
+ */
+function redondearConsumo(valor: number): number {
+  const fraccion = valor % 1;
+  return fraccion > 0.50 ? Math.ceil(valor) : Math.floor(valor);
+}
+
 // ── Lookup principal ──────────────────────────────────────────────────────────
 
 /**
- * Devuelve el cargo de agua para un consumo exacto.
+ * Calcula el cargo de agua por unidad para un consumo dado.
  *
  * @param administracion  Nombre exacto de la administración (ej. "QUERÉTARO")
  * @param tipoTarifa      Tipo de tarifa (ej. "DOMÉSTICA MEDIO")
- * @param m3              Consumo en m³ (entero, 0–200)
- * @returns { precioBase, tasa } o null si no hay dato
+ * @param consumoM3       Consumo POR UNIDAD en m³ (ya dividido; se redondea internamente)
+ * @param unidades        Número de unidades servidas
+ * @returns { aguaTotal, tasa } o null si no hay dato
  */
 export function getPrecioAgua(
   administracion: string,
   tipoTarifa: string,
-  m3: number,
-): { precioBase: number; tasa: number } | null {
+  consumoM3: number,
+  unidades = 1,
+): { aguaTotal: number; tasa: number } | null {
   const entry = DATA[administracion]?.[tipoTarifa];
   if (!entry) return null;
 
-  const idx = Math.min(Math.max(Math.round(m3), 0), entry.precios.length - 1);
-  const precioBase = entry.precios[idx] ?? 0;
-  return { precioBase, tasa: entry.tasa };
+  const consumo = redondearConsumo(consumoM3);
+
+  let aguaTotal: number;
+  if (consumo > 200) {
+    // Fórmula: (consumo × precioM3Adicional) × unidades + precioBase200
+    aguaTotal = (consumo * entry.precioM3Adicional) * unidades + entry.precioBase200;
+  } else {
+    const idx = Math.max(consumo, 0);
+    aguaTotal = (entry.precios[idx] ?? 0) * unidades;
+  }
+
+  return { aguaTotal, tasa: entry.tasa };
 }
 
 // ── Cálculo completo de un periodo ───────────────────────────────────────────
@@ -84,36 +112,37 @@ export interface ConceptoPeriodo {
  *
  * @param administracion  Nombre de la administración
  * @param tipoTarifa      Tipo de tarifa
- * @param m3              Consumo en m³
- * @param unidades        Número de unidades servidas (multiplica el cargo)
+ * @param m3Total         Consumo TOTAL en m³ (suma de todas las unidades)
+ * @param unidades        Número de unidades servidas
+ *
+ * Internamente calcula: consumo_por_unidad = m3Total / unidades (con redondeo CEA),
+ * luego aplica tarifa de tabla (≤200 m³) o fórmula (>200 m³).
  */
 export function calcularCargoPeriodo(
   administracion: string,
   tipoTarifa: string,
-  m3: number,
+  m3Total: number,
   unidades = 1,
 ): ConceptoPeriodo | null {
-  const tarifaAgua = getPrecioAgua(administracion, tipoTarifa, m3);
-  if (!tarifaAgua) return null;
+  const consumoPorUnidad = m3Total / (unidades || 1);
+  const result = getPrecioAgua(administracion, tipoTarifa, consumoPorUnidad, unidades);
+  if (!result) return null;
 
-  const agua = tarifaAgua.precioBase * unidades;
+  const agua          = result.aguaTotal;
   const alcantarillado = agua * ALCANTARILLADO_RATE;
-  const saneamiento = agua * SANEAMIENTO_RATE;
-
-  const ivaAgua = agua * tarifaAgua.tasa;
-  const ivaAlcantarillado = 0; // Alcantarillado no tiene IVA generalmente
-  const ivaSaneamiento = 0;    // Saneamiento no tiene IVA generalmente
+  const saneamiento   = agua * SANEAMIENTO_RATE;
+  const ivaAgua       = agua * result.tasa;
 
   const subtotal = agua + alcantarillado + saneamiento;
-  const iva = ivaAgua + ivaAlcantarillado + ivaSaneamiento;
+  const iva      = ivaAgua;
 
   return {
     agua,
     alcantarillado,
     saneamiento,
     ivaAgua,
-    ivaAlcantarillado,
-    ivaSaneamiento,
+    ivaAlcantarillado: 0,
+    ivaSaneamiento:    0,
     subtotal,
     iva,
     total: subtotal + iva,

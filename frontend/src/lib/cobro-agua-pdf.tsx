@@ -59,7 +59,7 @@ export interface CobroAguaPdfProps {
 // ── Motor de cálculo ──────────────────────────────────────────────────────────
 
 function generarFilas(
-  consumoM3: number,
+  m3Total: number,       // consumo TOTAL (todas las unidades)
   unidades: number,
   administracion: string,
   tipoTarifa: string,
@@ -69,24 +69,30 @@ function generarFilas(
   const filas: FilaCobro[] = [];
   let serviciosVencidos = 0;
 
+  // consumo por unidad (para mostrar en tabla y para lookup)
+  const consumoPorUnidad = m3Total / (unidades || 1);
+  const consumoRedondeado = consumoPorUnidad % 1 > 0.50
+    ? Math.ceil(consumoPorUnidad)
+    : Math.floor(consumoPorUnidad);
+
   for (let i = 0; i < numMeses; i++) {
     const fecha = new Date(periodoInicio.getFullYear(), periodoInicio.getMonth() + i, 1);
 
-    // Usar tarifas reales del catálogo
-    const cargo = calcularCargoPeriodo(administracion, tipoTarifa, consumoM3, unidades);
-    const agua = cargo?.agua ?? consumoM3 * unidades * 36.77;
+    // calcularCargoPeriodo divide internamente m3Total / unidades
+    const cargo = calcularCargoPeriodo(administracion, tipoTarifa, m3Total, unidades);
+    const agua          = cargo?.agua          ?? m3Total * 36.77;
     const alcantarillado = cargo?.alcantarillado ?? agua * 0.10;
-    const saneamiento = cargo?.saneamiento ?? agua * 0.12;
+    const saneamiento   = cargo?.saneamiento   ?? agua * 0.12;
 
     const serviciosPeriodo = agua + alcantarillado + saneamiento;
-    const recargos = i === 0 ? 0 : serviciosVencidos * RECARGO_MENSUAL;
-    const totalPeriodo = serviciosPeriodo + recargos;
+    const recargos         = i === 0 ? 0 : serviciosVencidos * RECARGO_MENSUAL;
+    const totalPeriodo     = serviciosPeriodo + recargos;
 
     filas.push({
       anio: fecha.getFullYear(),
       mes: MESES_ES[fecha.getMonth()],
       unidadesServidas: unidades,
-      consumoM3,
+      consumoM3: consumoRedondeado, // m3 por unidad (para mostrar en tabla)
       agua,
       alcantarillado,
       saneamiento,
