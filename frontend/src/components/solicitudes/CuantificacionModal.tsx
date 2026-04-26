@@ -13,6 +13,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
   DialogContent,
@@ -33,7 +34,12 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { fetchAdministraciones } from '@/api/catalogos';
-import { getTiposTarifa, resolveAdministracion } from '@/lib/tarifas';
+import {
+  getTiposTarifa,
+  resolveAdministracion,
+  calcularCargoPeriodo,
+  RECARGO_MENSUAL,
+} from '@/lib/tarifas';
 import type { SolicitudRecord, OrdenInspeccionData } from '@/types/solicitudes';
 
 // ── Constantes ────────────────────────────────────────────────────────────────
@@ -53,6 +59,10 @@ const TIPO_AGUA_OPTS = [
   { value: 'condominal',  label: 'Condominal' },
 ];
 
+const NUM_MESES_OPTS = [3, 6, 9, 12] as const;
+
+const MXN = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 2 });
+
 /** Genera folio de cuantificación temporal hasta que el backend lo provea. */
 function generarFolioCuantificacion(solicitudFolio: string): string {
   const now = new Date();
@@ -61,22 +71,19 @@ function generarFolioCuantificacion(solicitudFolio: string): string {
   return `COT-${yy}${mm}-${solicitudFolio}`;
 }
 
-/** Calcula meses entre dos fechas (inclusive). */
-function mesesEntre(inicio: Date, fin: Date): number {
-  return Math.max(
-    1,
-    (fin.getFullYear() - inicio.getFullYear()) * 12 +
-    (fin.getMonth() - inicio.getMonth()) + 1,
-  );
-}
-
 function toMonthInput(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 }
 
-function fromMonthInput(s: string): Date {
-  const [y, m] = s.split('-').map(Number);
-  return new Date(y, m - 1, 1);
+function addMonths(yyyymm: string, n: number): string {
+  const [y, m] = yyyymm.split('-').map(Number);
+  const d = new Date(y, m - 1 + n, 1);
+  return toMonthInput(d);
+}
+
+function monthLabel(yyyymm: string): string {
+  const [y, m] = yyyymm.split('-').map(Number);
+  return new Date(y, m - 1, 1).toLocaleDateString('es-MX', { month: 'short', year: 'numeric' });
 }
 
 // ── Tipos internos ────────────────────────────────────────────────────────────
@@ -98,9 +105,12 @@ export interface CuantificacionData {
   incluirAgua: boolean;
   tipoAgua: 'individual' | 'condominal';
   periodoInicio: string;      // YYYY-MM
-  periodoFin: string;         // YYYY-MM
-  meses: number;
+  periodoFin: string;         // YYYY-MM (auto-computed from inicio + numMeses)
+  numMeses: number;
   consumoM3: number;
+  aplicaAgua: boolean;
+  aplicaAlcantarillado: boolean;
+  aplicaSaneamiento: boolean;
 }
 
 export interface CuantificacionModalProps {
@@ -179,19 +189,47 @@ export function CuantificacionModal({
   const [diametroDescarga, setDiametroDescarga] = useState('');
   const [tarifa, setTarifa]                   = useState(tarifaDefault);
   const [unidades, setUnidades]               = useState(String(unidadesDefault));
-  const [incluirAgua, setIncluirAgua]         = useState(true);
-  const [tipoAgua, setTipoAgua]               = useState<'individual' | 'condominal'>(
+  const [incluirAgua, setIncluirAgua]           = useState(true);
+  const [tipoAgua, setTipoAgua]                 = useState<'individual' | 'condominal'>(
     fd?.esCondominio === 'si' ? 'condominal' : 'individual',
   );
-  const [periodoInicio, setPeriodoInicio]     = useState(toMonthInput(hoy));
-  const [periodoFin, setPeriodoFin]           = useState(toMonthInput(hoy));
-  const [consumoM3, setConsumoM3]             = useState('');
+  const [periodoInicio, setPeriodoInicio]       = useState(toMonthInput(hoy));
+  const [numMeses, setNumMeses]                 = useState<number>(3);
+  const [consumoM3, setConsumoM3]               = useState('');
+  const [aplicaAgua, setAplicaAgua]             = useState(true);
+  const [aplicaAlcantarillado, setAplicaAlcantarillado] = useState(true);
+  const [aplicaSaneamiento, setAplicaSaneamiento]       = useState(true);
 
-  // Recalcular meses automáticamente cuando cambia el periodo
-  const meses = useMemo(
-    () => mesesEntre(fromMonthInput(periodoInicio), fromMonthInput(periodoFin)),
-    [periodoInicio, periodoFin],
+  // Período fin: auto-calculado desde inicio + numMeses
+  const periodoFin = useMemo(
+    () => addMonths(periodoInicio, numMeses - 1),
+    [periodoInicio, numMeses],
   );
+
+  // Vista previa del cálculo de agua por mes
+  const previewRows = useMemo(() => {
+    if (!incluirAgua) return [];
+    const m3 = parseFloat(consumoM3) || 0;
+    if (m3 <= 0 || !tarifa) return [];
+    const u = parseInt(unidades, 10) || 1;
+    const cargo = calcularCargoPeriodo(adminCatalogo, tarifa, m3, u);
+    if (!cargo) return [];
+
+    const rows: { mes: string; agua: number; alc: number; san: number; recargo: number; total: number }[] = [];
+    let saldoVencido = 0;
+    for (let i = 0; i < numMeses; i++) {
+      const mes = monthLabel(addMonths(periodoInicio, i));
+      const agua = aplicaAgua ? cargo.agua : 0;
+      const alc  = aplicaAlcantarillado ? cargo.alcantarillado : 0;
+      const san  = aplicaSaneamiento ? cargo.saneamiento : 0;
+      const servicio = agua + alc + san;
+      const recargo  = saldoVencido * RECARGO_MENSUAL;
+      const total    = servicio + recargo;
+      rows.push({ mes, agua, alc, san, recargo, total });
+      saldoVencido += servicio;
+    }
+    return rows;
+  }, [incluirAgua, consumoM3, unidades, adminCatalogo, tarifa, numMeses, periodoInicio, aplicaAgua, aplicaAlcantarillado, aplicaSaneamiento]);
 
   // Pre-llenar desde inspección cuando cambia el record
   useEffect(() => {
@@ -249,8 +287,11 @@ export function CuantificacionModal({
       tipoAgua,
       periodoInicio,
       periodoFin,
-      meses,
+      numMeses,
       consumoM3: parseFloat(consumoM3) || 0,
+      aplicaAgua,
+      aplicaAlcantarillado,
+      aplicaSaneamiento,
     };
   }
 
@@ -456,58 +497,154 @@ export function CuantificacionModal({
           </div>
 
           {incluirAgua && (
-            <div className="grid grid-cols-2 gap-x-6 gap-y-3">
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-x-6 gap-y-3">
 
-              <Field label="Tipo">
-                <Select value={tipoAgua} onValueChange={(v) => setTipoAgua(v as 'individual' | 'condominal')}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {TIPO_AGUA_OPTS.map((o) => (
-                      <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                <Field label="Tipo">
+                  <Select value={tipoAgua} onValueChange={(v) => setTipoAgua(v as 'individual' | 'condominal')}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {TIPO_AGUA_OPTS.map((o) => (
+                        <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+
+                <Field label="Consumo (m³)">
+                  <Input
+                    type="number"
+                    min={0}
+                    step={0.1}
+                    value={consumoM3}
+                    onChange={(e) => setConsumoM3(e.target.value)}
+                    placeholder="m³"
+                  />
+                </Field>
+
+                <Field label="Periodo inicio">
+                  <Input
+                    type="month"
+                    value={periodoInicio}
+                    onChange={(e) => setPeriodoInicio(e.target.value)}
+                  />
+                </Field>
+
+                <Field label="Número de meses">
+                  <div className="flex gap-2">
+                    {NUM_MESES_OPTS.map((n) => (
+                      <button
+                        key={n}
+                        type="button"
+                        onClick={() => setNumMeses(n)}
+                        className={`flex-1 h-9 rounded-md border text-sm font-medium transition-colors
+                          ${numMeses === n
+                            ? 'bg-blue-600 text-white border-blue-600'
+                            : 'bg-background hover:bg-muted'}`}
+                      >
+                        {n}
+                      </button>
                     ))}
-                  </SelectContent>
-                </Select>
-              </Field>
+                  </div>
+                </Field>
 
-              <Field label="Consumo (m³)">
-                <Input
-                  type="number"
-                  min={0}
-                  step={0.1}
-                  value={consumoM3}
-                  onChange={(e) => setConsumoM3(e.target.value)}
-                  placeholder="m³"
-                />
-              </Field>
+                <Field label="Periodo fin">
+                  <div className="flex h-9 items-center rounded-md border bg-muted/40 px-3 text-sm tabular-nums">
+                    {monthLabel(periodoFin)}
+                    <Badge variant="secondary" className="ml-2 text-xs">Auto</Badge>
+                  </div>
+                </Field>
 
-              <Field label="Periodo inicio">
-                <Input
-                  type="month"
-                  value={periodoInicio}
-                  onChange={(e) => {
-                    setPeriodoInicio(e.target.value);
-                    // Si el fin queda antes del inicio, ajustarlo
-                    if (e.target.value > periodoFin) setPeriodoFin(e.target.value);
-                  }}
-                />
-              </Field>
+                <Field label="Total meses">
+                  <div className="flex h-9 items-center rounded-md border bg-muted/40 px-3 text-sm tabular-nums">
+                    {numMeses} meses
+                  </div>
+                </Field>
 
-              <Field label="Periodo fin">
-                <Input
-                  type="month"
-                  value={periodoFin}
-                  min={periodoInicio}
-                  onChange={(e) => setPeriodoFin(e.target.value)}
-                />
-              </Field>
+              </div>
 
-              <Field label="Meses">
-                <div className="flex h-9 items-center rounded-md border bg-muted/40 px-3 text-sm tabular-nums">
-                  {meses} {meses === 1 ? 'mes' : 'meses'}
-                  <Badge variant="secondary" className="ml-2 text-xs">Auto</Badge>
+              {/* Checkboxes de conceptos */}
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+                  Conceptos a incluir
+                </p>
+                <div className="flex flex-wrap gap-5">
+                  <label className="flex items-center gap-2 cursor-pointer text-sm">
+                    <Checkbox
+                      checked={aplicaAgua}
+                      onCheckedChange={(v) => setAplicaAgua(Boolean(v))}
+                    />
+                    Agua
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer text-sm">
+                    <Checkbox
+                      checked={aplicaAlcantarillado}
+                      onCheckedChange={(v) => setAplicaAlcantarillado(Boolean(v))}
+                    />
+                    Alcantarillado (10%)
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer text-sm">
+                    <Checkbox
+                      checked={aplicaSaneamiento}
+                      onCheckedChange={(v) => setAplicaSaneamiento(Boolean(v))}
+                    />
+                    Saneamiento (12%)
+                  </label>
                 </div>
-              </Field>
+              </div>
 
+              {/* Vista previa del cálculo */}
+              {previewRows.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+                    Proyección de cobro
+                  </p>
+                  <div className="overflow-x-auto rounded-md border">
+                    <table className="w-full text-xs">
+                      <thead className="bg-muted/50">
+                        <tr>
+                          <th className="px-3 py-2 text-left font-medium">Mes</th>
+                          {aplicaAgua          && <th className="px-3 py-2 text-right font-medium">Agua</th>}
+                          {aplicaAlcantarillado && <th className="px-3 py-2 text-right font-medium">Alcantarillado</th>}
+                          {aplicaSaneamiento    && <th className="px-3 py-2 text-right font-medium">Saneamiento</th>}
+                          <th className="px-3 py-2 text-right font-medium">Recargo</th>
+                          <th className="px-3 py-2 text-right font-medium">Total</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {previewRows.map((row, i) => (
+                          <tr key={i} className={i % 2 === 0 ? '' : 'bg-muted/20'}>
+                            <td className="px-3 py-1.5 capitalize">{row.mes}</td>
+                            {aplicaAgua          && <td className="px-3 py-1.5 text-right tabular-nums">{MXN.format(row.agua)}</td>}
+                            {aplicaAlcantarillado && <td className="px-3 py-1.5 text-right tabular-nums">{MXN.format(row.alc)}</td>}
+                            {aplicaSaneamiento    && <td className="px-3 py-1.5 text-right tabular-nums">{MXN.format(row.san)}</td>}
+                            <td className="px-3 py-1.5 text-right tabular-nums text-orange-600">
+                              {row.recargo > 0 ? MXN.format(row.recargo) : '—'}
+                            </td>
+                            <td className="px-3 py-1.5 text-right tabular-nums font-medium">{MXN.format(row.total)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot className="bg-muted/50 font-medium">
+                        <tr>
+                          <td className="px-3 py-2">Total</td>
+                          {aplicaAgua          && <td className="px-3 py-2 text-right tabular-nums">{MXN.format(previewRows.reduce((s, r) => s + r.agua, 0))}</td>}
+                          {aplicaAlcantarillado && <td className="px-3 py-2 text-right tabular-nums">{MXN.format(previewRows.reduce((s, r) => s + r.alc, 0))}</td>}
+                          {aplicaSaneamiento    && <td className="px-3 py-2 text-right tabular-nums">{MXN.format(previewRows.reduce((s, r) => s + r.san, 0))}</td>}
+                          <td className="px-3 py-2 text-right tabular-nums text-orange-600">{MXN.format(previewRows.reduce((s, r) => s + r.recargo, 0))}</td>
+                          <td className="px-3 py-2 text-right tabular-nums">{MXN.format(previewRows.reduce((s, r) => s + r.total, 0))}</td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {incluirAgua && (!consumoM3 || parseFloat(consumoM3) <= 0) && (
+                <p className="text-xs text-muted-foreground">
+                  Ingresa el consumo en m³ para ver la proyección.
+                </p>
+              )}
             </div>
           )}
 
