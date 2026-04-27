@@ -76,8 +76,7 @@ import {
 } from '@/lib/cotizacion-tarifas';
 import { uploadCotizacionPdf, openCotizacionPdf } from '@/api/solicitudes';
 import { pdf } from '@react-pdf/renderer';
-import { CotizacionPdfDocument } from '@/lib/cotizacion-pdf';
-import { CobroAguaPdfDocument } from '@/lib/cobro-agua-pdf';
+// PDF document components loaded lazily (dynamic import) to avoid Rollup TDZ init issues
 import { ADMINISTRACIONES, getTiposTarifa, resolveAdministracion, resolveTipoTarifa } from '@/lib/tarifas';
 import type { SolicitudRecord, OrdenInspeccionData, SolicitudEstado } from '@/types/solicitudes';
 import { CuantificacionModal, type CuantificacionData } from '@/components/solicitudes/CuantificacionModal';
@@ -1003,6 +1002,7 @@ function VerSolicitudDialog({
                     await openCotizacionPdf(record.id);
                   } catch {
                     try {
+                      const { CotizacionPdfDocument } = await import('@/lib/cotizacion-pdf');
                       const blob = await pdf(
                         <CotizacionPdfDocument record={record} ordenData={od} conceptos={conceptos} />
                       ).toBlob();
@@ -1043,6 +1043,7 @@ function VerSolicitudDialog({
         onGenerar={async (cfg) => {
           setGenerandoCobroPdf(true);
           try {
+            const { CobroAguaPdfDocument } = await import('@/lib/cobro-agua-pdf');
             const blob = await pdf(
               <CobroAguaPdfDocument
                 record={record}
@@ -1233,6 +1234,7 @@ function CotizacionModal({
 
       // Generate PDF: open in new tab immediately + upload to server in background
       if (ordenData && conceptos.length > 0) {
+        const { CotizacionPdfDocument } = await import('@/lib/cotizacion-pdf');
         const doc = (
           <CotizacionPdfDocument
             record={record!}
@@ -1331,6 +1333,7 @@ function CotizacionModal({
               onClick={async () => {
                 setGenerandoPdf(true);
                 try {
+                  const { CotizacionPdfDocument } = await import('@/lib/cotizacion-pdf');
                   const doc = (
                     <CotizacionPdfDocument
                       record={record}
@@ -1393,6 +1396,7 @@ function CotizacionModal({
         onGenerar={async (cfg) => {
           setGenerandoCobroPdf(true);
           try {
+            const { CobroAguaPdfDocument } = await import('@/lib/cobro-agua-pdf');
             const blob = await pdf(
               <CobroAguaPdfDocument
                 record={record}
