@@ -1892,7 +1892,11 @@ export default function Solicitudes() {
             formData: { ...cuantificandoRecord.formData, cuantificacionData: data as any },
           }).catch(() => {});
           setCuantificandoRecord(null);
-          setCotizandoRecord(cuantificandoRecord);
+          // Pass updated formData so CotizacionModal recalculates with the new cuantificación values
+          setCotizandoRecord({
+            ...cuantificandoRecord,
+            formData: { ...cuantificandoRecord.formData, cuantificacionData: data as any },
+          } as SolicitudRecord);
         }}
       />
 
