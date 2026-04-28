@@ -35,12 +35,11 @@ export class DomiciliosController {
 
   @Get('colonias')
   buscarColonias(
-    @Query('codigoPostal') codigoPostal?: string,
     @Query('nombre') nombre?: string,
-    @Query('municipioId') municipioId?: string,
+    @Query('localidadId') localidadId?: string,
     @Query('limit', new DefaultValuePipe(30), ParseIntPipe) limit = 30,
   ) {
-    return this.service.buscarColonias({ codigoPostal, nombre, municipioId, limit });
+    return this.service.buscarColonias({ nombre, localidadId, limit });
   }
 
   /** Resumen de volúmenes de catálogo INEGI */
@@ -71,22 +70,15 @@ export class DomiciliosController {
     return this.service.findCatalogoLocalidadesPaginated({ municipioId, nombre, page, limit });
   }
 
-  /** Colonias INEGI paginadas */
+  /** Colonias paginadas */
   @Get('catalogo-inegi/colonias')
   catalogoInegiColonias(
-    @Query('municipioId') municipioId?: string,
-    @Query('codigoPostal') codigoPostal?: string,
+    @Query('localidadId') localidadId?: string,
     @Query('nombre') nombre?: string,
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page = 1,
     @Query('limit', new DefaultValuePipe(50), ParseIntPipe) limit = 50,
   ) {
-    return this.service.findCatalogoColoniasPaginated({
-      municipioId,
-      codigoPostal,
-      nombre,
-      page,
-      limit,
-    });
+    return this.service.findCatalogoColoniasPaginated({ localidadId, nombre, page, limit });
   }
 
   @Get()

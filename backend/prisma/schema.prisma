@@ -1348,7 +1348,6 @@ model CatalogoMunicipioINEGI {
   updatedAt   DateTime                 @updatedAt @map("updated_at")
   estado      CatalogoEstadoINEGI      @relation(fields: [estadoId], references: [id], onDelete: Restrict)
   localidades CatalogoLocalidadINEGI[]
-  colonias    CatalogoColoniaINEGI[]
   domicilios  Domicilio[]
 
   @@index([estadoId])
@@ -1356,34 +1355,34 @@ model CatalogoMunicipioINEGI {
 }
 
 model CatalogoLocalidadINEGI {
-  id          String                 @id @default(cuid())
-  municipioId String                 @map("municipio_id")
-  claveINEGI  String                 @unique @map("clave_inegi")
-  nombre      String
-  activo      Boolean                @default(true)
-  createdAt   DateTime               @default(now()) @map("created_at")
-  updatedAt   DateTime               @updatedAt @map("updated_at")
-  municipio   CatalogoMunicipioINEGI @relation(fields: [municipioId], references: [id], onDelete: Restrict)
-  domicilios  Domicilio[]
+  id           String                 @id @default(cuid())
+  municipioId  String                 @map("municipio_id")
+  aquasisPobid Int                    @unique @map("aquasis_pobid")
+  nombre       String
+  activo       Boolean                @default(true)
+  createdAt    DateTime               @default(now()) @map("created_at")
+  updatedAt    DateTime               @updatedAt @map("updated_at")
+  municipio    CatalogoMunicipioINEGI @relation(fields: [municipioId], references: [id], onDelete: Restrict)
+  colonias     CatalogoColoniaINEGI[]
+  domicilios   Domicilio[]
 
   @@index([municipioId])
   @@map("catalogo_localidades_inegi")
 }
 
 model CatalogoColoniaINEGI {
-  id           String                 @id @default(cuid())
-  municipioId  String                 @map("municipio_id")
-  codigoPostal String                 @map("codigo_postal")
-  claveINEGI   String                 @unique @map("clave_inegi")
-  nombre       String
-  activo       Boolean                @default(true)
-  createdAt    DateTime               @default(now()) @map("created_at")
-  updatedAt    DateTime               @updatedAt @map("updated_at")
-  municipio    CatalogoMunicipioINEGI @relation(fields: [municipioId], references: [id], onDelete: Restrict)
-  domicilios   Domicilio[]
+  id            String                 @id @default(cuid())
+  localidadId   String                 @map("localidad_id")
+  aquasisBarrId Int                    @unique @map("aquasis_barr_id")
+  nombre        String
+  tipo          String                 @default("COLONIA")
+  activo        Boolean                @default(true)
+  createdAt     DateTime               @default(now()) @map("created_at")
+  updatedAt     DateTime               @updatedAt @map("updated_at")
+  localidad     CatalogoLocalidadINEGI @relation(fields: [localidadId], references: [id], onDelete: Restrict)
+  domicilios    Domicilio[]
 
-  @@index([municipioId])
-  @@index([codigoPostal])
+  @@index([localidadId])
   @@map("catalogo_colonias_inegi")
 }
 

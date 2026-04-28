@@ -989,6 +989,8 @@ async function seedSectoresClasesVariables() {
 }
 
 async function seedInegiQueretaro() {
+  // Localidades y colonias ya NO se seedan aquí — están en la migration SQL
+  // 20260427000000_aquasis_localidades_colonias (datos Aquasis, 3595 loc / 3815 col)
   const estado = await prisma.catalogoEstadoINEGI.upsert({
     where: { claveINEGI: '22' },
     update: {},
@@ -1009,115 +1011,10 @@ async function seedInegiQueretaro() {
     });
   }
 
-  const mpioQueretaro = await prisma.catalogoMunicipioINEGI.findUniqueOrThrow({
-    where: { claveINEGI: '22014' },
-  });
-  const mpioMarques = await prisma.catalogoMunicipioINEGI.findUniqueOrThrow({
-    where: { claveINEGI: '22011' },
-  });
-
-  const localidadesQro = loadCatalogoLocalidadesQroAgeeml();
-  if (localidadesQro.length > 0) {
-    const munPorClave = await prisma.catalogoMunicipioINEGI.findMany({
-      where: { estadoId: estado.id },
-      select: { id: true, claveINEGI: true },
-    });
-    const munIdPorClave = new Map(munPorClave.map((m) => [m.claveINEGI, m.id]));
-    const LOC_BATCH = 500;
-    let locInsertadas = 0;
-    for (let i = 0; i < localidadesQro.length; i += LOC_BATCH) {
-      const chunk = localidadesQro.slice(i, i + LOC_BATCH);
-      const data = chunk
-        .map((r) => {
-          const municipioId = munIdPorClave.get(r.claveMunicipioINEGI);
-          if (!municipioId) return null;
-          return {
-            municipioId,
-            claveINEGI: r.claveINEGI,
-            nombre: r.nombre,
-            activo: true,
-          };
-        })
-        .filter((x): x is NonNullable<typeof x> => x != null);
-      if (data.length > 0) {
-        const r = await prisma.catalogoLocalidadINEGI.createMany({
-          data,
-          skipDuplicates: true,
-        });
-        locInsertadas += r.count;
-      }
-    }
-    console.log(
-      'INEGI QRO localidades (desde JSON versionado):',
-      localidadesQro.length,
-      'filas en archivo,',
-      locInsertadas,
-      'filas nuevas insertadas en esta corrida (omitidas si ya existían por clave).',
-    );
-  } else {
-    console.warn(
-      'INEGI QRO: sin prisma/data/catalogo-localidades-qro-ageeml.json — sin localidades masivas en seed.',
-    );
-  }
-
-  const colonias = [
-    { claveINEGI: '22014-0001', nombre: 'Centro Histórico', codigoPostal: '76000' },
-    { claveINEGI: '22014-0002', nombre: 'Epigmenio González', codigoPostal: '76140' },
-    { claveINEGI: '22014-0003', nombre: 'Pedregal de Querétaro', codigoPostal: '76060' },
-    { claveINEGI: '22014-0004', nombre: 'Juriquilla', codigoPostal: '76100' },
-    { claveINEGI: '22014-0005', nombre: 'Punta Juriquilla', codigoPostal: '76230' },
-    { claveINEGI: '22014-0006', nombre: 'La Cañada', codigoPostal: '76177' },
-    { claveINEGI: '22014-0007', nombre: 'Satélite', codigoPostal: '76150' },
-    { claveINEGI: '22014-0008', nombre: 'El Refugio', codigoPostal: '76146' },
-    { claveINEGI: '22014-0009', nombre: 'Cimatario', codigoPostal: '76030' },
-    { claveINEGI: '22014-0010', nombre: 'Loma Dorada', codigoPostal: '76060' },
-    { claveINEGI: '22014-0011', nombre: 'El Cerrito', codigoPostal: '76090' },
-    { claveINEGI: '22014-0012', nombre: 'Hacienda Juriquilla', codigoPostal: '76226' },
-    { claveINEGI: '22014-0013', nombre: 'Los Ángeles', codigoPostal: '76046' },
-    { claveINEGI: '22014-0014', nombre: 'Carretas', codigoPostal: '76050' },
-    { claveINEGI: '22014-0015', nombre: 'Tecnológico', codigoPostal: '76148' },
-  ];
-
-  for (const c of colonias) {
-    await prisma.catalogoColoniaINEGI.upsert({
-      where: { claveINEGI: c.claveINEGI },
-      update: { municipioId: mpioQueretaro.id, nombre: c.nombre, codigoPostal: c.codigoPostal, activo: true },
-      create: {
-        municipioId: mpioQueretaro.id,
-        claveINEGI: c.claveINEGI,
-        nombre: c.nombre,
-        codigoPostal: c.codigoPostal,
-        activo: true,
-      },
-    });
-  }
-
-  const coloniasMarques = [
-    { claveINEGI: '22011-0001', nombre: 'Zibatá', codigoPostal: '76269' },
-    { claveINEGI: '22011-0002', nombre: 'El Marqués Centro', codigoPostal: '76260' },
-  ];
-  for (const c of coloniasMarques) {
-    await prisma.catalogoColoniaINEGI.upsert({
-      where: { claveINEGI: c.claveINEGI },
-      update: { municipioId: mpioMarques.id, nombre: c.nombre, codigoPostal: c.codigoPostal, activo: true },
-      create: {
-        municipioId: mpioMarques.id,
-        claveINEGI: c.claveINEGI,
-        nombre: c.nombre,
-        codigoPostal: c.codigoPostal,
-        activo: true,
-      },
-    });
-  }
-
   console.log(
     'INEGI Querétaro: 1 estado,',
     municipiosQro.length,
-    'municipios (SIGE/QRO),',
-    localidadesQro.length,
-    'localidades en JSON de seed,',
-    colonias.length + coloniasMarques.length,
-    'colonias demo',
+    'municipios. Localidades y colonias cargadas vía migration SQL (Aquasis).',
   );
 }
 

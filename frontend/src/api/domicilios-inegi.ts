@@ -19,7 +19,7 @@ export interface CatalogoMunicipioINEGIRow {
 export interface CatalogoLocalidadINEGIRow {
   id: string;
   municipioId: string;
-  claveINEGI: string;
+  aquasisPobid: number;
   nombre: string;
   activo: boolean;
   municipio: CatalogoMunicipioINEGIRow;
@@ -27,12 +27,12 @@ export interface CatalogoLocalidadINEGIRow {
 
 export interface CatalogoColoniaINEGIRow {
   id: string;
-  municipioId: string;
-  codigoPostal: string;
-  claveINEGI: string;
+  localidadId: string;
+  aquasisBarrId: number;
   nombre: string;
+  tipo: string;
   activo: boolean;
-  municipio: CatalogoMunicipioINEGIRow;
+  localidad: CatalogoLocalidadINEGIRow;
 }
 
 export interface PaginatedInegi<T> {
@@ -123,15 +123,13 @@ export const fetchInegiLocalidadesCatalogo = (params: {
 export const fetchInegiColoniasCatalogo = (params: {
   page?: number;
   limit?: number;
-  municipioId?: string;
-  codigoPostal?: string;
+  localidadId?: string;
   nombre?: string;
 }) => {
   const sp = new URLSearchParams();
   if (params.page != null) sp.set('page', String(params.page));
   if (params.limit != null) sp.set('limit', String(params.limit));
-  if (params.municipioId) sp.set('municipioId', params.municipioId);
-  if (params.codigoPostal) sp.set('codigoPostal', params.codigoPostal);
+  if (params.localidadId) sp.set('localidadId', params.localidadId);
   if (params.nombre) sp.set('nombre', params.nombre);
   const q = sp.toString();
   return apiRequest<PaginatedInegi<CatalogoColoniaINEGIRow>>(

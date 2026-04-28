@@ -96,7 +96,7 @@ export class PuntosServicioService {
       include: {
         domicilio: {
           include: {
-            coloniaINEGI: { include: { municipio: { include: { estado: true } } } },
+            coloniaINEGI: { include: { localidad: { include: { municipio: { include: { estado: true } } } } } },
             municipioINEGI: { include: { estado: true } },
             estadoINEGI: true,
           },

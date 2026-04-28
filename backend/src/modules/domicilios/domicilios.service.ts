@@ -148,17 +148,16 @@ export class DomiciliosService {
     });
   }
 
-  /** Búsqueda de colonias INEGI por CP o nombre */
-  async buscarColonias(params: { codigoPostal?: string; nombre?: string; municipioId?: string; limit?: number }) {
+  /** Búsqueda de colonias por nombre o localidad */
+  async buscarColonias(params: { nombre?: string; localidadId?: string; limit?: number }) {
     const limit = params.limit ?? 30;
     return this.prisma.catalogoColoniaINEGI.findMany({
       where: {
         activo: true,
-        ...(params.codigoPostal && { codigoPostal: { contains: params.codigoPostal } }),
         ...(params.nombre && { nombre: { contains: params.nombre, mode: 'insensitive' as const } }),
-        ...(params.municipioId && { municipioId: params.municipioId }),
+        ...(params.localidadId && { localidadId: params.localidadId }),
       },
-      include: { municipio: { include: { estado: true } } },
+      include: { localidad: { include: { municipio: { include: { estado: true } } } } },
       take: limit,
       orderBy: { nombre: 'asc' },
     });
@@ -262,10 +261,9 @@ export class DomiciliosService {
     return { data, total, page, limit };
   }
 
-  /** Colonias INEGI paginadas (volumen alto: siempre usar paginación) */
+  /** Colonias paginadas (filtro por localidad o nombre) */
   async findCatalogoColoniasPaginated(params: {
-    municipioId?: string;
-    codigoPostal?: string;
+    localidadId?: string;
     nombre?: string;
     page?: number;
     limit?: number;
@@ -274,8 +272,7 @@ export class DomiciliosService {
     const limit = this.clampCatalogLimit(params.limit);
     const where = {
       activo: true,
-      ...(params.municipioId && { municipioId: params.municipioId }),
-      ...(params.codigoPostal && { codigoPostal: { contains: params.codigoPostal } }),
+      ...(params.localidadId && { localidadId: params.localidadId }),
       ...(params.nombre && {
         nombre: { contains: params.nombre, mode: 'insensitive' as const },
       }),
@@ -283,8 +280,8 @@ export class DomiciliosService {
     const [data, total] = await Promise.all([
       this.prisma.catalogoColoniaINEGI.findMany({
         where,
-        include: { municipio: { include: { estado: true } } },
-        orderBy: [{ municipioId: 'asc' }, { codigoPostal: 'asc' }, { nombre: 'asc' }],
+        include: { localidad: { include: { municipio: { include: { estado: true } } } } },
+        orderBy: [{ localidadId: 'asc' }, { nombre: 'asc' }],
         skip: (page - 1) * limit,
         take: limit,
       }),
