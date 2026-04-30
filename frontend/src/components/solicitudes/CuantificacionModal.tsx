@@ -35,6 +35,8 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { fetchAdministraciones } from '@/api/catalogos';
+import { fetchSolicitud } from '@/api/solicitudes';
+import { inspeccionDtoToOrdenData } from '@/lib/cotizacion';
 import {
   fetchInegiMunicipiosCatalogo,
   fetchInegiLocalidadesCatalogo,
@@ -188,7 +190,20 @@ export function CuantificacionModal({
   onAceptar,
 }: CuantificacionModalProps) {
   const fd = record?.formData;
-  const insp: OrdenInspeccionData | undefined = record?.ordenInspeccion;
+
+  // Fetch detalle completo para obtener datos de inspección (la lista no los incluye)
+  const { data: solicitudDetalle } = useQuery({
+    queryKey: ['solicitud', record?.id],
+    queryFn: () => fetchSolicitud(record!.id),
+    enabled: open && !!record?.id,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const insp: OrdenInspeccionData | undefined =
+    record?.ordenInspeccion ??
+    (solicitudDetalle?.inspeccion
+      ? (inspeccionDtoToOrdenData(solicitudDetalle.inspeccion as Record<string, unknown>))
+      : undefined);
   const tieneInspeccion = Boolean(insp);
 
   // Catálogo de administraciones para mostrar nombre legible
@@ -312,6 +327,7 @@ export function CuantificacionModal({
   }, [incluirAgua, consumoM3, unidades, adminCatalogo, tarifa, numMeses, periodoInicio, aplicaAgua, aplicaAlcantarillado, aplicaSaneamiento]);
 
   // Re-aplicar defaults cuando cambia el record (por si el modal se reutiliza)
+  // Re-aplicar defaults cuando cambia el record o cuando llega el detalle con inspección
   useEffect(() => {
     if (diametroTomaDefault)     setDiametroToma(diametroTomaDefault);
     if (diametroDescargaDefault) setDiametroDescarga(diametroDescargaDefault);
@@ -323,7 +339,7 @@ export function CuantificacionModal({
     setElabora(user?.name ?? '');
     setPeriodoInicio(periodoInicioDefault);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [record?.id]);
+  }, [record?.id, insp?.materialCalle, insp?.materialBanqueta]);
 
   // Pre-llenar tarifa cuando carga el catálogo
   useEffect(() => {
