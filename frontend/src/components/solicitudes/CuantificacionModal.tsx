@@ -326,7 +326,6 @@ export function CuantificacionModal({
     return rows;
   }, [incluirAgua, consumoM3, unidades, adminCatalogo, tarifa, numMeses, periodoInicio, aplicaAgua, aplicaAlcantarillado, aplicaSaneamiento]);
 
-  // Re-aplicar defaults cuando cambia el record (por si el modal se reutiliza)
   // Re-aplicar defaults cuando cambia el record o cuando llega el detalle con inspección
   useEffect(() => {
     if (diametroTomaDefault)     setDiametroToma(diametroTomaDefault);
@@ -338,6 +337,8 @@ export function CuantificacionModal({
     setUnidades(unidadesDefault > 0 ? String(unidadesDefault) : '');
     setElabora(user?.name ?? '');
     setPeriodoInicio(periodoInicioDefault);
+    // Auto-open edit mode when there's no material data so the user can enter it directly
+    setEditandoInspeccion(!matCalleDefault && !matBanquetaDefault);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [record?.id, insp?.materialCalle, insp?.materialBanqueta]);
 

@@ -98,7 +98,8 @@ export function totalCotizacion(conceptos: ConceptoCotizacion[]): number {
 
 /** Convierte un SolicitudInspeccionDto (campos nullable) al shape que espera calcularCotizacion. */
 export function inspeccionDtoToOrdenData(dto: Record<string, unknown>): OrdenInspeccionData {
-  const str = (v: unknown) => (typeof v === 'string' ? v : undefined);
+  // str handles both string and numeric values from API (Prisma Float → JS number)
+  const str = (v: unknown) => (v != null && v !== '' ? String(v) : undefined);
   return {
     estado: 'completada',
     materialCalle: str(dto.materialCalle),

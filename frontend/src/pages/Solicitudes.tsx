@@ -7,6 +7,7 @@ import {
   cancelarSolicitud as apiCancelarSolicitud,
   retormarSolicitud as apiRetormarSolicitud,
   updateSolicitud as apiUpdateSolicitud,
+  upsertInspeccion,
   type SolicitudDto,
   type SolicitudInspeccionDto,
 } from '@/api/solicitudes';
@@ -394,6 +395,48 @@ function OrdenInspeccionSheet({
   onRechazar: (id: string) => void;
 }) {
   const [mockIdx, setMockIdx] = useState(0);
+  const [editandoCampo, setEditandoCampo] = useState(false);
+  const [fMatCalle, setFMatCalle] = useState('');
+  const [fMatBanqueta, setFMatBanqueta] = useState('');
+  const [fMlAguaCalle, setFMlAguaCalle] = useState('');
+  const [fMlAguaBanqueta, setFMlAguaBanqueta] = useState('');
+  const [fMlDrenajeCalle, setFMlDrenajeCalle] = useState('');
+  const [fMlDrenajeBanqueta, setFMlDrenajeBanqueta] = useState('');
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (!record) return;
+    const o = record.ordenInspeccion;
+    setFMatCalle(o?.materialCalle ?? '');
+    setFMatBanqueta(o?.materialBanqueta ?? '');
+    setFMlAguaCalle(o?.metrosRupturaAguaCalle != null ? String(o.metrosRupturaAguaCalle) : '');
+    setFMlAguaBanqueta(o?.metrosRupturaAguaBanqueta != null ? String(o.metrosRupturaAguaBanqueta) : '');
+    setFMlDrenajeCalle(o?.metrosRupturaDrenajeCalle != null ? String(o.metrosRupturaDrenajeCalle) : '');
+    setFMlDrenajeBanqueta(o?.metrosRupturaDrenajeBanqueta != null ? String(o.metrosRupturaDrenajeBanqueta) : '');
+    setEditandoCampo(false);
+  }, [record?.id]);
+
+  const guardarCampoMut = useMutation({
+    mutationFn: () => {
+      const base = record!.ordenInspeccion ?? {};
+      return upsertInspeccion(record!.id, {
+        ...base,
+        materialCalle: fMatCalle || undefined,
+        materialBanqueta: fMatBanqueta || undefined,
+        metrosRupturaAguaCalle: fMlAguaCalle ? parseFloat(fMlAguaCalle) : undefined,
+        metrosRupturaAguaBanqueta: fMlAguaBanqueta ? parseFloat(fMlAguaBanqueta) : undefined,
+        metrosRupturaDrenajeCalle: fMlDrenajeCalle ? parseFloat(fMlDrenajeCalle) : undefined,
+        metrosRupturaDrenajeBanqueta: fMlDrenajeBanqueta ? parseFloat(fMlDrenajeBanqueta) : undefined,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['solicitudes'] });
+      queryClient.invalidateQueries({ queryKey: ['solicitud', record?.id] });
+      setEditandoCampo(false);
+      toast.success('Datos de campo guardados');
+    },
+    onError: () => toast.error('Error al guardar datos de campo'),
+  });
 
   if (!record) return null;
 
@@ -559,6 +602,67 @@ function OrdenInspeccionSheet({
         </SheetHeader>
 
         <div className="flex-1 overflow-y-auto px-6 py-5">
+          {/* Editable campo section */}
+          <div className="mb-5 rounded-md border px-4 py-3 space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Datos de campo</p>
+              {!editandoCampo ? (
+                <Button type="button" variant="outline" size="sm" className="h-7 gap-1.5" onClick={() => setEditandoCampo(true)}>
+                  <Pencil className="h-3 w-3" /> Editar
+                </Button>
+              ) : (
+                <div className="flex gap-2">
+                  <Button type="button" variant="ghost" size="sm" className="h-7" onClick={() => setEditandoCampo(false)}>Cancelar</Button>
+                  <Button type="button" size="sm" className="h-7" onClick={() => guardarCampoMut.mutate()} disabled={guardarCampoMut.isPending}>Guardar</Button>
+                </div>
+              )}
+            </div>
+
+            {editandoCampo ? (
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">Material de calle</Label>
+                  <Select value={fMatCalle} onValueChange={setFMatCalle}>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                    <SelectContent>{MATERIAL_CALLE.map(m => <SelectItem key={m.id} value={m.id}>{m.label}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Material de banqueta</Label>
+                  <Select value={fMatBanqueta} onValueChange={setFMatBanqueta}>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                    <SelectContent>{MATERIAL_BANQUETA.map(m => <SelectItem key={m.id} value={m.id}>{m.label}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Ruptura agua — calle (ml)</Label>
+                  <Input type="number" min={0} step={0.1} className="h-8 text-xs" value={fMlAguaCalle} onChange={e => setFMlAguaCalle(e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Ruptura agua — banqueta (ml)</Label>
+                  <Input type="number" min={0} step={0.1} className="h-8 text-xs" value={fMlAguaBanqueta} onChange={e => setFMlAguaBanqueta(e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Ruptura drenaje — calle (ml)</Label>
+                  <Input type="number" min={0} step={0.1} className="h-8 text-xs" value={fMlDrenajeCalle} onChange={e => setFMlDrenajeCalle(e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Ruptura drenaje — banqueta (ml)</Label>
+                  <Input type="number" min={0} step={0.1} className="h-8 text-xs" value={fMlDrenajeBanqueta} onChange={e => setFMlDrenajeBanqueta(e.target.value)} />
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div><span className="text-muted-foreground text-xs">Material calle: </span>{fMatCalle ? (MATERIAL_CALLE.find(m => m.id === fMatCalle)?.label ?? fMatCalle) : <span className="text-muted-foreground italic">Sin datos</span>}</div>
+                <div><span className="text-muted-foreground text-xs">Material banqueta: </span>{fMatBanqueta ? (MATERIAL_BANQUETA.find(m => m.id === fMatBanqueta)?.label ?? fMatBanqueta) : <span className="text-muted-foreground italic">Sin datos</span>}</div>
+                <div><span className="text-muted-foreground text-xs">Agua calle: </span>{fMlAguaCalle ? `${fMlAguaCalle} ml` : <span className="text-muted-foreground italic">—</span>}</div>
+                <div><span className="text-muted-foreground text-xs">Agua banqueta: </span>{fMlAguaBanqueta ? `${fMlAguaBanqueta} ml` : <span className="text-muted-foreground italic">—</span>}</div>
+                <div><span className="text-muted-foreground text-xs">Drenaje calle: </span>{fMlDrenajeCalle ? `${fMlDrenajeCalle} ml` : <span className="text-muted-foreground italic">—</span>}</div>
+                <div><span className="text-muted-foreground text-xs">Drenaje banqueta: </span>{fMlDrenajeBanqueta ? `${fMlDrenajeBanqueta} ml` : <span className="text-muted-foreground italic">—</span>}</div>
+              </div>
+            )}
+          </div>
+
           {/* No real data — show waiting state with demo data below */}
           {!orden && (
             <>
