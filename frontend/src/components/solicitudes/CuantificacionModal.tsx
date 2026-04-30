@@ -249,14 +249,18 @@ export function CuantificacionModal({
   const vigenciaDefault = new Date(hoy);
   vigenciaDefault.setDate(vigenciaDefault.getDate() + 5);
 
-  // Periodo: inicio = fecha de la solicitud, fin = hoy; numMeses calculado automático
-  const periodoInicio = record?.fechaSolicitud
-    ? toMonthInput(new Date(record.fechaSolicitud))
-    : toMonthInput(hoy);
+  // Periodo fin = hoy (label fijo)
   const periodoFin = toMonthInput(hoy);
-  const numMeses = diffMonths(periodoInicio, periodoFin);
+
+  // Precarga periodo inicio desde fechaSolicitud; fallback a hoy
+  const periodoInicioDefault = (() => {
+    if (!record?.fechaSolicitud) return toMonthInput(hoy);
+    const d = new Date(record.fechaSolicitud);
+    return isNaN(d.getTime()) ? toMonthInput(hoy) : toMonthInput(d);
+  })();
 
   const folio = record?.folio ?? '';
+  const [periodoInicio, setPeriodoInicio]       = useState(periodoInicioDefault);
   const [noCertConexion, setNoCertConexion]   = useState('');
   const [elabora, setElabora]                 = useState(user?.name ?? '');
   const [observaciones, setObservaciones]     = useState('');
@@ -278,6 +282,9 @@ export function CuantificacionModal({
   const [aplicaAgua, setAplicaAgua]             = useState(true);
   const [aplicaAlcantarillado, setAplicaAlcantarillado] = useState(true);
   const [aplicaSaneamiento, setAplicaSaneamiento]       = useState(true);
+  const [editandoInspeccion, setEditandoInspeccion]     = useState(false);
+
+  const numMeses = useMemo(() => diffMonths(periodoInicio, periodoFin), [periodoInicio, periodoFin]);
 
   // Vista previa del cálculo de agua por mes
   const previewRows = useMemo(() => {
@@ -314,6 +321,7 @@ export function CuantificacionModal({
     if (mlDescargaDefault > 0)   setMlDescarga(String(mlDescargaDefault));
     setUnidades(unidadesDefault > 0 ? String(unidadesDefault) : '');
     setElabora(user?.name ?? '');
+    setPeriodoInicio(periodoInicioDefault);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [record?.id]);
 
@@ -491,24 +499,62 @@ export function CuantificacionModal({
           <Separator />
 
           {/* ── Ubicación del servicio ─────────────────────────────────── */}
-          <SectionTitle>Ubicación del servicio</SectionTitle>
+          <div className="flex items-center justify-between">
+            <SectionTitle>Ubicación del servicio</SectionTitle>
+            <button
+              type="button"
+              onClick={() => setEditandoInspeccion((v) => !v)}
+              className="text-xs text-blue-600 hover:underline"
+            >
+              {editandoInspeccion ? 'Bloquear' : 'Editar datos de inspección'}
+            </button>
+          </div>
 
           <div className="grid grid-cols-2 gap-x-6 gap-y-3">
             <Field label="Domicilio" className="col-span-2">
               <Input value={domicilio} readOnly className="bg-muted/40" />
             </Field>
 
-            {tieneInspeccion && matCalle && (
-              <Field label="Material de la calle">
-                <Input value={matCalle} readOnly className="bg-muted/40 capitalize" />
-              </Field>
-            )}
+            <Field label="Material de la calle" hint="Inspección">
+              {editandoInspeccion ? (
+                <Select value={matCalle} onValueChange={setMatCalle}>
+                  <SelectTrigger><SelectValue placeholder="Seleccionar…" /></SelectTrigger>
+                  <SelectContent>
+                    {MATERIALES_CALLE.map((m) => (
+                      <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Input
+                  value={MATERIALES_CALLE.find((m) => m.value === matCalle)?.label ?? matCalle}
+                  readOnly
+                  className="bg-muted/40"
+                  placeholder="Sin datos"
+                />
+              )}
+            </Field>
 
-            {tieneInspeccion && matBanqueta && (
-              <Field label="Material de la banqueta">
-                <Input value={matBanqueta} readOnly className="bg-muted/40 capitalize" />
-              </Field>
-            )}
+            <Field label="Material de la banqueta" hint="Inspección">
+              {editandoInspeccion ? (
+                <Select value={matBanqueta} onValueChange={setMatBanqueta}>
+                  <SelectTrigger><SelectValue placeholder="Seleccionar…" /></SelectTrigger>
+                  <SelectContent>
+                    {MATERIALES_BANQUETA.map((m) => (
+                      <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Input
+                  value={MATERIALES_BANQUETA.find((m) => m.value === matBanqueta)?.label ?? matBanqueta}
+                  readOnly
+                  className="bg-muted/40"
+                  placeholder="Sin datos"
+                />
+              )}
+            </Field>
+
           </div>
 
           <Separator />
@@ -541,74 +587,29 @@ export function CuantificacionModal({
               </Select>
             </Field>
 
-            {/* Material calle */}
-            <Field
-              label="Material de la calle"
-              hint={tieneInspeccion ? 'Datos de inspección' : undefined}
-            >
-              {tieneInspeccion ? (
-                <Input value={matCalle} readOnly className="bg-muted/40 capitalize" />
-              ) : (
-                <Select value={matCalle} onValueChange={setMatCalle}>
-                  <SelectTrigger><SelectValue placeholder="Seleccionar…" /></SelectTrigger>
-                  <SelectContent>
-                    {MATERIALES_CALLE.map((m) => (
-                      <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            </Field>
-
-            {/* Material banqueta */}
-            <Field
-              label="Material de la banqueta"
-              hint={tieneInspeccion ? 'Datos de inspección' : undefined}
-            >
-              {tieneInspeccion ? (
-                <Input value={matBanqueta} readOnly className="bg-muted/40 capitalize" />
-              ) : (
-                <Select value={matBanqueta} onValueChange={setMatBanqueta}>
-                  <SelectTrigger><SelectValue placeholder="Seleccionar…" /></SelectTrigger>
-                  <SelectContent>
-                    {MATERIALES_BANQUETA.map((m) => (
-                      <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            </Field>
-
-            {/* Longitud toma */}
-            <Field
-              label="Longitud de la toma (m.l.)"
-              hint={tieneInspeccion ? 'Datos de inspección' : undefined}
-            >
+            {/* Longitudes — inspección, editables con botón en sección superior */}
+            <Field label="Longitud de la toma (m.l.)" hint="Inspección">
               <Input
                 type="number"
                 min={0}
                 step={0.1}
                 value={mlToma}
-                readOnly={tieneInspeccion}
-                className={tieneInspeccion ? 'bg-muted/40' : ''}
-                onChange={(e) => { if (!tieneInspeccion) setMlToma(e.target.value); }}
+                readOnly={!editandoInspeccion}
+                className={!editandoInspeccion ? 'bg-muted/40' : ''}
+                onChange={(e) => setMlToma(e.target.value)}
                 placeholder="0"
               />
             </Field>
 
-            {/* Longitud descarga */}
-            <Field
-              label="Longitud de la descarga (m.l.)"
-              hint={tieneInspeccion ? 'Datos de inspección' : undefined}
-            >
+            <Field label="Longitud de la descarga (m.l.)" hint="Inspección">
               <Input
                 type="number"
                 min={0}
                 step={0.1}
                 value={mlDescarga}
-                readOnly={tieneInspeccion}
-                className={tieneInspeccion ? 'bg-muted/40' : ''}
-                onChange={(e) => { if (!tieneInspeccion) setMlDescarga(e.target.value); }}
+                readOnly={!editandoInspeccion}
+                className={!editandoInspeccion ? 'bg-muted/40' : ''}
+                onChange={(e) => setMlDescarga(e.target.value)}
                 placeholder="0"
               />
             </Field>
@@ -695,9 +696,11 @@ export function CuantificacionModal({
                 </Field>
 
                 <Field label="Periodo inicio">
-                  <div className="flex h-9 items-center rounded-md border bg-muted/40 px-3 text-sm capitalize">
-                    {monthLabel(periodoInicio)}
-                  </div>
+                  <Input
+                    type="month"
+                    value={periodoInicio}
+                    onChange={(e) => setPeriodoInicio(e.target.value)}
+                  />
                 </Field>
 
                 <Field label="Periodo fin">
