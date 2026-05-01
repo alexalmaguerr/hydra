@@ -196,11 +196,15 @@ export class SolicitudesService {
   async upsertInspeccion(
     solicitudId: string,
     data: {
-      estado: string;
+      estado?: string;
       inspector?: string;
       fechaInspeccion?: string;
       materialCalle?: string;
       materialBanqueta?: string;
+      metrosRupturaAguaCalle?: string;
+      metrosRupturaAguaBanqueta?: string;
+      metrosRupturaDrenajeCalle?: string;
+      metrosRupturaDrenajeBanqueta?: string;
       metrosRupturaCalle?: string;
       metrosRupturaBanqueta?: string;
       existeRed?: string;
@@ -217,19 +221,23 @@ export class SolicitudesService {
       observaciones?: string;
     },
   ) {
-    await this.findOne(solicitudId);
+    const solicitud = await this.findOne(solicitudId);
 
-    const nextEstado = data.estado === 'completada' ? 'en_cotizacion' : 'inspeccion_en_proceso';
+    // Only advance estado when the solicitud is currently in an inspection state.
+    // Solicitudes already at en_cotizacion/aceptada/contratado keep their estado.
+    const INSPECTION_STATES = ['inspeccion_pendiente', 'inspeccion_en_proceso', 'borrador'];
+    if (INSPECTION_STATES.includes(solicitud.estado)) {
+      const nextEstado = data.estado === 'completada' ? 'en_cotizacion' : 'inspeccion_en_proceso';
+      await this.prisma.solicitud.update({
+        where: { id: solicitudId },
+        data: { estado: nextEstado },
+      });
+    }
 
-    await this.prisma.solicitud.update({
-      where: { id: solicitudId },
-      data: { estado: nextEstado },
-    });
-
-    const inspeccion = await this.prisma.solicitudInspeccion.upsert({
+    await this.prisma.solicitudInspeccion.upsert({
       where: { solicitudId },
-      create: { solicitudId, ...data },
-      update: { ...data },
+      create: { solicitudId, estado: data.estado ?? 'completada', ...data },
+      update: data,
     });
 
     return this.prisma.solicitud.findUnique({

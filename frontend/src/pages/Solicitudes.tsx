@@ -421,12 +421,13 @@ function OrdenInspeccionSheet({
       const base = record!.ordenInspeccion ?? {};
       return upsertInspeccion(record!.id, {
         ...base,
+        estado: base?.estado ?? 'completada',
         materialCalle: fMatCalle || undefined,
         materialBanqueta: fMatBanqueta || undefined,
-        metrosRupturaAguaCalle: fMlAguaCalle ? parseFloat(fMlAguaCalle) : undefined,
-        metrosRupturaAguaBanqueta: fMlAguaBanqueta ? parseFloat(fMlAguaBanqueta) : undefined,
-        metrosRupturaDrenajeCalle: fMlDrenajeCalle ? parseFloat(fMlDrenajeCalle) : undefined,
-        metrosRupturaDrenajeBanqueta: fMlDrenajeBanqueta ? parseFloat(fMlDrenajeBanqueta) : undefined,
+        metrosRupturaAguaCalle: fMlAguaCalle || undefined,
+        metrosRupturaAguaBanqueta: fMlAguaBanqueta || undefined,
+        metrosRupturaDrenajeCalle: fMlDrenajeCalle || undefined,
+        metrosRupturaDrenajeBanqueta: fMlDrenajeBanqueta || undefined,
       });
     },
     onSuccess: () => {
