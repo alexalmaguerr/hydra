@@ -406,7 +406,8 @@ function OrdenInspeccionSheet({
 
   useEffect(() => {
     if (!record) return;
-    const o = record.ordenInspeccion;
+    // Use real inspection data if available, otherwise fall back to current mock
+    const o = record.ordenInspeccion ?? MOCK_INSPECCIONES[mockIdx];
     setFMatCalle(o?.materialCalle ?? '');
     setFMatBanqueta(o?.materialBanqueta ?? '');
     setFMlAguaCalle(o?.metrosRupturaAguaCalle != null ? String(o.metrosRupturaAguaCalle) : '');
@@ -414,14 +415,16 @@ function OrdenInspeccionSheet({
     setFMlDrenajeCalle(o?.metrosRupturaDrenajeCalle != null ? String(o.metrosRupturaDrenajeCalle) : '');
     setFMlDrenajeBanqueta(o?.metrosRupturaDrenajeBanqueta != null ? String(o.metrosRupturaDrenajeBanqueta) : '');
     setEditandoCampo(false);
-  }, [record?.id]);
+  }, [record?.id, mockIdx]);
 
   const guardarCampoMut = useMutation({
     mutationFn: () => {
-      const base = record!.ordenInspeccion ?? {};
+      // Base: prefer real inspection, else use mock as starting point so all fields are saved
+      const base = record!.ordenInspeccion ?? MOCK_INSPECCIONES[mockIdx];
       return upsertInspeccion(record!.id, {
         ...base,
         estado: base?.estado ?? 'completada',
+        // Override with user-edited values
         materialCalle: fMatCalle || undefined,
         materialBanqueta: fMatBanqueta || undefined,
         metrosRupturaAguaCalle: fMlAguaCalle || undefined,

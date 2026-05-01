@@ -264,8 +264,7 @@ export function CuantificacionModal({
   const vigenciaDefault = new Date(hoy);
   vigenciaDefault.setDate(vigenciaDefault.getDate() + 5);
 
-  // Periodo fin = hoy (label fijo)
-  const periodoFin = toMonthInput(hoy);
+  const periodoFinDefault = toMonthInput(hoy);
 
   // Precarga periodo inicio desde fechaSolicitud; fallback a hoy
   const periodoInicioDefault = (() => {
@@ -275,7 +274,8 @@ export function CuantificacionModal({
   })();
 
   const folio = record?.folio ?? '';
-  const [periodoInicio, setPeriodoInicio]       = useState(periodoInicioDefault);
+  const [periodoInicio, setPeriodoInicio] = useState(periodoInicioDefault);
+  const [periodoFin, setPeriodoFin]       = useState(periodoFinDefault);
   const [noCertConexion, setNoCertConexion]   = useState('');
   const [elabora, setElabora]                 = useState(user?.name ?? '');
   const [observaciones, setObservaciones]     = useState('');
@@ -337,6 +337,7 @@ export function CuantificacionModal({
     setUnidades(unidadesDefault > 0 ? String(unidadesDefault) : '');
     setElabora(user?.name ?? '');
     setPeriodoInicio(periodoInicioDefault);
+    setPeriodoFin(periodoFinDefault);
     // Auto-open edit mode when there's no material data so the user can enter it directly
     setEditandoInspeccion(!matCalleDefault && !matBanquetaDefault);
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -721,9 +722,11 @@ export function CuantificacionModal({
                 </Field>
 
                 <Field label="Periodo fin">
-                  <div className="flex h-9 items-center rounded-md border bg-muted/40 px-3 text-sm capitalize">
-                    {monthLabel(periodoFin)}
-                  </div>
+                  <Input
+                    type="month"
+                    value={periodoFin}
+                    onChange={(e) => setPeriodoFin(e.target.value)}
+                  />
                 </Field>
 
                 <Field label="Total meses" className="col-span-2">

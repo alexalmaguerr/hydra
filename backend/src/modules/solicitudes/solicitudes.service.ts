@@ -197,14 +197,40 @@ export class SolicitudesService {
     solicitudId: string,
     data: {
       estado?: string;
-      inspector?: string;
       fechaInspeccion?: string;
+      numeroOficial?: string;
+      tipoUso?: string;
+      giro?: string;
+      areaTerreno?: string;
+      condicionToma?: string;
+      condicionesPredio?: string;
+      infraHidraulicaExterna?: string;
+      infraSanitaria?: string;
       materialCalle?: string;
       materialBanqueta?: string;
       metrosRupturaAguaCalle?: string;
       metrosRupturaAguaBanqueta?: string;
       metrosRupturaDrenajeCalle?: string;
       metrosRupturaDrenajeBanqueta?: string;
+      observaciones?: string;
+      evidencias?: string[];
+      resultadoEjecucion?: string;
+      resultadoInspeccion?: string;
+      inspectorNumEmpleado?: string;
+      inspectorNombre?: string;
+      firmaInspector?: string;
+      inspectoresAdicionales?: { noEmpleado: string; nombre: string; firma?: string }[];
+      inicio?: string;
+      fin?: string;
+      tipoOrdenCorrecto?: string;
+      // Legacy
+      inspector?: string;
+      diametroToma?: string;
+      tomaExistente?: string;
+      diametroTomaExistente?: string;
+      estadoTomaExistente?: string;
+      medidorExistente?: string;
+      numMedidorExistente?: string;
       metrosRupturaCalle?: string;
       metrosRupturaBanqueta?: string;
       existeRed?: string;
@@ -212,13 +238,6 @@ export class SolicitudesService {
       presionRed?: string;
       tipoMaterialRed?: string;
       profundidadRed?: string;
-      diametroToma?: string;
-      tomaExistente?: string;
-      diametroTomaExistente?: string;
-      estadoTomaExistente?: string;
-      medidorExistente?: string;
-      numMedidorExistente?: string;
-      observaciones?: string;
     },
   ) {
     const solicitud = await this.findOne(solicitudId);
