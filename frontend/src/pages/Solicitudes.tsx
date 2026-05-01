@@ -391,7 +391,7 @@ function OrdenInspeccionSheet({
   record: SolicitudRecord | null;
   open: boolean;
   onClose: () => void;
-  onAceptar: (id: string) => void;
+  onAceptar: (id: string, campoData?: { materialCalle: string; materialBanqueta: string; metrosRupturaAguaCalle: string; metrosRupturaAguaBanqueta: string; metrosRupturaDrenajeCalle: string; metrosRupturaDrenajeBanqueta: string }) => void;
   onRechazar: (id: string) => void;
 }) {
   const [mockIdx, setMockIdx] = useState(0);
@@ -479,29 +479,6 @@ function OrdenInspeccionSheet({
           <DetailRow label="Área terreno (m²)" value={data.areaTerreno ? `${data.areaTerreno} m²` : undefined} />
           <DetailRow label="Condición de la toma" value={CATALOG_LABEL(CONDICION_TOMA, data.condicionToma)} />
           <DetailRow label="Condiciones del predio" value={CATALOG_LABEL(CONDICIONES_PREDIO, data.condicionesPredio)} />
-        </div>
-
-        <Separator />
-        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Infraestructura</p>
-        <div className="grid grid-cols-2 gap-4">
-          <DetailRow label="Infra. hidráulica externa" value={data.infraHidraulicaExterna === 'si' ? 'Sí' : data.infraHidraulicaExterna === 'no' ? 'No' : undefined} />
-          <DetailRow label="Infra. sanitaria" value={data.infraSanitaria === 'si' ? 'Sí' : data.infraSanitaria === 'no' ? 'No' : undefined} />
-          <DetailRow label="Material de calle" value={data.materialCalle ? MATERIAL_LABEL[data.materialCalle] : undefined} />
-          <DetailRow label="Material de banqueta" value={data.materialBanqueta ? MATERIAL_LABEL[data.materialBanqueta] : undefined} />
-        </div>
-
-        <Separator />
-        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Ruptura AGUA</p>
-        <div className="grid grid-cols-2 gap-4">
-          <DetailRow label="Banqueta (ml)" value={data.metrosRupturaAguaBanqueta} />
-          <DetailRow label="Calle (ml)" value={data.metrosRupturaAguaCalle} />
-        </div>
-
-        <Separator />
-        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Ruptura DRENAJE</p>
-        <div className="grid grid-cols-2 gap-4">
-          <DetailRow label="Banqueta (ml)" value={data.metrosRupturaDrenajeBanqueta} />
-          <DetailRow label="Calle (ml)" value={data.metrosRupturaDrenajeCalle} />
         </div>
 
         {data.observaciones && (
@@ -691,7 +668,14 @@ function OrdenInspeccionSheet({
               <Button
                 type="button"
                 className="w-full bg-blue-600 text-white hover:bg-blue-700"
-                onClick={() => onAceptar(record.id)}
+                onClick={() => onAceptar(record.id, {
+                  materialCalle: fMatCalle,
+                  materialBanqueta: fMatBanqueta,
+                  metrosRupturaAguaCalle: fMlAguaCalle,
+                  metrosRupturaAguaBanqueta: fMlAguaBanqueta,
+                  metrosRupturaDrenajeCalle: fMlDrenajeCalle,
+                  metrosRupturaDrenajeBanqueta: fMlDrenajeBanqueta,
+                })}
               >
                 <ArrowRight className="mr-1.5 h-4 w-4" />
                 Continuar con cuantificación
@@ -1625,9 +1609,20 @@ export default function Solicitudes() {
   const canceladas = cancelledRecords.length;
 
   // Opens the cotización modal instead of navigating immediately
-  function handleContinuarCuantificacion(id: string) {
+  function handleContinuarCuantificacion(id: string, campoData?: { materialCalle: string; materialBanqueta: string; metrosRupturaAguaCalle: string; metrosRupturaAguaBanqueta: string; metrosRupturaDrenajeCalle: string; metrosRupturaDrenajeBanqueta: string }) {
     const r = records.find((r) => r.id === id) ?? inspRecord;
-    setCuantificandoRecord(r ?? null);
+    const base = r ?? null;
+    if (base && campoData) {
+      setCuantificandoRecord({
+        ...base,
+        ordenInspeccion: {
+          ...(base.ordenInspeccion ?? { estado: 'completada' }),
+          ...campoData,
+        } as typeof base.ordenInspeccion,
+      });
+    } else {
+      setCuantificandoRecord(base);
+    }
     setInspRecord(null);
   }
 

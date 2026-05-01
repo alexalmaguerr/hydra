@@ -69,22 +69,23 @@ const DIAMETROS_TOMA = ["1/2\"", "3/4\"", "1\"", "1.5\"", "2\"", "3\"", "4\""];
 
 // Materiales del catálogo CSV (claves que entiende cotizacion-tarifas.ts)
 const MATERIALES_CALLE = [
-  { value: 'concreto',           label: 'Concreto hidráulico' },
-  { value: 'losa',               label: 'Losa' },
-  { value: 'adoquin',            label: 'Adoquín' },
-  { value: 'concreto_asfaltico', label: 'Concreto asfáltico' },
-  { value: 'empedrado',          label: 'Empedrado' },
-  { value: 'tierra',             label: 'Terracería / tierra' },
+  { value: 'concreto_hidraulico', label: 'Concreto hidráulico' },
+  { value: 'losa',                label: 'Losa' },
+  { value: 'adoquin',             label: 'Adoquín' },
+  { value: 'concreto_asfaltico',  label: 'Concreto asfáltico' },
+  { value: 'empedrado',           label: 'Empedrado' },
+  { value: 'tierra',              label: 'Terracería / tierra' },
 ];
 
 const MATERIALES_BANQUETA = [
-  { value: 'concreto',           label: 'Concreto' },
-  { value: 'asfalto',            label: 'Asfalto' },
-  { value: 'adoquin',            label: 'Adoquín' },
-  { value: 'adocreto',           label: 'Adocreto' },
-  { value: 'empedrado',          label: 'Empedrado' },
-  { value: 'tierra',             label: 'Terracería / tierra' },
-  { value: 'cantera',            label: 'Cantera' },
+  { value: 'concreto',            label: 'Concreto' },
+  { value: 'concreto_hidraulico', label: 'Concreto hidráulico' },
+  { value: 'asfalto',             label: 'Asfalto' },
+  { value: 'adoquin',             label: 'Adoquín' },
+  { value: 'adocreto',            label: 'Adocreto' },
+  { value: 'empedrado',           label: 'Empedrado' },
+  { value: 'tierra',              label: 'Terracería / tierra' },
+  { value: 'cantera',             label: 'Cantera' },
 ];
 
 
@@ -341,7 +342,7 @@ export function CuantificacionModal({
     // Auto-open edit mode when there's no material data so the user can enter it directly
     setEditandoInspeccion(!matCalleDefault && !matBanquetaDefault);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [record?.id, insp?.materialCalle, insp?.materialBanqueta]);
+  }, [record?.id, insp?.materialCalle, insp?.materialBanqueta, insp?.diametroToma]);
 
   // Pre-llenar tarifa cuando carga el catálogo
   useEffect(() => {
