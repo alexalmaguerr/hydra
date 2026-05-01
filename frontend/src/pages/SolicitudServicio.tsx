@@ -889,18 +889,19 @@ function StepContratacion({ form, set }: { form: SolicitudState; set: (p: Partia
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
-        {esAdminQueretaro && (
-          <Field label="Distrito" required>
-            <SearchableSelect
-              value={form.distritoId}
-              onValueChange={(v) => set({ distritoId: v })}
-              disabled={!useApi || distritosLoading || distritos.length === 0}
-              placeholder={distritosLoading ? 'Cargando…' : 'Seleccione distrito…'}
-              searchPlaceholder="Buscar distrito…"
-              options={distritos.map((d: DistritoCatalogo) => ({ value: d.id, label: d.nombre }))}
-            />
-          </Field>
-        )}
+        <Field label="Distrito" required={esAdminQueretaro}>
+          <SearchableSelect
+            value={form.distritoId}
+            onValueChange={(v) => set({ distritoId: v })}
+            disabled={!useApi || distritosLoading || distritos.length === 0}
+            placeholder={distritosLoading ? 'Cargando…' : 'Seleccione distrito…'}
+            searchPlaceholder="Buscar distrito…"
+            options={[
+              ...(!esAdminQueretaro ? [{ value: '', label: '— Sin distrito —' }] : []),
+              ...distritos.map((d: DistritoCatalogo) => ({ value: d.id, label: d.nombre })),
+            ]}
+          />
+        </Field>
 
         <Field label="Actividad" required>
           <SearchableSelect
